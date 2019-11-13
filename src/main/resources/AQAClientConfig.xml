@@ -9,8 +9,12 @@
         <PatientID>MQATX5OBIQA2019Q3</PatientID>
     </PatientIDList>
 
-    <!-- Directory containing data files. -->
-    <DataDir>D:\AQA_Data</DataDir>
+    <!-- Directory containing data files.  Try them in order until one works. -->
+    <DataDirList>
+        <DataDir>E:\Program Files\UMRO\AQAClient\data</DataDir>
+        <DataDir>D:\Program Files\UMRO\AQAClient\data</DataDir>
+        <DataDir>C:\Program Files\UMRO\AQAClient\data</DataDir>
+    </DataDirList>
 
     <!-- PACS connection settings for this service. -->
     <DICOMClient AETitle='WLQA_TEST' Host='141.214.125.209' Port='15678' />

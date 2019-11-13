@@ -15,7 +15,7 @@ object PatientIDList extends Logging {
 
   private val comment = "//"
 
-  private val PatientIDFileName = "PatientIDFile"
+  private val PatientIDFileName = "PatientIDFile.txt"
 
   val PatientIDFile = new File(ClientConfig.DataDir, PatientIDFileName)
 
@@ -53,6 +53,7 @@ object PatientIDList extends Logging {
    */
   def init = {
     read
+    logger.info("Number of patient IDs: " + getPatientIDList.size + "\n    " + getPatientIDList.mkString("\n    "))
   }
 
 }

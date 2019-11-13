@@ -1,6 +1,5 @@
 package org.aqaclient
 
-//import org.aqa.Util
 import java.util.Date
 import edu.umro.ScalaUtil.PeriodicRestart
 import edu.umro.ScalaUtil.Logging
@@ -15,11 +14,14 @@ object AQAClient extends Logging {
   def main(args: Array[String]): Unit = {
 
     try {
-      println("AQAClient starting at " + ClientUtil.timeHumanFriendly(new Date(serviceStartTime)))
+      val msg = "AQAClient starting at " + ClientUtil.timeHumanFriendly(new Date(serviceStartTime))
+      println(msg)
+      logger.info(msg)
       //Util.showJarFile(this)
 
       if (ClientConfig.validate) {
-        DicomRetrieve.init
+        PatientIDList.init       
+        DicomProcessing.init
         WebUpload.init
         new ClientWebServer
         new PeriodicRestart(ClientConfig.RestartTime)
@@ -27,7 +29,7 @@ object AQAClient extends Logging {
       }
     } catch {
       // Exceptions thrown to this level should not happen, and if they do it probably means that something
-      // very unexpected has happened.
+      // unexpected and very serious has happened.
       //
       // If there is a problem, catch and log the error, delay, and then exit with a failed status.  The
       // failed status will tell the service wrapper to restart the service.  The delay is there in the

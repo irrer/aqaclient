@@ -144,9 +144,7 @@
                       <unzip dest="${dest.dir}" src="${resource.dir}/${yajsw}.zip"/>
                       <echo>Did unzip</echo>
                       <copy toDir="${dest.dir}" file="target/${project.artifactId}-${project.version}-jar-with-dependencies.jar"/>
-                      <copy toFile="${dest.dir}/AQAClientConfig.xml" file="${resource.dir}/AQAClientConfigProd.xml"/>
-                      <copy toDir="${dest.dir}" file="${resource.dir}/AQAClientConfigProd.xml"/>
-                      <copy toDir="${dest.dir}" file="${resource.dir}/AQAClientConfigDev.xml"/>
+                      <copy toFile="${dest.dir}/AQAClientConfig.xml" file="${resource.dir}/AQAClientConfig.xml"/>
                       <copy toDir="${dest.dir}" file="${resource.dir}/log4j2.xml"/>
                       <copy toDir="${dest.dir}">
                         <fileset includes="static/**" dir="${resource.dir}"/>

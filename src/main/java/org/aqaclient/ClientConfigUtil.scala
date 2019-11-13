@@ -140,7 +140,7 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     }
   }
 
-  private val document: Elem = {
+  protected val document: Elem = {
     val doc = getDoc(directoryList, configFileName)
     doc match {
       case Some(d) => d
@@ -157,7 +157,7 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
 
   private val valueText = new ArrayBuffer[String]
 
-  private def logText(name: String, value: String) = valueText += (name + ": " + value)
+  protected def logText(name: String, value: String) = valueText += (name + ": " + value)
 
   private def logTextNotSpecified(name: String) = logText(name, "[not specified]")
 
