@@ -7,7 +7,6 @@ import org.aqaclient.ClientConfig
 
 /**
  * Test the Config.
- *
  */
 
 class TestClientConfig extends FlatSpec with Matchers {
