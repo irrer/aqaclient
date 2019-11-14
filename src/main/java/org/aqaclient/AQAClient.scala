@@ -3,6 +3,7 @@ package org.aqaclient
 import java.util.Date
 import edu.umro.ScalaUtil.PeriodicRestart
 import edu.umro.ScalaUtil.Logging
+import org.aqaclient.series.Series
 
 /**
  * Main entry point for client service.
@@ -20,7 +21,9 @@ object AQAClient extends Logging {
       //Util.showJarFile(this)
 
       if (ClientConfig.validate) {
-        PatientIDList.init       
+        DicomMove.init
+        PatientIDList.init
+        Series.init
         DicomProcessing.init
         WebUpload.init
         new ClientWebServer

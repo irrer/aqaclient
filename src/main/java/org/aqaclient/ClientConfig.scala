@@ -22,23 +22,7 @@ object ClientConfig extends ClientConfigUtil(
   /** Number of minutes into a 24 hour day at which time service should be restarted. */
   val RestartTime = getHourMinuteTime("RestartTime", "3:45")
 
-  val DataDir: File = {
-    def mkDir(nameList: Seq[String]): File = {
-      if (nameList.isEmpty) throw new RuntimeException("Unable to create Data directory.")
-      val f = new File(nameList.head)
-      try {
-        f.mkdirs
-      } catch {
-        case t: Throwable => ;
-      }
-      if (f.isDirectory) f else mkDir(nameList.tail)
-    }
-    val nameList = (document \ "DataDirList" \ "DataDir").map(node => node.head.text)
-    logger.info("Trying to establish data directory from: " + nameList.mkString("    "))
-    val dir = mkDir(nameList)
-    logText("DataDir", dir.getAbsolutePath)
-    dir
-  }
+  val DataDir = getDataDir
 
   val doneDir = makeChildDir(DataDir, doneDirName)
 
@@ -49,6 +33,8 @@ object ClientConfig extends ClientConfigUtil(
   val DICOMClient = getPacs("DICOMClient")
 
   val DICOMSource = getPacs("DICOMSource")
+
+  val PollInterval_sec = getMainText("PollInterval_sec").toInt
 
   val AQAURL = getMainText("AQAURL")
 

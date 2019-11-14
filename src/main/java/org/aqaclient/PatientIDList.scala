@@ -22,7 +22,7 @@ object PatientIDList extends Logging {
   private val patientIDList = ArrayBuffer[String]()
 
   private def parse(text: String): Seq[String] = {
-    val patIDList = text.replace('\r', '\n').split('\n').toSeq.filter(line => line.nonEmpty).map(line => line.replaceAll(comment + ".*", "").trim)
+    val patIDList = text.replace('\r', '\n').split('\n').toSeq.map(line => line.replaceAll(comment + ".*", "").trim).filter(line => line.nonEmpty)
     patIDList
   }
 

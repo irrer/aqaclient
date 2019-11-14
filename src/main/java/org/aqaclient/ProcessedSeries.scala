@@ -24,17 +24,19 @@ import scala.xml.XML
 //import java.io.FileWriter
 //import scala.xml.PrettyPrinter
 
-case class ProcessedSeries(SeriesInstanceUID: String, PatientID: String, Modality: String, dataDate: Date, ProcessDate: Date) extends Logging {
+case class ProcessedSeries(SeriesInstanceUID: String, PatientID: String, Modality: String, dataDate: Option[Date], ProcessDate: Date) extends Logging {
 
   def this(node: Node) = this(
     ClientUtil.getAttr(node, "SeriesInstanceUID"),
     ClientUtil.getAttr(node, "PatientID"),
     ClientUtil.getAttr(node, "Modality"),
-    edu.umro.ScalaUtil.Util.textToDate(ClientUtil.getAttr(node, "dataDate")),
+    ProcessedSeries.optTextToDate(node),
     edu.umro.ScalaUtil.Util.textToDate(ClientUtil.getAttr(node, "ProcessDate")))
 
   def toXml = {
-    <ProcessedSeries SeriesInstanceUID={ SeriesInstanceUID } PatientID={ PatientID } Modality={ Modality } dataDate={ Util.standardFormat(dataDate) } ProcessDate={ Util.standardFormat(ProcessDate) }/>
+    val dataDateText = if (dataDate.isDefined) Util.standardFormat(dataDate.get) else "unknown"
+
+    <ProcessedSeries SeriesInstanceUID={ SeriesInstanceUID } PatientID={ PatientID } Modality={ Modality } dataDate={ dataDateText } ProcessDate={ Util.standardFormat(ProcessDate) }/>
   }
 
   def toText = ProcessedSeries.prettyPrinter.format(toXml)
@@ -54,6 +56,14 @@ object ProcessedSeries extends Logging {
   private val file = new File(ClientConfig.DataDir, fileName)
   private val prettyPrinter = new PrettyPrinter(1024, 2)
 
+  private def optTextToDate(node: Node): Option[Date] = {
+    try {
+      Some(edu.umro.ScalaUtil.Util.textToDate(ClientUtil.getAttr(node, "dataDate")))
+    } catch {
+      case t: Throwable => None
+    }
+  }
+
   private val ProcessedSeriesMap = scala.collection.mutable.HashMap[String, ProcessedSeries]()
 
   /**
@@ -61,35 +71,18 @@ object ProcessedSeries extends Logging {
    */
   def get(SeriesInstanceUID: String): Option[ProcessedSeries] = ProcessedSeriesMap.synchronized(ProcessedSeriesMap.get(SeriesInstanceUID))
 
+  def contains(SeriesInstanceUID: String) = get(SeriesInstanceUID).isDefined
+
   /**
    * Construct a ProcessedSeries from an AttributeList.
    */
   private def constructProcessedSeries(al: AttributeList): ProcessedSeries = {
-    val dateTimeTagPairList = Seq(
-      (TagFromName.RTPlanDate, TagFromName.RTPlanTime),
-      (TagFromName.ContentDate, TagFromName.ContentTime),
-      (TagFromName.AcquisitionDate, TagFromName.AcquisitionTime),
-      (TagFromName.SeriesDate, TagFromName.SeriesTime),
-      (TagFromName.InstanceCreationDate, TagFromName.InstanceCreationTime))
-
-    def getDateTime(dateTag: AttributeTag, timeTag: AttributeTag): Option[Date] = {
-      try {
-        val d = al.get(dateTag).getSingleStringValueOrNull
-        val t = al.get(timeTag).getSingleStringValueOrNull
-        val ms = DicomUtil.dicomDateFormat.parse(d).getTime + DicomUtil.parseDicomTime(t).get
-        Some(new Date(ms))
-      } catch {
-        case t: Throwable => None
-      }
-    }
-
-    val dataDate = dateTimeTagPairList.map(dtp => getDateTime(dtp._1, dtp._2)).flatten.head
 
     val SeriesInstanceUID = al.get(TagFromName.SeriesInstanceUID).getSingleStringValueOrEmptyString
     val PatientID = al.get(TagFromName.PatientID).getSingleStringValueOrEmptyString
     val Modality = al.get(TagFromName.Modality).getSingleStringValueOrEmptyString
 
-    new ProcessedSeries(SeriesInstanceUID, PatientID, Modality, dataDate, new Date)
+    new ProcessedSeries(SeriesInstanceUID, PatientID, Modality, ClientUtil.dataDateTime(al), new Date)
   }
 
   def add(processedSeries: ProcessedSeries): Unit = {

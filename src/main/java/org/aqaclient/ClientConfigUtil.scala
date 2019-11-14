@@ -219,6 +219,27 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   }
 
   /**
+   * Create the Data directory.  Try each member on the list until one works.
+   */
+  def getDataDir: File = {
+    def mkDir(nameList: Seq[String]): File = {
+      if (nameList.isEmpty) throw new RuntimeException("Unable to create Data directory.")
+      val f = new File(nameList.head)
+      try {
+        f.mkdirs
+      } catch {
+        case t: Throwable => ;
+      }
+      if (f.isDirectory) f else mkDir(nameList.tail)
+    }
+    val nameList = (document \ "DataDirList" \ "DataDir").map(node => node.head.text)
+    logger.info("Trying to establish data directory from: " + nameList.mkString("    "))
+    val dir = mkDir(nameList)
+    logText("DataDir", dir.getAbsolutePath)
+    dir
+  }
+
+  /**
    * Search for the given directory (which should already exist) in the given list of parent directories..
    */
   protected def getExistingDir(dirName: String, parentPathList: Seq[String]): File = {
@@ -249,11 +270,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   }
 
   protected def getAMQPBroker = None // TODO
-
-  protected def getPatientIDList = {
-    val list = (document \ "PatientIDList" \ "PatientID").map(node => node.head.text.toString.trim)
-    list
-  }
 
   private def requireReadableDirectory(name: String, dir: File) = {
     if (!dir.canRead) fail("Directory " + name + " is not readable: " + dir)
