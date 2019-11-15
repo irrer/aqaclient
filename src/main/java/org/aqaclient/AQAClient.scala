@@ -24,7 +24,7 @@ object AQAClient extends Logging {
         PatientIDList.init
         Series.init
         DicomProcessing.init
-        WebUpload.init
+        Upload.init
         new ClientWebServer
         new PeriodicRestart(ClientConfig.RestartTime)
         logger.info("AQAClient started")

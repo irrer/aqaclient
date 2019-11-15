@@ -109,9 +109,13 @@ object Series extends Logging {
 
   def contains(SeriesInstanceUID: String) = get(SeriesInstanceUID).isDefined
 
-  def put(series: Series) = SeriesPool.synchronized({
-    SeriesPool.put(series.SeriesInstanceUID, series)
-  })
+  /**
+   * Put a series into the pool for uploading.  Also notify the uploader to update.
+   */
+  def put(series: Series) = {
+    SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
+    Upload.update
+  }
 
   /**
    * Given a directory that contains the DICOM files of a series, reinstate the series.
