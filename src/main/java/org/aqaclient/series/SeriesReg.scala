@@ -12,10 +12,11 @@ class SeriesReg(attributeList: AttributeList) extends Series(attributeList) {
   val FrameOfReferenceUID = getString(TagFromName.FrameOfReferenceUID)
 
   /** Frame of reference that this can register to. */
-  val RegFrameOfReferenceUID = {
-    val RegistrationSequence = DicomUtil.seqToAttr(attributeList, TagFromName.RegistrationSequence)
-    val ReferencedImageSequence = RegistrationSequence.map(rs => DicomUtil.seqToAttr(rs, TagFromName.ReferencedImageSequence)).flatten
-    val frmOfRef = ReferencedImageSequence.map(ris => ris.get(TagFromName.FrameOfReferenceUID).getStringValues.head).filterNot(frmOfRef => frmOfRef.equals(FrameOfReferenceUID)).head
-    frmOfRef
+  val RegFrameOfReferenceUID: String = {
+    DicomUtil.findAllSingle(attributeList, TagFromName.FrameOfReferenceUID).
+      map(a => a.getSingleStringValueOrEmptyString).
+      distinct.
+      filterNot(frmRef => frmRef.equals(FrameOfReferenceUID)).
+      head
   }
 }

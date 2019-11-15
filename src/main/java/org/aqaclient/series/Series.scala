@@ -25,7 +25,7 @@ object Series extends Logging {
   /**
    * Construct a series from an attribute list.
    */
-  private def constructSeries(attributeList: AttributeList): Series = {
+  def constructSeries(attributeList: AttributeList): Series = {
     val modality = attributeList.get(TagFromName.Modality).getSingleStringValueOrEmptyString
 
     val series = modality.toUpperCase.trim match {

@@ -14,15 +14,13 @@ import edu.umro.util.Utility
 
 object DicomMove extends Logging {
 
-  private val dicomList = ArrayBuffer[File]()
-
   val activeDirName = "active"
+  private val activeDir = new File(ClientConfig.tmpDir, activeDirName)
+  activeDir.mkdirs
 
   private class MyReceivedObjectHandler extends ReceivedObjectHandler {
     override def sendReceivedObjectIndication(fileName: String, transferSyntax: String, callingAETitle: String) = {
-      val file = new File(ClientConfig.tmpDir, fileName)
-      dicomList += file
-      logger.info("Received file " + file.getAbsolutePath)
+      logger.info("Received file " + fileName)
     }
   }
 
@@ -35,13 +33,25 @@ object DicomMove extends Logging {
   }
 
   /**
+   * Remove files from the active directory.  There should not be any there, but it is
+   * possible if the system was shut down while a transfer was taking place.
+   */
+  private def clearActiveDir: Unit = {
+    activeDir.mkdirs
+    val fileList = activeDir.listFiles
+    val timeout = System.currentTimeMillis + (10 * 1000)
+    while (activeDir.listFiles.nonEmpty && (System.currentTimeMillis < timeout)) {
+      logger.info("Removing " + activeDir.listFiles.size + " obsolete files from DICOM active directory " + activeDir.getAbsolutePath)
+      activeDir.listFiles.map(f => f.delete)
+      Thread.sleep(1000)
+    }
+  }
+
+  /**
    * Get all files for the given series.  On failure return an empty list and log an error message.
    */
-  def get(SeriesInstanceUID: String): List[File] = dicomList.synchronized({
-    //val subDir = new File(ClientConfig.tmpDir, SeriesInstanceUID + tmpDirSuffix)
-    //dicomReceiver.setSubDir(SeriesInstanceUID + tmpDirSuffix)
-    Utility.deleteFileTree(dicomReceiver.getSubDir)
-    dicomList.clear
+  def get(SeriesInstanceUID: String): List[File] = activeDirName.synchronized({
+    clearActiveDir
     val specification = new AttributeList
 
     def addAttr(tag: AttributeTag, value: String): Unit = {
@@ -53,14 +63,14 @@ object DicomMove extends Logging {
     addAttr(TagFromName.QueryRetrieveLevel, "SERIES")
     addAttr(TagFromName.SeriesInstanceUID, SeriesInstanceUID)
 
+    val seriesDir = new File(ClientConfig.tmpDir, SeriesInstanceUID)
     dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient, SOPClass.PatientRootQueryRetrieveInformationModelMove) match {
       case Some(msg) => logger.error("C-MOVE failed: " + msg)
-      case _ =>
+      case _ => activeDir.renameTo(seriesDir)
     }
 
     // Note: the 'toList' preserves the contents of the ArrayBuffer, unlike toSeq.
-    val list = dicomList.toList
-    dicomList.clear
+    val list = seriesDir.listFiles.toList
     list
   })
 

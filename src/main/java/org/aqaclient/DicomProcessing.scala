@@ -14,6 +14,7 @@ import org.aqaclient.series.SeriesReg
 import org.aqaclient.series.SeriesCt
 import org.aqaclient.series.SeriesRtimage
 import org.aqaclient.series.SeriesReg
+import edu.umro.util.Utility
 
 /**
  * Orchestrate all C-FIND and C-MOVE operations to obtain the relevant DICOM.  It is
@@ -44,10 +45,18 @@ object DicomProcessing extends Logging {
   private def getSeries(SeriesInstanceUID: String): Option[AttributeList] = {
     try {
       val fileList = DicomMove.get(SeriesInstanceUID) // fetch from DICOM source
-      val result = ClientUtil.readDicomFile(fileList.head)
-      val al = ClientUtil.readDicomFile(fileList.head).right.get // get one attribute list for creating the Series
-      moveSeriesFiles(fileList, SeriesInstanceUID) // put all files in the same directory
-      Some(al)
+      logger.info("For series " + SeriesInstanceUID + " " + fileList.size + " files were received")
+      if (fileList.isEmpty)
+        None
+      else {
+        val result = ClientUtil.readDicomFile(fileList.head)
+        val al = ClientUtil.readDicomFile(fileList.head).right.get // get one attribute list for creating the Series
+        val modality = al.get(TagFromName.Modality).getSingleStringValueOrEmptyString
+        val PatientID = al.get(TagFromName.PatientID).getSingleStringValueOrEmptyString
+        logger.info("For series " + SeriesInstanceUID + " " + fileList.size +
+          " files were received with modality " + modality + " PatientID: " + PatientID)
+        Some(al)
+      }
     } catch {
       case t: Throwable => {
         logger.error("Unexpected error processing series: " + fmtEx(t))
@@ -60,7 +69,7 @@ object DicomProcessing extends Logging {
    * Get all the series for the given modality and patient.
    */
   private def fetchDicomOfModality(Modality: String, PatientID: String) = {
-    val serUidList = DicomFind.find("RTPLAN", PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten.filter(serUid => needToGet(serUid))
+    val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten.filter(serUid => needToGet(serUid))
     val alList = serUidList.map(planFind => getSeries(planFind)).flatten
     alList
   }
@@ -86,6 +95,28 @@ object DicomProcessing extends Logging {
   })
 
   /**
+   * On startup, look for files from the previous run and put them in the Series pool.
+   */
+  private def putSavedFiles = {
+    def putSaved(dir: File) = {
+      try {
+        val series = Series.constructSeries(ClientUtil.readDicomFile(dir.listFiles.head).right.get)
+        Series.put(series)
+        logger.info("Restored series from previous run: " + series)
+      } catch {
+        case t: Throwable => {
+          logger.warn("Unexpected error while getting DICOM series from " + dir.getAbsolutePath + " (deleting) : " + fmtEx(t))
+          Utility.deleteFileTree(dir)
+        }
+      }
+    }
+
+    // list of files from when service was last running
+    val list = ClientConfig.tmpDir.listFiles.filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
+    list.map(dir => putSaved(dir))
+  }
+
+  /**
    * If polling has been configured, then start a thread that updates regularly.
    */
   private def poll = {
@@ -102,13 +133,14 @@ object DicomProcessing extends Logging {
     }
   }
 
-  private def monitorEvents = {
+  private def eventListener = {
     logger.info("Need to write this") // TODO
   }
 
   def init = {
+    putSavedFiles
     poll
-    monitorEvents
+    eventListener
     update
   }
 }
