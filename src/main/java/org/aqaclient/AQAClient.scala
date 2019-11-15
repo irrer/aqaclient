@@ -3,7 +3,6 @@ package org.aqaclient
 import java.util.Date
 import edu.umro.ScalaUtil.PeriodicRestart
 import edu.umro.ScalaUtil.Logging
-import org.aqaclient.series.Series
 
 /**
  * Main entry point for client service.

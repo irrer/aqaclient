@@ -6,14 +6,8 @@ import com.pixelmed.dicom.TagFromName
 import com.pixelmed.dicom.AttributeTag
 import com.pixelmed.dicom.AttributeFactory
 import edu.umro.ScalaUtil.Logging
-import org.aqaclient.series.Series
 import edu.umro.ScalaUtil.DicomUtil
 import java.io.File
-import org.aqaclient.series.SeriesRtplan
-import org.aqaclient.series.SeriesReg
-import org.aqaclient.series.SeriesCt
-import org.aqaclient.series.SeriesRtimage
-import org.aqaclient.series.SeriesReg
 import edu.umro.util.Utility
 
 /**
@@ -42,7 +36,7 @@ object DicomProcessing extends Logging {
   /**
    * Get all files for the given series via C-MOVE and put them in a single directory.
    */
-  private def getSeries(SeriesInstanceUID: String): Option[AttributeList] = {
+  private def getSeries(SeriesInstanceUID: String): Unit = {
     try {
       val fileList = DicomMove.get(SeriesInstanceUID) // fetch from DICOM source
       logger.info("For series " + SeriesInstanceUID + " " + fileList.size + " files were received")
@@ -55,23 +49,21 @@ object DicomProcessing extends Logging {
         val PatientID = al.get(TagFromName.PatientID).getSingleStringValueOrEmptyString
         logger.info("For series " + SeriesInstanceUID + " " + fileList.size +
           " files were received with modality " + modality + " PatientID: " + PatientID)
-        Some(al)
+        Series.put(new Series(al))
       }
     } catch {
       case t: Throwable => {
         logger.error("Unexpected error processing series: " + fmtEx(t))
-        None
       }
     }
   }
 
   /**
-   * Get all the series for the given modality and patient.
+   * Get all the series for the given modality and patient and send the Series to the uploader.
    */
   private def fetchDicomOfModality(Modality: String, PatientID: String) = {
     val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten.filter(serUid => needToGet(serUid))
-    val alList = serUidList.map(planFind => getSeries(planFind)).flatten
-    alList
+    val alList = serUidList.map(findAl => getSeries(findAl))
   }
 
   /**
@@ -79,10 +71,7 @@ object DicomProcessing extends Logging {
    * RTIMAGE because RTIMAGEs are dependent on the data from CTs.
    */
   private def updatePatient(PatientID: String) = {
-    fetchDicomOfModality("RTPLAN", PatientID).map(al => Series.put(new SeriesRtplan(al)))
-    fetchDicomOfModality("REG", PatientID).map(al => Series.put(new SeriesReg(al)))
-    fetchDicomOfModality("CT", PatientID).map(al => Series.put(new SeriesCt(al)))
-    fetchDicomOfModality("RTIMAGE", PatientID).map(al => Series.put(new SeriesRtimage(al)))
+    Seq("RTPLAN", "REG", "CT", "RTIMAGE").map(Modality => fetchDicomOfModality(Modality, PatientID))
   }
 
   /**
@@ -100,7 +89,7 @@ object DicomProcessing extends Logging {
   private def putSavedFiles = {
     def putSaved(dir: File) = {
       try {
-        val series = Series.constructSeries(ClientUtil.readDicomFile(dir.listFiles.head).right.get)
+        val series = new Series(ClientUtil.readDicomFile(dir.listFiles.head).right.get)
         Series.put(series)
         logger.info("Restored series from previous run: " + series)
       } catch {
