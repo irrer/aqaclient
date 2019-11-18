@@ -24,7 +24,7 @@ object ClientConfig extends ClientConfigUtil(
 
   val DataDir = getDataDir
 
-  val doneDir = makeChildDir(DataDir, doneDirName)
+  val resultsDir = makeChildDir(DataDir, resultsDirName)
 
   val tmpDir = makeChildDir(DataDir, tmpDirName)
 

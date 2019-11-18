@@ -18,8 +18,7 @@ case class Series(
   SeriesInstanceUID: String,
   PatientID: String,
   dataDate: Option[Date],
-  Modality: String,
-  processedDate: Option[Date],
+  Modality: ModalityEnum.Value,
   FrameOfReferenceUID: Option[String],
   RegFrameOfReferenceUID: Option[String]) extends Logging {
 
@@ -27,8 +26,7 @@ case class Series(
     Series.getString(al, TagFromName.SeriesInstanceUID),
     Series.getString(al, TagFromName.PatientID),
     ClientUtil.dataDateTime(al),
-    Series.getString(al, TagFromName.Modality),
-    None,
+    ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
     Series.getFrameOfReferenceUID(al),
     Series.getRegFrameOfReferenceUID(al))
 
@@ -36,8 +34,7 @@ case class Series(
     (xml \ "@SeriesInstanceUID").head.text,
     (xml \ "@PatientID").head.text,
     Series.optDate((xml \ "@dataDate").headOption),
-    (xml \ "@Modality").head.text,
-    Series.optDate((xml \ "processedDate").headOption),
+    ModalityEnum.toModalityEnum((xml \ "@Modality").head.text),
     Series.optText(xml, "FrameOfReferenceUID"),
     Series.optText(xml, "RegFrameOfReferenceUID"))
 
@@ -46,22 +43,20 @@ case class Series(
   private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else "unknown"
 
   def toXml = {
-    <Series Modality={ Modality } PatientID={ PatientID } dataDate={ dateToText(dataDate) }>
-      <processedDate>{ dateToText(processedDate) }</processedDate>
+    <Series Modality={ Modality.toString } PatientID={ PatientID } dataDate={ dateToText(dataDate) }>
       <SeriesInstanceUID>{ SeriesInstanceUID }</SeriesInstanceUID>
-      { if (processedDate.isDefined) <processedDate>{ Util.standardFormat(processedDate.get) }</processedDate> }
       { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID }</FrameOfReferenceUID> }
       { if (RegFrameOfReferenceUID.isDefined) <RegFrameOfReferenceUID>{ RegFrameOfReferenceUID }</RegFrameOfReferenceUID> }
     </Series>
   }
 
-  def toXml(processedDate: Option[Date]): Elem = ???
+  def isRtplan = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 }
 
 object Series extends Logging {
   def getString(al: AttributeList, tag: AttributeTag) = al.get(tag).getStringValues.head
 
-  def optDate(node: Option[Node]) = {
+  private def optDate(node: Option[Node]) = {
     try {
       Some(Util.textToDate(node.head.text))
     } catch {
@@ -69,14 +64,14 @@ object Series extends Logging {
     }
   }
 
-  def optText(xml: Elem, tag: String): Option[String] = {
+  private def optText(xml: Elem, tag: String): Option[String] = {
     (xml \ tag).headOption match {
       case Some(node) => Some(node.text)
       case _ => None
     }
   }
 
-  def getFrameOfReferenceUID(al: AttributeList): Option[String] = {
+  private def getFrameOfReferenceUID(al: AttributeList): Option[String] = {
     val a = al.get(TagFromName.FrameOfReferenceUID)
     if (a == null)
       None
@@ -84,7 +79,7 @@ object Series extends Logging {
       Some(a.getSingleStringValueOrEmptyString)
   }
 
-  def getRegFrameOfReferenceUID(al: AttributeList): Option[String] = {
+  private def getRegFrameOfReferenceUID(al: AttributeList): Option[String] = {
 
     val FrameOfReferenceUID = getFrameOfReferenceUID(al)
 
@@ -120,7 +115,7 @@ object Series extends Logging {
   /**
    * Given a directory that contains the DICOM files of a series, reinstate the series.
    */
-  private def reinstateSeries(dir: File) = {
+  private def reinstate(dir: File) = {
     try {
       val al = ClientUtil.readDicomFile(dir.listFiles.head).right.get
       val series = new Series(al)
@@ -131,7 +126,7 @@ object Series extends Logging {
   }
 
   private def reinststatePreviouslyFetechedSeries = {
-    ClientConfig.tmpDir.listFiles.toList.filter(d => d.isDirectory).map(dir => reinstateSeries(dir))
+    ClientConfig.tmpDir.listFiles.toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
   }
 
   def init = {

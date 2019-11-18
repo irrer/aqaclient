@@ -24,7 +24,7 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   protected val staticDirName = "static"
 
   /** Directory name for test results. */
-  protected val doneDirName = "done"
+  protected val resultsDirName = "results"
 
   /** Directory name for temporary files. */
   protected val tmpDirName = "tmp"
