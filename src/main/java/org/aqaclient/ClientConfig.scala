@@ -19,6 +19,8 @@ object ClientConfig extends ClientConfigUtil(
   val JavaKeyStorePassword = getPassword("JavaKeyStorePassword")
   val JavaKeyStoreFileList = getJavaKeyStoreFileList
 
+  val rtplanTypeList = getRtplanTypeList
+
   /** Number of minutes into a 24 hour day at which time service should be restarted. */
   val RestartTime = getHourMinuteTime("RestartTime", "3:45")
 

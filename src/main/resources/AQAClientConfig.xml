@@ -39,6 +39,27 @@
     </JavaKeyStorePassword> <!-- rodicom11dev -->
     <!-- <JavaKeyStorePassword>44d18166c66bed60b6394e6625c63dea713dbe465ddc960a7cd109514bc0d2bd</JavaKeyStorePassword> -->     <!-- irrer -->
 
+    <!-- Keywords in RTPLAN label that identify the type of plan.  When an RTPLAN is found, its RTPlanLabel (DICOM attribute tag 300A,0002 )
+    is searched for the keyword.  If found somewhere in that string (case insensitive), then it is considered that type of plan.  The
+    'procedure' value must match (case insensitive) one of the enumerated types in RtplanType.  Each RtplanType may have more than one keyword.  If,
+    when searching the RTPlanLabel attribute more than one type matches then it is considered an error.  For example, a RTPlanLabel should not
+    have both 'obi' and 'phase2'.
+    -->
+    <RtplanTypeList>
+        <RtplanType procedure="Phase2">
+            <Keyword>phase2</Keyword>
+        </RtplanType>
+        <RtplanType procedure="DailyQA">
+            <Keyword>OBI</Keyword>
+        </RtplanType>
+        <RtplanType procedure="LOC">
+            <!-- <Keyword>LOC</Keyword> -->
+        </RtplanType>
+        <RtplanType procedure="LOCBaseline">
+            <!-- <Keyword>LOCBaseline</Keyword> -->
+        </RtplanType>
+    </RtplanTypeList>
+
     <!-- Send files here for analysis. -->
     <AQAURL>http://localhost</AQAURL>
 

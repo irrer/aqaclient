@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat
 import java.text.ParseException
 import edu.umro.ScalaUtil.PACS
 import scala.xml.XML
+import scala.xml.Node
+import edu.umro.ScalaUtil.Trace
 
 /**
  * Utilities to support configuration.
@@ -274,6 +276,19 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   private def requireReadableDirectory(name: String, dir: File) = {
     if (!dir.canRead) fail("Directory " + name + " is not readable: " + dir)
     if (!dir.isDirectory) fail("Directory " + name + " is required but is not a directory: " + dir)
+  }
+
+  protected def getRtplanTypeList: Seq[RtplanType] = {
+
+    def constructRtplanType(node: Node): RtplanType = {
+      val planType = RtplanType.toRtplanType((node \ "@procedure").head.text)
+      val list = (node \ "Keyword").map(n => n.head.text)
+      new RtplanType(planType, list)
+    }
+
+    val list = (document \ "RtplanTypeList" \ "RtplanType").map(node => constructRtplanType(node)).toSeq
+    logText("RtplanTypeList", list.mkString("\n        ", "\n        ", ""))
+    list
   }
 
   override def toString: String = valueText.foldLeft("Configuration values:")((b, t) => b + "\n    " + t)

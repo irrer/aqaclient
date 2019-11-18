@@ -50,6 +50,8 @@ case class Series(
     </Series>
   }
 
+  def isModality(modality: ModalityEnum.Value): Boolean = modality.toString.equalsIgnoreCase(Modality.toString)
+
   def isRtplan = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 }
 
@@ -104,12 +106,16 @@ object Series extends Logging {
 
   def contains(SeriesInstanceUID: String) = get(SeriesInstanceUID).isDefined
 
+  def getByModality(modality: ModalityEnum.Value): List[Series] = SeriesPool.synchronized({
+    SeriesPool.values.filter(s => s.isModality(modality)).toList
+  })
+
   /**
    * Put a series into the pool for uploading.  Also notify the uploader to update.
    */
   def put(series: Series) = {
     SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
-    Upload.update
+    Upload.scanSeries
   }
 
   /**
