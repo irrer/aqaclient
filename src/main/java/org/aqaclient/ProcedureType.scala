@@ -3,7 +3,7 @@ package org.aqaclient
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.TagFromName
 
-case class RtplanType(planType: RtplanType.Value, keywordList: Seq[String]) {
+case class ProcedureType(planType: ProcedureType.Value, keywordList: Seq[String]) {
   override def toString = planType.toString + " : " + keywordList.mkString("  ||  ")
 
   /**
@@ -17,23 +17,23 @@ case class RtplanType(planType: RtplanType.Value, keywordList: Seq[String]) {
 /**
  * Provide static type and name of for modalities used in this service.
  */
-object RtplanType extends Enumeration {
+object ProcedureType extends Enumeration {
   val Phase2 = Value
   val DailyQA = Value
   val LOC = Value
   val LOCBaseline = Value
 
   /**
-   * Convert text to RtplanType.  Throw exception on failure to match.
+   * Convert text to ProcedureType.  Throw exception on failure to match.
    */
-  def toRtplanType(text: String) = {
+  def toProcedureType(text: String) = {
     values.filter(v => v.toString.equalsIgnoreCase(text)).toSeq.head
   }
 
   /**
-   * Get the plan type of an attribute list.
+   * Get the procedure type of an attribute list.
    */
-  def planType(al: AttributeList): Either[String, RtplanType] = {
+  def procedureType(al: AttributeList): Either[String, ProcedureType] = {
     val label = {
       val a = al.get(TagFromName.RTPlanLabel)
       if (a == null)
@@ -46,8 +46,8 @@ object RtplanType extends Enumeration {
 
     list.size match {
       case 1 => Right(list.head)
-      case 0 => Left("No rtplan types match rtplanlabel " + label)
-      case _ => Left("More that one rtplan types match rtplanlabel " + label + " :\n    " + list.mkString("\n    "))
+      case 0 => Left("No procedure types match RTPlanLabel " + label)
+      case _ => Left("More that one procedure types match RTPlanLabel " + label + " :\n    " + list.mkString("\n    "))
     }
   }
 }

@@ -278,16 +278,16 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     if (!dir.isDirectory) fail("Directory " + name + " is required but is not a directory: " + dir)
   }
 
-  protected def getRtplanTypeList: Seq[RtplanType] = {
+  protected def getProcedureTypeList: Seq[ProcedureType] = {
 
-    def constructRtplanType(node: Node): RtplanType = {
-      val planType = RtplanType.toRtplanType((node \ "@procedure").head.text)
+    def constructProcedureType(node: Node): ProcedureType = {
+      val planType = ProcedureType.toProcedureType((node \ "@procedure").head.text)
       val list = (node \ "Keyword").map(n => n.head.text)
-      new RtplanType(planType, list)
+      new ProcedureType(planType, list)
     }
 
-    val list = (document \ "RtplanTypeList" \ "RtplanType").map(node => constructRtplanType(node)).toSeq
-    logText("RtplanTypeList", list.mkString("\n        ", "\n        ", ""))
+    val list = (document \ "ProcedureTypeList" \ "ProcedureType").map(node => constructProcedureType(node)).toSeq
+    logText("ProcedureTypeList", list.mkString("\n        ", "\n        ", ""))
     list
   }
 
