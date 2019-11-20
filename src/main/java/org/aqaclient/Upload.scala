@@ -7,7 +7,7 @@ import akka.actor.Props
 import edu.umro.ScalaUtil.Trace
 
 /**
- * Upload sets of series to the AQA platform for processing.
+ * Group series into sets of data that can be processed and upload to the AQA platform.
  */
 
 class Upload extends Actor with Logging {
@@ -21,9 +21,9 @@ class Upload extends Actor with Logging {
 
 object Upload {
 
-  private def searchForCt = {
-    Trace.trace("TODO") // TODO
+  private def searchForCtWithoutReg = {
     val ctList = Series.getByModality(ModalityEnum.CT).sortBy(s => s.dataDate)
+    
   }
 
   private def searchForCtWithReg = Trace.trace("TODO") // TODO
@@ -34,7 +34,7 @@ object Upload {
    */
   private def update = {
     Trace.trace("TODO") // TODO
-    searchForCt
+    searchForCtWithoutReg
     searchForCtWithReg
     searchForRtimage
   }
