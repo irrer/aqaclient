@@ -26,8 +26,6 @@ object ClientConfig extends ClientConfigUtil(
 
   val DataDir = getDataDir
 
-  val resultsDir = makeChildDir(DataDir, resultsDirName)
-
   val tmpDir = makeChildDir(DataDir, tmpDirName)
 
   val staticDirFile = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
@@ -39,6 +37,8 @@ object ClientConfig extends ClientConfigUtil(
   val PollInterval_sec = getMainText("PollInterval_sec").toInt
 
   val AQAURL = getMainText("AQAURL")
+  val AQAUser = getMainText("AQAUser")
+  val AQAPassword = getMainText("AQAPassword")
 
   val HTTPSPort = logMainText("HTTPSPort", "443").toInt
   val AMQPBroker = getAMQPBroker

@@ -25,9 +25,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   /** Root directory name for static directory. */
   protected val staticDirName = "static"
 
-  /** Directory name for test results. */
-  protected val resultsDirName = "results"
-
   /** Directory name for temporary files. */
   protected val tmpDirName = "tmp"
 
@@ -278,16 +275,16 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     if (!dir.isDirectory) fail("Directory " + name + " is required but is not a directory: " + dir)
   }
 
-  protected def getProcedureTypeList: Seq[ProcedureType] = {
+  protected def getRtplanTypeList: Seq[RtplanType] = {
 
-    def constructProcedureType(node: Node): ProcedureType = {
-      val planType = ProcedureType.toProcedureType((node \ "@procedure").head.text)
+    def constructRtplanType(node: Node): RtplanType = {
+      val planType = RtplanType.toRtplanType((node \ "@procedure").head.text)
       val list = (node \ "Keyword").map(n => n.head.text)
-      new ProcedureType(planType, list)
+      new RtplanType(planType, list)
     }
 
-    val list = (document \ "ProcedureTypeList" \ "ProcedureType").map(node => constructProcedureType(node)).toSeq
-    logText("ProcedureTypeList", list.mkString("\n        ", "\n        ", ""))
+    val list = (document \ "RtplanTypeList" \ "RtplanType").map(node => constructRtplanType(node)).toSeq
+    logText("RtplanTypeList", list.mkString("\n        ", "\n        ", ""))
     list
   }
 

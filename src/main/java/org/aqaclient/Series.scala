@@ -119,7 +119,7 @@ object Series extends Logging {
   }
 
   /**
-   * Given a directory that contains the DICOM files of a series, reinstate the series.
+   * Given a directory that contains the DICOM files of a series, reinstate the Series (the XML metadata, not the DICOM).
    */
   private def reinstate(dir: File) = {
     try {
