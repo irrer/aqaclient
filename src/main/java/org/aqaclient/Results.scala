@@ -11,6 +11,8 @@ import scala.xml.PrettyPrinter
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.Trace
 import java.io.ByteArrayOutputStream
+import scala.xml.Node
+import scala.xml.NodeSeq
 
 /**
  * Manage and cache the list of results.
@@ -40,6 +42,7 @@ object Results extends Logging {
         representation.write(outStream)
         val e = XML.loadString(outStream.toString)
         logger.info("Retrieved " + (e \ "Series").size + " results for patient " + patientId)
+        Trace.trace("\n\nseries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
         e
       }
     }
@@ -55,7 +58,7 @@ object Results extends Logging {
   }
 
   /**
-   * Mark the given patient's information as stale.  If the patient's data is
+   * Mark the given patient's information as stale by removing it from the list.  If the patient's data is
    * needed, then a fresh, updated copy will be retrieved.  This function should
    * be called when a new data set is uploaded for analysis.
    */
@@ -80,4 +83,11 @@ object Results extends Logging {
     }).nonEmpty
   }
 
+  /**
+   * Initialize by getting series for all patients from the AQA server.
+   */
+  def init = {
+    val count = PatientIDList.getPatientIDList.map(patId => updatePatient(patId)).size
+    logger.info("Retrieved series lists for " + count + " patients from the AQA server.")
+  }
 }

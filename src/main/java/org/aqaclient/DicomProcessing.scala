@@ -19,8 +19,8 @@ object DicomProcessing extends Logging {
   /**
    * Return true if the series needs to be retrieved.
    */
-  private def needToGet(SeriesInstanceUID: String): Boolean = {
-    (!ProcessedSeries.contains(SeriesInstanceUID)) && (!Series.contains(SeriesInstanceUID))
+  private def needToGet(PatientID: String, SeriesInstanceUID: String): Boolean = {
+    (!Results.containsSeries(PatientID, SeriesInstanceUID)) && (!Series.contains(SeriesInstanceUID))
   }
 
   /**
@@ -59,11 +59,14 @@ object DicomProcessing extends Logging {
   }
 
   /**
-   * Get all the series for the given modality and patient and send the Series to the uploader.
+   * Get all the series for the given modality and patient, ignore those that for which there are
+   * already results, and send the new series to the uploader.
    */
   private def fetchDicomOfModality(Modality: String, PatientID: String) = {
-    val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten.filter(serUid => needToGet(serUid))
-    val alList = serUidList.map(findAl => getSeries(findAl))
+    // extract serial UIDs from DICOM C-FIND results
+    val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten
+    val newSerUidList = serUidList.filter(serUid => needToGet(PatientID, serUid))
+    newSerUidList.map(serUid => getSeries(serUid))
   }
 
   /**
@@ -79,19 +82,28 @@ object DicomProcessing extends Logging {
    */
   private val updateSync = 0
 
-  private def update = updateSync.synchronized({
+  /**
+   * Remove any series that have been processed.
+   */
+  def cullSeries = {
+    val toRemove = Series.getAllSeries.filter(ser => Results.containsSeries(ser.PatientID, ser.SeriesInstanceUID))
+    logger.info("Found " + toRemove.size + " locally cached series to remove.")
+    toRemove.map(ser => Series.remove(ser))
+  }
+
+  private def update = updateSync.synchronized {
     PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
-  })
+  }
 
   /**
    * On startup, look for files from the previous run and put them in the Series pool.
    */
-  private def putSavedFiles = {
-    def putSaved(dir: File) = {
+  private def restoreSavedFiles = {
+    def restoreSaved(dir: File) = {
       try {
         val series = new Series(ClientUtil.readDicomFile(dir.listFiles.head).right.get)
         Series.put(series)
-        logger.info("Restored series from previous run: " + series)
+        //logger.info("Restored series from previous run: " + series)
       } catch {
         case t: Throwable => {
           logger.warn("Unexpected error while getting DICOM series from " + dir.getAbsolutePath + " (deleting) : " + fmtEx(t))
@@ -102,7 +114,9 @@ object DicomProcessing extends Logging {
 
     // list of files from when service was last running
     val list = ClientConfig.tmpDir.listFiles.filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
-    list.map(dir => putSaved(dir))
+    list.map(dir => restoreSaved(dir))
+
+    logger.info("Restored " + Series.size + " series from local cache.")
   }
 
   /**
@@ -127,9 +141,10 @@ object DicomProcessing extends Logging {
   }
 
   def init = {
-    putSavedFiles
+    restoreSavedFiles
     poll
     eventListener
+    cullSeries
     update
   }
 }

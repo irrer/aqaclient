@@ -22,6 +22,7 @@ object AQAClient extends Logging {
       if (ClientConfig.validate) {
         DicomMove.init
         PatientIDList.init
+        Results.init
         Series.init
         DicomProcessing.init
         Upload.init

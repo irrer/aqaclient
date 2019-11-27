@@ -10,6 +10,8 @@ import edu.umro.ScalaUtil.Util
 import java.util.Date
 import edu.umro.ScalaUtil.DicomUtil
 import scala.xml.Node
+import edu.umro.util.Utility
+import edu.umro.ScalaUtil.Trace
 
 /**
  * Describe a series whose DICOM has been retrieved but has not been processed.
@@ -53,6 +55,11 @@ case class Series(
   def isModality(modality: ModalityEnum.Value): Boolean = modality.toString.equalsIgnoreCase(Modality.toString)
 
   def isRtplan = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
+
+  override def toString: String = {
+    val dateText = if (dataDate.isDefined) dataDate.get.toString else "None"
+    "PatientID: " + PatientID + " : " + Modality + "    date: " + dateText + "    SeriesUID: " + SeriesInstanceUID
+  }
 }
 
 object Series extends Logging {
@@ -104,18 +111,52 @@ object Series extends Logging {
     SeriesPool.get(SeriesInstanceUID)
   })
 
+  def getAllSeries: List[Series] = SeriesPool.synchronized {
+    SeriesPool.values.toList
+  }
+
+  /**
+   * Get the number of series in pool.
+   */
+  def size: Int = SeriesPool.synchronized { SeriesPool.size }
+
   def contains(SeriesInstanceUID: String) = get(SeriesInstanceUID).isDefined
 
   def getByModality(modality: ModalityEnum.Value): List[Series] = SeriesPool.synchronized({
-    SeriesPool.values.filter(s => s.isModality(modality)).toList
+    SeriesPool.values.filter(s => s.isModality(modality)).toList.sortBy(s => s.dataDate)
   })
+
+  def getRtplanByFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
+    getByModality(ModalityEnum.RTPLAN).filter(s => s.FrameOfReferenceUID.isDefined && s.FrameOfReferenceUID.get.equals(FrameOfReferenceUID)).headOption
+  }
+
+  def getRegByFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
+    getByModality(ModalityEnum.REG).filter(s => s.FrameOfReferenceUID.isDefined && s.FrameOfReferenceUID.get.equals(FrameOfReferenceUID)).headOption
+  }
 
   /**
    * Put a series into the pool for uploading.  Also notify the uploader to update.
    */
   def put(series: Series) = {
     SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
+    Trace.trace("put series: " + series)
     Upload.scanSeries
+  }
+
+  /**
+   * Remove a series.
+   */
+  def remove(series: Series): Unit = SeriesPool.synchronized {
+    if (SeriesPool.get(series.SeriesInstanceUID).isDefined) {
+      logger.info("Removing local copy of series " + series)
+      SeriesPool -= series.SeriesInstanceUID
+    }
+    try {
+      if (series.dir.exists)
+        Utility.deleteFileTree(series.dir)
+    } catch {
+      case t: Throwable => logger.warn("Unexpected exception while removing Series: " + fmtEx(t))
+    }
   }
 
   /**
@@ -137,5 +178,6 @@ object Series extends Logging {
 
   def init = {
     reinststatePreviouslyFetechedSeries
+    logger.info("Series initialization complete.   Number of series in pool: " + Series.size)
   }
 }

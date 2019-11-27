@@ -18,7 +18,8 @@
   
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
-    <PollInterval_sec>30</PollInterval_sec>
+    <!-- <PollInterval_sec>30</PollInterval_sec> TODO 30 seconds is more reasonable for production-->
+    <PollInterval_sec>0</PollInterval_sec>
     
     <!-- Port number for the HTTPS service.   Port 443 is the default for HTTPS.
     If this is missing then the server will use port 443.  The reason to use a non-standard

@@ -74,8 +74,11 @@ object DicomMove extends Logging {
     list
   })
 
+  /**
+   * Initialize by starting the DICOM receiver, but do not fetch any data.
+   */
   def init = {
-    // force dicomReceiver to be instantiated
+    // instantiate dicomReceiver
     dicomReceiver.mainDirName
   }
 }
