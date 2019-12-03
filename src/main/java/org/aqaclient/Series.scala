@@ -22,7 +22,8 @@ case class Series(
   dataDate: Option[Date],
   Modality: ModalityEnum.Value,
   FrameOfReferenceUID: Option[String],
-  RegFrameOfReferenceUID: Option[String]) extends Logging {
+  RegFrameOfReferenceUID: Option[String],
+  ReferencedRtplanUID: Option[String]) extends Logging {
 
   def this(al: AttributeList) = this(
     Series.getString(al, TagFromName.SeriesInstanceUID),
@@ -30,7 +31,8 @@ case class Series(
     ClientUtil.dataDateTime(al),
     ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
     Series.getFrameOfReferenceUID(al),
-    Series.getRegFrameOfReferenceUID(al))
+    Series.getRegFrameOfReferenceUID(al),
+    Series.getReferencedRtplanUID(al))
 
   def this(xml: Elem) = this(
     (xml \ "@SeriesInstanceUID").head.text,
@@ -38,7 +40,8 @@ case class Series(
     Series.optDate((xml \ "@dataDate").headOption),
     ModalityEnum.toModalityEnum((xml \ "@Modality").head.text),
     Series.optText(xml, "FrameOfReferenceUID"),
-    Series.optText(xml, "RegFrameOfReferenceUID"))
+    Series.optText(xml, "RegFrameOfReferenceUID"),
+    Series.optText(xml, "ReferencedRtplanUID"))
 
   val dir = new File(ClientConfig.tmpDir, SeriesInstanceUID)
 
@@ -98,6 +101,18 @@ object Series extends Logging {
         distinct.
         filterNot(frmRef => frmRef.equals(FrameOfReferenceUID.get)).
         headOption
+    } else
+      None
+  }
+
+  /**
+   * Get the reference RTPLAN UID if it there is one.
+   */
+  private def getReferencedRtplanUID(al: AttributeList): Option[String] = {
+    if (al.get(TagFromName.ReferencedRTPlanSequence) != null) {
+      val rtplanSeq = DicomUtil.seqToAttr(al, TagFromName.ReferencedRTPlanSequence)
+      val rtplanUid = rtplanSeq.head.get(TagFromName.ReferencedSOPInstanceUID).getSingleStringValueOrEmptyString
+      Some(rtplanUid)
     } else
       None
   }

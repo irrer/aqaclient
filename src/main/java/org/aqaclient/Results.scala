@@ -66,6 +66,19 @@ object Results extends Logging {
     resultList -= patientId
   }
 
+  def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Option[ProcedureEnum.Value] = {
+    (getPatientResultList(patientId) \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.equals(SeriesInstanceUID)) match {
+      case Some(node) => {
+        val proc = (node \ "Procedure").headOption
+        if (proc.isDefined) {
+          val procName = proc.get.text
+          ProcedureEnum.procNameToProcedureEnum(procName)
+        } else None
+      }
+      case _ => None
+    }
+  }
+
   /**
    * Return true if the SeriesInstanceUID is in the results.
    */

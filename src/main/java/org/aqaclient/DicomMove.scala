@@ -12,6 +12,9 @@ import com.pixelmed.dicom.SOPClass
 import java.io.File
 import edu.umro.util.Utility
 
+/**
+ * Utility for getting DICOM via C-MOVE and caching them in the local disk.
+ */
 object DicomMove extends Logging {
 
   val activeDirName = "active"
