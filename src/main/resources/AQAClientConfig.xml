@@ -15,6 +15,9 @@
     <!-- Get DICOM files from here. -->
     <!-- <DICOMSource AETitle='VMSDBD' Host='VMSDBD' Port='105' /> -->
     <DICOMSource AETitle='IRRER' Host='141.214.125.209' Port='15678' />
+        
+    <!-- Base (root) address of the AQA service.  Upload files to here. -->
+    <AQABaseURL>http://localhost</AQABaseURL>
   
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
@@ -78,5 +81,12 @@
     itself. This is done to avoid errors that build up over time.  The time is
     formatted as a 24 hour clock, so 23:00 is eleven PM. -->
     <RestartTime>3:30</RestartTime>
+
+    
+    <!-- Amount of time as a floating point number in seconds to wait after uploading files to the AQA server.  After
+    uploading files, the AQA server needs to save the DICOM files, which can take a few seconds.  After that, queries
+    made to get the list of processed series will include those just uploaded.  This delay also functions to avoid
+    overloading the AQA server.   This value gets resolved to the nearest millisecond. -->
+    <GracePeriod_sec>3.0</GracePeriod_sec>
 
 </AQAClientConfig>

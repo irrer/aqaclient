@@ -24,6 +24,8 @@ object ClientConfig extends ClientConfigUtil(
   /** Number of minutes into a 24 hour day at which time service should be restarted. */
   val RestartTime = getHourMinuteTime("RestartTime", "3:45")
 
+  val GracePeriod_sec = getMainText("GracePeriod_sec").toDouble
+
   val DataDir = getDataDir
 
   val tmpDir = makeChildDir(DataDir, tmpDirName)

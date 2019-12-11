@@ -65,6 +65,11 @@ case class Series(
   }
 }
 
+/**
+ * Maintain and provide utilities to access a pool of DICOM series that have been retrieved from
+ * the PACS (or RadOnc planning system) that have not been processed. 
+ */
+
 object Series extends Logging {
   def getString(al: AttributeList, tag: AttributeTag) = al.get(tag).getStringValues.head
 

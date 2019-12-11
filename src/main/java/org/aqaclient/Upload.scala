@@ -5,6 +5,17 @@ import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.actor.Props
 import edu.umro.ScalaUtil.Trace
+import java.io.File
+import java.util.Date
+import edu.umro.ScalaUtil.FileUtil
+import java.io.ByteArrayOutputStream
+import org.restlet.ext.html.FormDataSet
+import org.restlet.representation.FileRepresentation
+import org.restlet.data.MediaType
+import org.restlet.ext.html.FormData
+import org.restlet.resource.ClientResource
+import org.restlet.data.ChallengeResponse
+import org.restlet.data.ChallengeScheme
 
 /**
  * Group series into sets of data that can be processed and upload to the AQA platform.
@@ -22,21 +33,90 @@ class Upload extends Actor with Logging {
 object Upload extends Logging {
 
   /**
-   * A complete set of DICOM series that can be uploaded.
+   * A complete set of DICOM series that can be uploaded.  A set of series may consist of any of these:
+   *
+   *     - A CT series                 (with or without an RTPLAN)
+   *     - A CT series and REG series  (with or without an RTPLAN)
+   *     - An RTIMAGE series           (with or without an RTPLAN)
    */
-  private case class UploadSet(procedure: ProcedureEnum.Value, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None);
-
-  private def upload(dicomSet: UploadSet): Unit = {
-    val prefix = dicomSet.procedure.toString + " : " + dicomSet.imageSeries
-    Trace.trace("got upload: " + prefix)
-
-    (dicomSet.reg, dicomSet.plan) match {
-      case (Some(reg), Some(plan)) => Trace.trace(prefix + " : " + reg.FrameOfReferenceUID.get + " / " + reg.RegFrameOfReferenceUID.get + "    RTPLAN: " + plan.FrameOfReferenceUID.get)
-      case (Some(plan), None) => Trace.trace(prefix + "    RTPLAN: " + plan.FrameOfReferenceUID.get)
-      case (None, None) => Trace.trace(prefix)
-      case _ => logger.error("Unexpected set of parameters: " + prefix + " : " + dicomSet.reg + " : " + dicomSet.plan)
+  private case class UploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) {
+    override def toString = {
+      val r = {
+        if (procedure.isBBbyCBCT) {
+          if (reg.isDefined) "    with reg" else "    no reg"
+        } else ""
+      }
+      val p = if (plan.isDefined) "with plan" else "no plan"
+      procedure.toString + "    PatientID: " + imageSeries.PatientID + r + "    " + p
     }
-    Trace.trace
+
+    /**
+     * Get a list of all files in this upload set.
+     */
+    def getAllDicomFiles = {
+      def filesOf(series: Option[Series]) = if (series.isDefined) series.get.dir.listFiles.toSeq else Seq[File]()
+      val imageFiles = imageSeries.dir.listFiles.toSeq
+      imageFiles ++ filesOf(reg) ++ filesOf(plan)
+    }
+
+  }
+
+  private def makeZipFile(fileList: Seq[File]): File = {
+    val baos = new ByteArrayOutputStream
+    FileUtil.readFileTreeToZipStream(fileList, Seq[String](), Seq[File](), baos)
+    val zipFileName = FileUtil.replaceInvalidFileNameCharacters(edu.umro.ScalaUtil.Util.dateToText(new Date) + ".zip", '_')
+    val zipFile = new File(ClientConfig.tmpDir, zipFileName)
+    FileUtil.writeBinaryFile(zipFile, baos.toByteArray)
+    zipFile
+  }
+
+  /**
+   * Send the zip file to the AQA server. Return true on success.  There may later be a failure on
+   * the server side, but this success just indicates that the upload was successful.
+   */
+  private def uploadToAQA(procedure: Procedure, zipFile: File): Boolean = {
+    try {
+      val fds = new FormDataSet
+      val entity = new FileRepresentation(zipFile, MediaType.APPLICATION_ZIP)
+      fds.getEntries.add(new FormData("AQAClient1", entity))
+      fds.setMultipart(true)
+
+      val clientResource = new ClientResource(procedure.URL)
+      val challengeResponse = new ChallengeResponse(ChallengeScheme.HTTP_BASIC, ClientConfig.AQAUser, ClientConfig.AQAPassword)
+      clientResource.setChallengeResponse(challengeResponse)
+      val representation = clientResource.post(fds, MediaType.MULTIPART_FORM_DATA)
+      Thread.sleep(5000); println("Exiting..."); System.exit(99) // TODO rm
+      true
+    } catch {
+      case t: Throwable => {
+        logger.warn("Unexpected error while using HTTPS client to upload zip file to AQA: " + fmtEx(t))
+        false
+      }
+    }
+  }
+
+  /**
+   * Upload a set of DICOM files for processing.
+   */
+  private def upload(uploadSet: UploadSet): Unit = {
+    logger.info("Processing upload " + uploadSet)
+    try {
+      val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
+      val zipFile = makeZipFile(allDicomFiles)
+      if (uploadToAQA(uploadSet.procedure, zipFile)) {
+        logger.info("Finished upload " + uploadSet)
+        Series.remove(uploadSet.imageSeries)
+        if (uploadSet.reg.isDefined) Series.remove(uploadSet.reg.get)
+        if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
+        Results.markAsStale(uploadSet.imageSeries.PatientID)
+      }
+      Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
+      zipFile.delete // clean up temporary file
+    } catch {
+      case t: Throwable => {
+        logger.warn("Unexpected exception during upload: " + fmtEx(t))
+      }
+    }
   }
 
   private def getCT = Series.getByModality(ModalityEnum.CT)
@@ -50,8 +130,8 @@ object Upload extends Logging {
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
       (localPlan, remotePlan) match {
-        case (Some(rtplan), _) => Some(new UploadSet(ProcedureEnum.DailyQACT, ct, Some(rtplan))) // upload CT and RTPLAN
-        case (_, true) => Some(new UploadSet(ProcedureEnum.DailyQACT, ct)) // upload just the CT.  The RTPLAN has already been uploaded
+        case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(rtplan))) // upload CT and RTPLAN
+        case (_, true) => Some(new UploadSet(Procedure.BBbyCBCT, ct)) // upload just the CT.  The RTPLAN has already been uploaded
         case _ => None // no plan available that has the same frame of reference as this CT
       }
     } else
@@ -71,8 +151,8 @@ object Upload extends Logging {
         val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
         (localPlan, remotePlan) match {
-          case (Some(rtplan), _) => Some(new UploadSet(ProcedureEnum.DailyQACT, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
-          case (_, true) => Some(new UploadSet(ProcedureEnum.DailyQACT, ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
+          case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
+          case (_, true) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
           case _ => None
         }
       } else
@@ -85,13 +165,13 @@ object Upload extends Logging {
    * Get the procedure that this series should be processed with.  First try by looking at the plan it references to see what that
    * was processed with.  If that fails, then just look at the number of slices in the series and make an assumption.
    */
-  private def getRtimageProcedure(rtimage: Series): ProcedureEnum.Value = {
-    val procByResult: Option[ProcedureEnum.Value] = {
+  private def getRtimageProcedure(rtimage: Series): Procedure = {
+    val procByResult: Option[Procedure] = {
       if (rtimage.ReferencedRtplanUID.isDefined) {
         val proc = Results.getProcedureOfSeries(rtimage.PatientID, rtimage.ReferencedRtplanUID.get)
         // if DailyQACT, then it is DailyQARTIMAGE
-        if (proc.isDefined && ProcedureEnum.DailyQACT.toString.equals(proc.get.toString))
-          Some(ProcedureEnum.DailyQARTIMAGE)
+        if (proc.isDefined && proc.get.isBBbyEPID)
+          Some(Procedure.BBbyEPID)
         else
           proc
       } else
@@ -101,7 +181,7 @@ object Upload extends Logging {
     if (procByResult.isDefined)
       procByResult.get
     else {
-      if (rtimage.dir.list.size > 8) ProcedureEnum.Phase2 else ProcedureEnum.DailyQARTIMAGE
+      if (rtimage.dir.list.size > 8) Procedure.Phase2 else Procedure.BBbyEPID
     }
   }
 
@@ -117,26 +197,60 @@ object Upload extends Logging {
   }
 
   /**
-   * Given an image series, try to make an upload set.
+   * Given an image series, try to make an upload set.  First try CT with same frame of
+   * reference as plan.  If that fails, try CT with REG file with same frame of reference as
+   * plan.  If that fails, try RTIMAGE.
    */
   private def seriesToUploadSet(series: Series): Option[UploadSet] = {
-    val a = connectWithPlanbyFrameOfRef(series)
-    if (a.isDefined) a
-    else {
-      val b = connectWithPlanViaReg(series)
-      if (b.isDefined) b
-      else uploadableRtimage(series)
+    connectWithPlanbyFrameOfRef(series) match {
+      case Some(uploadSet) => Some(uploadSet)
+      case _ => {
+        connectWithPlanViaReg(series) match {
+          case Some(uploadSet) => Some(uploadSet)
+          case _ => uploadableRtimage(series)
+        }
+      }
     }
   }
 
   /**
-   * Look for test-ready sets of series and upload them.
+   * Look for test-ready sets of series and upload them.  Search in time-order, trying the
+   * oldest sets first.
    */
-  private def update = {
-
+  private def findSetToUploadSet: Option[UploadSet] = {
+    // list of all available image series, sorted by acquisition date.
     val list = Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE).sortBy(_.dataDate)
-    val nextToUpload = list.find(series => seriesToUploadSet(series).isDefined)
 
+    def trySeries(seriesList: Seq[Series]): Option[UploadSet] = {
+      if (seriesList.isEmpty) None
+      else {
+        seriesToUploadSet(seriesList.head) match {
+          case Some(uploadSet) => Some(uploadSet)
+          case _ => trySeries(seriesList.tail)
+        }
+      }
+    }
+
+    trySeries(list)
+  }
+
+  /**
+   * Semaphore for maintaining atomicity of update function.
+   */
+  private val updateSync = ""
+
+  /**
+   * Look for sets of DICOM series that can be uploaded, and then upload them.
+   */
+  private def update: Unit = updateSync.synchronized {
+    findSetToUploadSet match {
+      case Some(uploadSet) => {
+        // upload this one and try for another
+        upload(uploadSet)
+        update
+      }
+      case _ => ; // None to upload.  All done.
+    }
   }
 
   private val system = ActorSystem("Upload")
