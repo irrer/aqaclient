@@ -47,6 +47,9 @@ object Results extends Logging {
       }
     }
     resultList.put(patientId, elem)
+    if (true) { // TODO rm
+      Trace.trace("resultList patientId: " + patientId + "\n    " + (elem \ "Series" \ "SeriesInstanceUID").map(n => n.head.text).mkString("\n    "))
+    }
     elem
   }
 

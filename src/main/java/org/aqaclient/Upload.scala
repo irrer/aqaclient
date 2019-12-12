@@ -85,7 +85,6 @@ object Upload extends Logging {
       val challengeResponse = new ChallengeResponse(ChallengeScheme.HTTP_BASIC, ClientConfig.AQAUser, ClientConfig.AQAPassword)
       clientResource.setChallengeResponse(challengeResponse)
       val representation = clientResource.post(fds, MediaType.MULTIPART_FORM_DATA)
-      Thread.sleep(5000); println("Exiting..."); System.exit(99) // TODO rm
       true
     } catch {
       case t: Throwable => {
@@ -111,7 +110,7 @@ object Upload extends Logging {
         Results.markAsStale(uploadSet.imageSeries.PatientID)
       }
       Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
-      zipFile.delete // clean up temporary file
+      Series.removeObsoleteZipFiles // clean up any zip files
     } catch {
       case t: Throwable => {
         logger.warn("Unexpected exception during upload: " + fmtEx(t))
@@ -231,7 +230,8 @@ object Upload extends Logging {
       }
     }
 
-    trySeries(list)
+    val us = trySeries(list)
+    us
   }
 
   /**

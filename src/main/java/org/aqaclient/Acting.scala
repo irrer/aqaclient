@@ -4,6 +4,10 @@ import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.actor.Props
 
+/**
+ * For testing only.
+ */
+
 class HelloActor extends Actor {
 
   println("Constructed HelloActor")

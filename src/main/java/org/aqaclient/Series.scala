@@ -67,7 +67,7 @@ case class Series(
 
 /**
  * Maintain and provide utilities to access a pool of DICOM series that have been retrieved from
- * the PACS (or RadOnc planning system) that have not been processed. 
+ * the PACS (or RadOnc planning system) that have not been processed.
  */
 
 object Series extends Logging {
@@ -180,6 +180,28 @@ object Series extends Logging {
   }
 
   /**
+   * Remove zip files that may remain from the previous instantiation of this server.
+   */
+  def removeObsoleteZipFiles = {
+    def del(f: File) = {
+      try {
+        f.delete
+        logger.info("Deleted zip file " + f.getAbsolutePath)
+      } catch {
+        case t: Throwable => logger.warn("Error removing obsolete zip file " + f.getAbsolutePath + " : " + fmtEx(t))
+      }
+    }
+
+    def getZipList = ClientConfig.tmpDir.listFiles.toSeq.filter(f => f.getName.toLowerCase.endsWith(".zip") && f.isFile)
+
+    getZipList.map(f => del(f))
+
+    if (getZipList.nonEmpty) {
+      logger.warn("Unable to delete obsolete zip files: " + getZipList.map(f => f.getAbsolutePath).mkString("\n    ", "\n    ", "\n    "))
+    }
+  }
+
+  /**
    * Given a directory that contains the DICOM files of a series, reinstate the Series (the XML metadata, not the DICOM).
    */
   private def reinstate(dir: File) = {
@@ -192,12 +214,14 @@ object Series extends Logging {
     }
   }
 
-  private def reinststatePreviouslyFetechedSeries = {
+  private def reinststatePreviouslyFetchedSeries = {
     ClientConfig.tmpDir.listFiles.toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
   }
 
   def init = {
-    reinststatePreviouslyFetechedSeries
+    removeObsoleteZipFiles
+    reinststatePreviouslyFetchedSeries
+    Trace.trace(getByModality(ModalityEnum.REG).map(r => "    REG " + r.FrameOfReferenceUID.get + " : " + r.RegFrameOfReferenceUID.get).mkString("\n")) // TODO rm
     logger.info("Series initialization complete.   Number of series in pool: " + Series.size)
   }
 }
