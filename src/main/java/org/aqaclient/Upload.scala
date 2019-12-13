@@ -89,6 +89,7 @@ object Upload extends Logging {
     } catch {
       case t: Throwable => {
         logger.warn("Unexpected error while using HTTPS client to upload zip file to AQA: " + fmtEx(t))
+        // TODO should mark this image set as "problematic/error" so they don't keep getting retried.
         false
       }
     }
@@ -143,11 +144,11 @@ object Upload extends Logging {
 
   private def connectWithPlanViaReg(ct: Series): Option[UploadSet] = {
     if (ct.isModality(ModalityEnum.CT)) {
-      val regOpt = Series.getRegByFrameOfReference(ct.FrameOfReferenceUID.get)
+      val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get)
       if (regOpt.isDefined) {
         val reg = regOpt.get
-        val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get)
-        val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
+        val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get)  // if there is a copy of the plan in <code>Series</code>
+        val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get)  // if the plan is on the server
 
         (localPlan, remotePlan) match {
           case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN

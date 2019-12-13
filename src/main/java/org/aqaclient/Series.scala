@@ -21,8 +21,8 @@ case class Series(
   PatientID: String,
   dataDate: Option[Date],
   Modality: ModalityEnum.Value,
-  FrameOfReferenceUID: Option[String],
-  RegFrameOfReferenceUID: Option[String],
+  FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
+  RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
   ReferencedRtplanUID: Option[String]) extends Logging {
 
   def this(al: AttributeList) = this(
@@ -152,6 +152,10 @@ object Series extends Logging {
 
   def getRegByFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
     getByModality(ModalityEnum.REG).filter(s => s.FrameOfReferenceUID.isDefined && s.FrameOfReferenceUID.get.equals(FrameOfReferenceUID)).headOption
+  }
+
+  def getRegByRegFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
+    getByModality(ModalityEnum.REG).filter(s => s.RegFrameOfReferenceUID.isDefined && s.RegFrameOfReferenceUID.get.equals(FrameOfReferenceUID)).headOption
   }
 
   /**
