@@ -10,7 +10,7 @@ import scala.xml.Node
 class Procedure(node: Node) {
   val Version = (node \ "@Version").head.text
   val Name = (node \ "@Name").head.text
-  val URL = ClientConfig.AQAURL + "/" + (node \ "@URL").head.text + "?Run=Run" // full URL to run procedure
+  val URL = ClientConfig.AQAURL + "/" + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true" // full URL to run procedure.  The AutoUpload parameter indicates this http client is not a human.
 
   final def toText = Name + " " + Version
 

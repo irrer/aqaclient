@@ -85,6 +85,7 @@ object Upload extends Logging {
       val challengeResponse = new ChallengeResponse(ChallengeScheme.HTTP_BASIC, ClientConfig.AQAUser, ClientConfig.AQAPassword)
       clientResource.setChallengeResponse(challengeResponse)
       val representation = clientResource.post(fds, MediaType.MULTIPART_FORM_DATA)
+      val text = representation.getText
       true
     } catch {
       case t: Throwable => {
@@ -103,13 +104,14 @@ object Upload extends Logging {
     try {
       val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
       val zipFile = makeZipFile(allDicomFiles)
-      if (uploadToAQA(uploadSet.procedure, zipFile)) {
-        logger.info("Finished upload " + uploadSet)
-        Series.remove(uploadSet.imageSeries)
-        if (uploadSet.reg.isDefined) Series.remove(uploadSet.reg.get)
-        if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
-        Results.markAsStale(uploadSet.imageSeries.PatientID)
-      }
+      val ok = uploadToAQA(uploadSet.procedure, zipFile)
+      // TODO should put an entry in the Done/Tried/Attempted list
+      logger.info("Attempted upload " + uploadSet + "      Upload completed: " + ok)
+      Series.remove(uploadSet.imageSeries)
+      if (uploadSet.reg.isDefined) Series.remove(uploadSet.reg.get)
+      if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
+      Results.markAsStale(uploadSet.imageSeries.PatientID)
+
       Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
       Series.removeObsoleteZipFiles // clean up any zip files
     } catch {
@@ -147,8 +149,8 @@ object Upload extends Logging {
       val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get)
       if (regOpt.isDefined) {
         val reg = regOpt.get
-        val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get)  // if there is a copy of the plan in <code>Series</code>
-        val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get)  // if the plan is on the server
+        val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
+        val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
 
         (localPlan, remotePlan) match {
           case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
