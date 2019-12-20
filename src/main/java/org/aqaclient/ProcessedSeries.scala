@@ -14,44 +14,10 @@ import scala.xml.PrettyPrinter
 import scala.xml.XML
 import scala.xml.Elem
 
-//import java.util.Date
-//import scala.xml.Node
-//import java.io.File
-//import scala.xml.XML
-//import com.pixelmed.dicom.AttributeList
-//import com.pixelmed.dicom.TagFromName
-//import com.pixelmed.dicom.AttributeTag
-//import edu.umro.ScalaUtil.DicomUtil
-//import java.io.FileWriter
-//import scala.xml.PrettyPrinter
-
-//case class ProcessedSeries(SeriesInstanceUID: String, PatientID: String, Modality: String, dataDate: Option[Date], ProcessDate: Date) extends Logging {
-//
-//  def this(node: Node) = this(
-//    ClientUtil.getAttr(node, "SeriesInstanceUID"),
-//    ClientUtil.getAttr(node, "PatientID"),
-//    ClientUtil.getAttr(node, "Modality"),
-//    ProcessedSeries.optTextToDate(node),
-//    edu.umro.ScalaUtil.Util.textToDate(ClientUtil.getAttr(node, "ProcessDate")))
-//
-//  def toXml = {
-//    val dataDateText = if (dataDate.isDefined) Util.standardFormat(dataDate.get) else "unknown"
-//
-//    <ProcessedSeries SeriesInstanceUID={ SeriesInstanceUID } PatientID={ PatientID } Modality={ Modality } dataDate={ dataDateText } ProcessDate={ Util.standardFormat(ProcessDate) }/>
-//  }
-//
-//  def toText = ProcessedSeries.prettyPrinter.format(toXml)
-//
-//  override def toString = {
-//    "SeriesInstanceUID : " + SeriesInstanceUID +
-//      "    PatientID : " + PatientID +
-//      "    Modality : " + Modality +
-//      "    dataDate : " + dataDate +
-//      "    ProcessDate : " + ProcessDate
-//  }
-//}
-
-object ProcessedSeries extends Logging {
+/**
+ * Keep track of which series have already been processed by the server, according to the server.
+ */
+object XProcessedSeries extends Logging {
 
   private val fileName = "ProcessedSeries.xml"
   private val file = new File(ClientConfig.DataDir, fileName)
@@ -102,6 +68,5 @@ object ProcessedSeries extends Logging {
 
   def init = {
     readProcessedSeries
-
   }
 }

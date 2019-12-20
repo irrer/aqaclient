@@ -43,7 +43,7 @@ case class Series(
     Series.optText(xml, "RegFrameOfReferenceUID"),
     Series.optText(xml, "ReferencedRtplanUID"))
 
-  val dir = new File(ClientConfig.tmpDir, SeriesInstanceUID)
+  val dir = new File(ClientConfig.seriesDir, SeriesInstanceUID)
 
   private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else "unknown"
 
@@ -71,7 +71,10 @@ case class Series(
  */
 
 object Series extends Logging {
-  def getString(al: AttributeList, tag: AttributeTag) = al.get(tag).getStringValues.head
+  /**
+   * Get the given attribute as a string.  Make a new string to break the link to the AttributeList
+   */
+  def getString(al: AttributeList, tag: AttributeTag) = new String(al.get(tag).getStringValues.head)
 
   private def optDate(node: Option[Node]) = {
     try {
@@ -196,7 +199,8 @@ object Series extends Logging {
       }
     }
 
-    def getZipList = ClientConfig.tmpDir.listFiles.toSeq.filter(f => f.getName.toLowerCase.endsWith(".zip") && f.isFile)
+    def getZipList = ClientConfig.zipDir.listFiles.toSeq
+    logger.info("removing " + getZipList.size + " zip files from " + ClientConfig.zipDir.getAbsolutePath)
 
     getZipList.map(f => del(f))
 
@@ -219,13 +223,24 @@ object Series extends Logging {
   }
 
   private def reinststatePreviouslyFetchedSeries = {
-    ClientConfig.tmpDir.listFiles.toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
+    ClientConfig.seriesDir.listFiles.toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
   }
 
+  /**
+   * Remove series (and their files) of patients that are no longer active.
+   */
+  private def removeObsoletePatientSeries = {
+    val patSet = PatientIDList.getPatientIDList.toSet
+    val toRemove = getAllSeries.filterNot(series => patSet.contains(series.PatientID)).map(series => remove(series))
+  }
+
+  /**
+   * Initialize series pool.
+   */
   def init = {
     removeObsoleteZipFiles
     reinststatePreviouslyFetchedSeries
-    Trace.trace(getByModality(ModalityEnum.REG).map(r => "    REG " + r.FrameOfReferenceUID.get + " : " + r.RegFrameOfReferenceUID.get).mkString("\n")) // TODO rm
+    removeObsoletePatientSeries
     logger.info("Series initialization complete.   Number of series in pool: " + Series.size)
   }
 }

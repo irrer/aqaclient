@@ -18,7 +18,7 @@ import edu.umro.util.Utility
 object DicomMove extends Logging {
 
   val activeDirName = "active"
-  private val activeDir = new File(ClientConfig.tmpDir, activeDirName)
+  private val activeDir = new File(ClientConfig.seriesDir, activeDirName)
   activeDir.mkdirs
 
   private class MyReceivedObjectHandler extends ReceivedObjectHandler {
@@ -29,7 +29,7 @@ object DicomMove extends Logging {
 
   private lazy val dicomReceiver = {
     logger.info("Starting DicomReceiver ...")
-    val dr = new DicomReceiver(ClientConfig.tmpDir, ClientConfig.DICOMClient, new MyReceivedObjectHandler)
+    val dr = new DicomReceiver(ClientConfig.seriesDir, ClientConfig.DICOMClient, new MyReceivedObjectHandler)
     Utility.deleteFileTree(dr.setSubDir(activeDirName))
     logger.info("Started DicomReceiver.  This DICOM connection: " + ClientConfig.DICOMClient)
     dr
@@ -66,7 +66,7 @@ object DicomMove extends Logging {
     addAttr(TagFromName.QueryRetrieveLevel, "SERIES")
     addAttr(TagFromName.SeriesInstanceUID, SeriesInstanceUID)
 
-    val seriesDir = new File(ClientConfig.tmpDir, SeriesInstanceUID)
+    val seriesDir = new File(ClientConfig.seriesDir, SeriesInstanceUID)
     dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient, SOPClass.PatientRootQueryRetrieveInformationModelMove) match {
       case Some(msg) => logger.error("C-MOVE failed: " + msg)
       case _ => activeDir.renameTo(seriesDir)

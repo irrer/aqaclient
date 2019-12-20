@@ -28,7 +28,9 @@ object ClientConfig extends ClientConfigUtil(
 
   val DataDir = getDataDir
 
-  val tmpDir = makeChildDir(DataDir, tmpDirName)
+  val seriesDir = makeChildDir(DataDir, "DICOMSeries")
+
+  val zipDir = makeChildDir(DataDir, "tempZip")
 
   val staticDirFile = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
 

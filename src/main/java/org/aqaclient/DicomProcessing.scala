@@ -27,7 +27,7 @@ object DicomProcessing extends Logging {
    * Move the temporary directory to the permanent directory.
    */
   private def moveSeriesFiles(fileList: List[File], SeriesInstanceUID: String) = {
-    val newDir = new File(ClientConfig.tmpDir, SeriesInstanceUID)
+    val newDir = new File(ClientConfig.seriesDir, SeriesInstanceUID)
     newDir.mkdirs
     val oldDir = fileList.head.getParentFile
     oldDir.renameTo(newDir)
@@ -113,7 +113,7 @@ object DicomProcessing extends Logging {
     }
 
     // list of files from when service was last running
-    val list = ClientConfig.tmpDir.listFiles.filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
+    val list = ClientConfig.seriesDir.listFiles.filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
     list.map(dir => restoreSaved(dir))
 
     logger.info("Restored " + Series.size + " series from local cache.")

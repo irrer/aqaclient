@@ -39,7 +39,7 @@ object Upload extends Logging {
    *     - A CT series and REG series  (with or without an RTPLAN)
    *     - An RTIMAGE series           (with or without an RTPLAN)
    */
-  private case class UploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) {
+  case class UploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) {
     override def toString = {
       val r = {
         if (procedure.isBBbyCBCT) {
@@ -58,14 +58,13 @@ object Upload extends Logging {
       val imageFiles = imageSeries.dir.listFiles.toSeq
       imageFiles ++ filesOf(reg) ++ filesOf(plan)
     }
-
   }
 
   private def makeZipFile(fileList: Seq[File]): File = {
     val baos = new ByteArrayOutputStream
     FileUtil.readFileTreeToZipStream(fileList, Seq[String](), Seq[File](), baos)
     val zipFileName = FileUtil.replaceInvalidFileNameCharacters(edu.umro.ScalaUtil.Util.dateToText(new Date) + ".zip", '_')
-    val zipFile = new File(ClientConfig.tmpDir, zipFileName)
+    val zipFile = new File(ClientConfig.zipDir, zipFileName)
     FileUtil.writeBinaryFile(zipFile, baos.toByteArray)
     zipFile
   }
@@ -74,7 +73,7 @@ object Upload extends Logging {
    * Send the zip file to the AQA server. Return true on success.  There may later be a failure on
    * the server side, but this success just indicates that the upload was successful.
    */
-  private def uploadToAQA(procedure: Procedure, zipFile: File): Boolean = {
+  private def uploadToAQA(procedure: Procedure, zipFile: File): Option[String] = {
     try {
       val fds = new FormDataSet
       val entity = new FileRepresentation(zipFile, MediaType.APPLICATION_ZIP)
@@ -86,12 +85,12 @@ object Upload extends Logging {
       clientResource.setChallengeResponse(challengeResponse)
       val representation = clientResource.post(fds, MediaType.MULTIPART_FORM_DATA)
       val text = representation.getText
-      true
+      if (text == null) None else Some("Error reported from AQA: " + text)
     } catch {
       case t: Throwable => {
         logger.warn("Unexpected error while using HTTPS client to upload zip file to AQA: " + fmtEx(t))
         // TODO should mark this image set as "problematic/error" so they don't keep getting retried.
-        false
+        Some("Error communicating with AQA: " + fmtEx(t))
       }
     }
   }
@@ -104,9 +103,13 @@ object Upload extends Logging {
     try {
       val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
       val zipFile = makeZipFile(allDicomFiles)
-      val ok = uploadToAQA(uploadSet.procedure, zipFile)
-      // TODO should put an entry in the Done/Tried/Attempted list
-      logger.info("Attempted upload " + uploadSet + "      Upload completed: " + ok)
+      val msg = uploadToAQA(uploadSet.procedure, zipFile)
+      Sent.add(new Sent(uploadSet, msg))
+      if (msg.isEmpty)
+        logger.info("Successfully uploaded " + uploadSet)
+      else {
+        logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
+      }
       Series.remove(uploadSet.imageSeries)
       if (uploadSet.reg.isDefined) Series.remove(uploadSet.reg.get)
       if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
@@ -220,8 +223,8 @@ object Upload extends Logging {
    * oldest sets first.
    */
   private def findSetToUploadSet: Option[UploadSet] = {
-    // list of all available image series, sorted by acquisition date.
-    val list = Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE).sortBy(_.dataDate)
+    // list of all available image series, sorted by acquisition date, and not already sent
+    val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).sortBy(_.dataDate).filterNot(ser => Sent.hasImageSeries(ser.SeriesInstanceUID))
 
     def trySeries(seriesList: Seq[Series]): Option[UploadSet] = {
       if (seriesList.isEmpty) None
