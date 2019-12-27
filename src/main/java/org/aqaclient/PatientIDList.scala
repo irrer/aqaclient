@@ -4,6 +4,7 @@ import scala.collection.mutable.ArrayBuffer
 import java.io.File
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.FileUtil
+import edu.umro.util.Utility
 
 /**
  * CRUD interface for the list of patient IDs used for fetching DICOM files.
@@ -28,6 +29,7 @@ object PatientIDList extends Logging {
 
   private def createFileIfItDoesNotExist = {
     if (!PatientIDFile.canRead) {
+      Utility.writeFile(PatientIDFile, ("// Add list of Patient IDs to this file, one per line." + edu.umro.ScalaUtil.Util.LS + edu.umro.ScalaUtil.Util.LS).getBytes)
       if (!PatientIDFile.createNewFile)
         logger.error("Unable to read or create file containing list of patient IDs: " + PatientIDFile.getAbsolutePath)
     }
