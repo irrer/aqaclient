@@ -10,15 +10,13 @@
 
     <!-- PACS connection settings for this service. -->
     <!-- <DICOMClient AETitle='WLQA_TEST' Host='141.214.125.209' Port='15678' /> -->
-    <DICOMClient AETitle='AQACLIENT' Host='141.214.125.209' Port='14567' />
+    <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
+    <!-- <DICOMClient AETitle='AQACLIENTDV' Host='uhroappwebsdv1' Port='14567' /> -->
 
     <!-- Get DICOM files from here. -->
     <!-- <DICOMSource AETitle='VMSDBD' Host='VMSDBD' Port='105' /> -->
     <DICOMSource AETitle='IRRER' Host='141.214.125.209' Port='15678' />
-        
-    <!-- Base (root) address of the AQA service.  Upload files to here. -->
-    <AQABaseURL>http://localhost</AQABaseURL>
-  
+          
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
     <PollInterval_sec>30</PollInterval_sec>
@@ -65,7 +63,8 @@
     </RtplanTypeList>
 
     <!-- Send files here for analysis. -->
-    <AQAURL>http://localhost</AQAURL>
+    <!-- <AQAURL>http://localhost</AQAURL> -->
+    <AQAURL>http://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL>
 
     <!-- Log into AQA with this user ID. -->
     <AQAUser>irrer</AQAUser>
