@@ -101,7 +101,7 @@ object DicomProcessing extends Logging {
   private def restoreSavedFiles = {
     def restoreSaved(dir: File) = {
       try {
-        val series = new Series(ClientUtil.readDicomFile(dir.listFiles.head).right.get)
+        val series = new Series(ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get)
         Series.put(series)
         //logger.info("Restored series from previous run: " + series)
       } catch {
@@ -113,7 +113,7 @@ object DicomProcessing extends Logging {
     }
 
     // list of files from when service was last running
-    val list = ClientConfig.seriesDir.listFiles.filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
+    val list = ClientUtil.listFiles(ClientConfig.seriesDir).filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
     list.map(dir => restoreSaved(dir))
 
     logger.info("Restored " + Series.size + " series from local cache.")

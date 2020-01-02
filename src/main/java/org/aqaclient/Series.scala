@@ -199,7 +199,7 @@ object Series extends Logging {
       }
     }
 
-    def getZipList = ClientConfig.zipDir.listFiles.toSeq
+    def getZipList = ClientUtil.listFiles(ClientConfig.zipDir).toSeq
     logger.info("removing " + getZipList.size + " zip files from " + ClientConfig.zipDir.getAbsolutePath)
 
     getZipList.map(f => del(f))
@@ -214,7 +214,7 @@ object Series extends Logging {
    */
   private def reinstate(dir: File) = {
     try {
-      val al = ClientUtil.readDicomFile(dir.listFiles.head).right.get
+      val al = ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get
       val series = new Series(al)
       put(series)
     } catch {
@@ -223,7 +223,7 @@ object Series extends Logging {
   }
 
   private def reinststatePreviouslyFetchedSeries = {
-    ClientConfig.seriesDir.listFiles.toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
+    ClientUtil.listFiles(ClientConfig.seriesDir).toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
   }
 
   /**

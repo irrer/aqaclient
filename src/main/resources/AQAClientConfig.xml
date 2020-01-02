@@ -86,6 +86,6 @@
     uploading files, the AQA server needs to save the DICOM files, which can take a few seconds.  After that, queries
     made to get the list of processed series will include those just uploaded.  This delay also functions to avoid
     overloading the AQA server.   This value gets resolved to the nearest millisecond. -->
-    <GracePeriod_sec>3.0</GracePeriod_sec>
+    <GracePeriod_sec>0.01</GracePeriod_sec>
 
 </AQAClientConfig>

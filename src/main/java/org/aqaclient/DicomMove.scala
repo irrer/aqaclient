@@ -41,11 +41,11 @@ object DicomMove extends Logging {
    */
   private def clearActiveDir: Unit = {
     activeDir.mkdirs
-    val fileList = activeDir.listFiles
+    val fileList = ClientUtil.listFiles(activeDir)
     val timeout = System.currentTimeMillis + (10 * 1000)
-    while (activeDir.listFiles.nonEmpty && (System.currentTimeMillis < timeout)) {
-      logger.info("Removing " + activeDir.listFiles.size + " obsolete files from DICOM active directory " + activeDir.getAbsolutePath)
-      activeDir.listFiles.map(f => f.delete)
+    while (ClientUtil.listFiles(activeDir).nonEmpty && (System.currentTimeMillis < timeout)) {
+      logger.info("Removing " + ClientUtil.listFiles(activeDir).size + " obsolete files from DICOM active directory " + activeDir.getAbsolutePath)
+      ClientUtil.listFiles(activeDir).map(f => f.delete)
       Thread.sleep(1000)
     }
   }
@@ -73,7 +73,7 @@ object DicomMove extends Logging {
     }
 
     // Note: the 'toList' preserves the contents of the ArrayBuffer, unlike toSeq.
-    val list = seriesDir.listFiles.toList
+    val list = ClientUtil.listFiles(seriesDir)
     list
   })
 

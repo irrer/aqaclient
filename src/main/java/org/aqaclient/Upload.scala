@@ -54,8 +54,8 @@ object Upload extends Logging {
      * Get a list of all files in this upload set.
      */
     def getAllDicomFiles = {
-      def filesOf(series: Option[Series]) = if (series.isDefined) series.get.dir.listFiles.toSeq else Seq[File]()
-      val imageFiles = imageSeries.dir.listFiles.toSeq
+      def filesOf(series: Option[Series]) = if (series.isDefined) ClientUtil.listFiles(series.get.dir).toSeq else Seq[File]()
+      val imageFiles = ClientUtil.listFiles(imageSeries.dir).toSeq
       imageFiles ++ filesOf(reg) ++ filesOf(plan)
     }
   }
@@ -83,7 +83,7 @@ object Upload extends Logging {
       val clientResource = new ClientResource(procedure.URL)
       val challengeResponse = new ChallengeResponse(ChallengeScheme.HTTP_BASIC, ClientConfig.AQAUser, ClientConfig.AQAPassword)
       clientResource.setChallengeResponse(challengeResponse)
-      val representation = clientResource.post(fds, MediaType.MULTIPART_FORM_DATA)
+      val representation = clientResource.put(fds, MediaType.MULTIPART_FORM_DATA)
       val text = representation.getText
       if (text == null) None else Some("Error reported from AQA: " + text)
     } catch {
@@ -103,7 +103,9 @@ object Upload extends Logging {
     try {
       val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
       val zipFile = makeZipFile(allDicomFiles)
+      Trace.trace("Beginning upload ...")
       val msg = uploadToAQA(uploadSet.procedure, zipFile)
+      Trace.trace("Finished upload")
       Sent.add(new Sent(uploadSet, msg))
       if (msg.isEmpty)
         logger.info("Successfully uploaded " + uploadSet)
@@ -115,7 +117,9 @@ object Upload extends Logging {
       if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
       Results.markAsStale(uploadSet.imageSeries.PatientID)
 
+      Trace.trace("Waiting " + ClientConfig.GracePeriod_sec + " for server to process")
       Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
+      Trace.trace("Done waiting for server to process")
       Series.removeObsoleteZipFiles // clean up any zip files
     } catch {
       case t: Throwable => {
@@ -259,18 +263,26 @@ object Upload extends Logging {
     }
   }
 
-  private val system = ActorSystem("Upload")
-  private val uploadActor = system.actorOf(Props[Upload], name = "uploadActor")
+  private lazy val system = ActorSystem("Upload")
+  private lazy val uploadActor = system.actorOf(Props[Upload], name = "uploadActor")
 
   /**
    * Indicate that new data is available for processing.  There may or may not be a set that can be
    * processed.  This function sends a message to the Upload actor and returns immediately.
    */
   def scanSeries = {
-    uploadActor ! "update"
+    try {
+      uploadActor ! "update"
+    } catch {
+      case t: Throwable => {
+        logger.warn("Unexpected error: " + t)
+      }
+    }
   }
 
   def init = {
+    system.toString // force initialization of val system
+    uploadActor.toString // force initialization of val uploadActor
     update
   }
 

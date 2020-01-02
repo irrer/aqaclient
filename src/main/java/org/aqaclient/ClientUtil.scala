@@ -81,4 +81,15 @@ object ClientUtil extends Logging {
     date
   }
 
+  /**
+   * Safely get a list of files in a directory.  On failure, return an empty list.
+   */
+  def listFiles(dir: File): List[File] = {
+    try {
+      dir.listFiles.toList
+    }
+    catch {
+      case t: Throwable => List[File]()
+    }
+  }
 }
