@@ -11,7 +11,7 @@
     <!-- PACS connection settings for this service. -->
     <!-- <DICOMClient AETitle='WLQA_TEST' Host='141.214.125.209' Port='15678' /> -->
     <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
-    <!-- <DICOMClient AETitle='AQACLIENTDV' Host='uhroappwebsdv1' Port='14567' /> -->
+    <!-- <DICOMClient AETitle='AQACLIENT_DV' Host='uhroappwebsdv1' Port='14567' /> -->
 
     <!-- Get DICOM files from here. -->
     <!-- <DICOMSource AETitle='VMSDBD' Host='VMSDBD' Port='105' /> -->
