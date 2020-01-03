@@ -1,9 +1,6 @@
 package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
-import akka.actor.Actor
-import akka.actor.ActorSystem
-import akka.actor.Props
 import edu.umro.ScalaUtil.Trace
 import java.io.File
 import java.util.Date
@@ -20,15 +17,6 @@ import org.restlet.data.ChallengeScheme
 /**
  * Group series into sets of data that can be processed and upload to the AQA platform.
  */
-
-class Upload extends Actor with Logging {
-  override def receive = {
-    case notification: Any => {
-      logger.info("Upload received notification of new Series.  Total: " + Series.size)
-      Upload.update
-    }
-  }
-}
 
 object Upload extends Logging {
 
@@ -47,7 +35,7 @@ object Upload extends Logging {
         } else ""
       }
       val p = if (plan.isDefined) "with plan" else "no plan"
-      procedure.toString + "    PatientID: " + imageSeries.PatientID + r + "    " + p
+      procedure.toString + "  " + imageSeries.toString + "    PatientID: " + imageSeries.PatientID + r + "    " + p
     }
 
     /**
@@ -263,27 +251,33 @@ object Upload extends Logging {
     }
   }
 
-  private lazy val system = ActorSystem("Upload")
-  private lazy val uploadActor = system.actorOf(Props[Upload], name = "uploadActor")
+  private val queue = new java.util.concurrent.LinkedBlockingQueue[Boolean]
+
+  private def startUpdateThread = {
+    class Updater extends Runnable {
+      def run = {
+        while (true) {
+          queue.take
+          queue.clear
+          update
+        }
+      }
+    }
+
+    (new Thread(new Updater)).start
+  }
 
   /**
    * Indicate that new data is available for processing.  There may or may not be a set that can be
    * processed.  This function sends a message to the Upload actor and returns immediately.
    */
   def scanSeries = {
-    try {
-      uploadActor ! "update"
-    } catch {
-      case t: Throwable => {
-        logger.warn("Unexpected error: " + t)
-      }
-    }
+    queue.put(true)
   }
 
   def init = {
-    system.toString // force initialization of val system
-    uploadActor.toString // force initialization of val uploadActor
     update
+    startUpdateThread
   }
 
 }

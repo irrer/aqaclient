@@ -42,14 +42,13 @@ object Results extends Logging {
         representation.write(outStream)
         val e = XML.loadString(outStream.toString)
         logger.info("Retrieved " + (e \ "Series").size + " results for patient " + patientId)
-        Trace.trace("\n\nseries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
+        //logger.info("\n\nseries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
         e
       }
     }
     resultList.put(patientId, elem)
-    if (true) { // TODO rm
-      Trace.trace("resultList patientId: " + patientId + "\n    " + (elem \ "Series" \ "SeriesInstanceUID").map(n => n.head.text).mkString("\n    "))
-    }
+    logger.info("patientId: " + patientId + "     number of series: " + (elem \ "Series" \ "SeriesInstanceUID").size)
+
     elem
   }
 

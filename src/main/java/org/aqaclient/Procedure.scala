@@ -7,10 +7,14 @@ import scala.xml.XML
 import scala.xml.Elem
 import scala.xml.Node
 
-class Procedure(node: Node) {
+class Procedure(node: Node) extends Logging {
   val Version = (node \ "@Version").head.text
   val Name = (node \ "@Name").head.text
-  val URL = ClientConfig.AQAURL + "/" + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true&Await=true" // full URL to run procedure.  The AutoUpload parameter indicates this http client is not a human.
+  /**
+   * full URL to run procedure.  The AutoUpload parameter indicates this http client is not a human and that
+   *  the call should not return until processing is finished.
+   */
+  val URL = ClientConfig.AQAURL + "/" + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true&Await=true"
 
   final def toText = Name + " " + Version
 
@@ -19,6 +23,18 @@ class Procedure(node: Node) {
   final val isPhase2 = Name.toLowerCase.contains("phase2")
   final val isLOC = (Name.toLowerCase.contains("loc") || Name.toLowerCase.contains("leaf offset")) && (!Name.toLowerCase.contains("base"))
   final val isLOCBaseline = URL.toLowerCase.contains("loc") && Name.toLowerCase.contains("base")
+
+  override def toString = {
+    Name + ":" + Version
+  }
+
+  logger.info("Constructed procedure " + toString +
+    "    isBBbyCBCT: " + isBBbyCBCT.toString.head +
+    "    isBBbyEPID: " + isBBbyEPID.toString.head +
+    "    isPhase2: " + isPhase2.toString.head +
+    "    isLOC: " + isLOC.toString.head +
+    "    isLOCBaseline: " + isLOCBaseline.toString.head +
+    "    URL: " + URL)
 }
 
 /**
