@@ -120,6 +120,20 @@ object DicomProcessing extends Logging {
   }
 
   /**
+   * Remove temporary files if there are any.
+   */
+  private def cleanup = {
+    if (DicomMove.activeDir.exists)
+      try {
+        Utility.deleteFileTree(DicomMove.activeDir)
+      } catch {
+        case t: Throwable => ;
+      }
+
+    ClientConfig.seriesDir.listFiles.filter(f => f.getName.toLowerCase.endsWith(".tmp")).map(f => f.delete)
+  }
+
+  /**
    * If polling has been configured, then start a thread that updates regularly.
    */
   private def poll = {
@@ -127,8 +141,8 @@ object DicomProcessing extends Logging {
       class Poll extends Runnable {
         def run = {
           while (true) {
-            Thread.sleep(ClientConfig.PollInterval_sec * 1000)
             update
+            Thread.sleep(ClientConfig.PollInterval_sec * 1000)
           }
         }
       }
@@ -141,10 +155,11 @@ object DicomProcessing extends Logging {
   }
 
   def init = {
+    logger.info("initializing DicomProcessing")
+    cleanup
     restoreSavedFiles
     poll
     eventListener
     cullSeries
-    update
   }
 }

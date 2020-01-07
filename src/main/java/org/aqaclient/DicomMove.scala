@@ -18,7 +18,7 @@ import edu.umro.util.Utility
 object DicomMove extends Logging {
 
   val activeDirName = "active"
-  private val activeDir = new File(ClientConfig.seriesDir, activeDirName)
+  val activeDir = new File(ClientConfig.seriesDir, activeDirName)
   activeDir.mkdirs
 
   private class MyReceivedObjectHandler extends ReceivedObjectHandler {
@@ -81,7 +81,7 @@ object DicomMove extends Logging {
    * Initialize by starting the DICOM receiver, but do not fetch any data.
    */
   def init = {
-    // instantiate dicomReceiver
+    logger.info("initializing DicomMove")
     dicomReceiver.mainDirName
   }
 }

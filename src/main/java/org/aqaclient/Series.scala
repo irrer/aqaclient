@@ -238,6 +238,7 @@ object Series extends Logging {
    * Initialize series pool.
    */
   def init = {
+    logger.info("initializing Series")
     removeObsoleteZipFiles
     reinststatePreviouslyFetchedSeries
     removeObsoletePatientSeries

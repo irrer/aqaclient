@@ -102,6 +102,7 @@ object Results extends Logging {
    * Initialize by getting series for all patients from the AQA server.
    */
   def init = {
+    logger.info("initializing PatientIDList")
     val count = PatientIDList.getPatientIDList.map(patId => updatePatient(patId)).size
     logger.info("Retrieved series lists for " + count + " patients from the AQA server.")
   }

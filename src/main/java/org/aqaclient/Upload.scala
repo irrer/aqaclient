@@ -257,6 +257,7 @@ object Upload extends Logging {
     class Updater extends Runnable {
       def run = {
         while (true) {
+          logger.info("Processing new DICOM files")
           queue.take
           queue.clear
           update
@@ -276,6 +277,7 @@ object Upload extends Logging {
   }
 
   def init = {
+    logger.info("initializing Upload")
     update
     startUpdateThread
   }

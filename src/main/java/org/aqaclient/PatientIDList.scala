@@ -54,6 +54,7 @@ object PatientIDList extends Logging {
    * Initialize list of patient IDs.
    */
   def init = {
+    logger.info("initializing PatientIDList")
     read
     logger.info("Number of patient IDs: " + getPatientIDList.size + "\n    " + getPatientIDList.mkString("\n    "))
   }
