@@ -178,6 +178,16 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     }
   }
 
+  /**
+   * Get the given tag.  If not configured, then return the default value.
+   */
+  protected def getMainText(name: String, dflt: String): String = {
+    getMainTextOption(name) match {
+      case Some(text) => text
+      case _ => dflt
+    }
+  }
+
   protected def logMainText(name: String): String = {
     println("Name: " + name) // TODO rm
     val value = getMainText(name)

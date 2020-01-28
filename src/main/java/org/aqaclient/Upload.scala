@@ -215,8 +215,13 @@ object Upload extends Logging {
    * oldest sets first.
    */
   private def findSetToUploadSet: Option[UploadSet] = {
+    val recent = System.currentTimeMillis - (ClientConfig.MaximumDataAge * 24 * 60 * 60 * 1000).round.toLong
     // list of all available image series, sorted by acquisition date, and not already sent
-    val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).sortBy(_.dataDate).filterNot(ser => Sent.hasImageSeries(ser.SeriesInstanceUID))
+    val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).
+      filter(_.dataDate.isDefined).
+      sortBy(_.dataDate.get).
+      filterNot(ser => Sent.hasImageSeries(ser.SeriesInstanceUID))
+      .filter(_.dataDate.get.getTime > recent) // TODO rm
 
     def trySeries(seriesList: Seq[Series]): Option[UploadSet] = {
       if (seriesList.isEmpty) None
