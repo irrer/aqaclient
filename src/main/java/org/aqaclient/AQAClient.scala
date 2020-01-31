@@ -20,6 +20,7 @@ object AQAClient extends Logging {
       //Util.showJarFile(this)
 
       if (ClientConfig.validate) {
+        HttpsInit.init
         Procedure.init
         DicomMove.init
         PatientIDList.init

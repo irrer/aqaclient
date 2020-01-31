@@ -13,6 +13,7 @@ import edu.umro.ScalaUtil.Trace
 import java.io.ByteArrayOutputStream
 import scala.xml.Node
 import scala.xml.NodeSeq
+import org.restlet.data.ChallengeScheme
 
 /**
  * Manage and cache the list of results.
@@ -32,7 +33,7 @@ object Results extends Logging {
 
   private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
-    val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword) match {
+    val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
       case Left(exception) => {
         logger.warn("Unable to fetch result list for patient " + patientId + " : " + fmtEx(exception))
         <SeriesList></SeriesList>

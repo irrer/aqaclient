@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream
 import scala.xml.XML
 import scala.xml.Elem
 import scala.xml.Node
+import org.restlet.data.ChallengeScheme
 
 class Procedure(node: Node) extends Logging {
   val Version = (node \ "@Version").head.text
@@ -51,7 +52,7 @@ object Procedure extends Logging {
       logger.info("Initializing list of procedures")
       val url = ClientConfig.AQAURL + "/run/WebRunIndex?list=true"
 
-      val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword) match {
+      val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
         case Left(exception) => {
           logger.warn("Unable to fetch list of procedures to run list for patient: " + fmtEx(exception))
           <RunList></RunList>

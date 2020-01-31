@@ -33,6 +33,8 @@ object ClientConfig extends ClientConfigUtil(
   val zipDir = makeChildDir(DataDir, "tempZip")
 
   val staticDirFile = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
+  
+  val certificateDir = makeChildDir(staticDirFile, "certificates")
 
   val DICOMClient = getPacs("DICOMClient")
 
