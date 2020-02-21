@@ -62,15 +62,29 @@
         </RtplanType>
     </RtplanTypeList>
 
-    <!-- Send files here for analysis. -->
-    <!-- <AQAURL>http://localhost</AQAURL> -->
-    <AQAURL>http://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL>
+    <!-- Send files here for analysis.
+
+    Note that the certificate of the analysis (AQA) host should be put in the static/certificates 
+    directory.  This is required to support secure communications.  If the 
+    certificate is not present, then this process will be unable to talk to the 
+    host.  If the static/certificates directory is empty, then this process will 
+    trust all hosts, which is a very bad security policy but can be useful for 
+    debugging HTTPS connection problems.
+
+    To get the certificate of the host, visit it with a web browser and the
+    right click, get page information, and then security information.  It
+    may be necessary to view details.  Certificate files will usually have the .pem or 
+    .cer suffix.  This service supports both.   Different browsers interface 
+    will vary.
+       -->
+    <AQAURL>https://localhost:9443</AQAURL>
+    <!-- <AQAURL>http://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL> -->
 
     <!-- Log into AQA with this user ID. -->
-    <AQAUser>irrer</AQAUser>
+    <AQAUser>adminUMich</AQAUser>
     
     <!-- Log into AQA with this password. -->
-    <AQAPassword>23eetslp</AQAPassword>
+    <AQAPassword>224adminUMich</AQAPassword>
 
     <!-- AMQP broker.  If not defined, then it will be ignored and EventNet will not be supported.  If the
     AMQB broker can not be contacted, then an error will be logged and EventNet support will not be provided. -->

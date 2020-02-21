@@ -38,18 +38,12 @@ object DicomProcessing extends Logging {
    */
   private def getSeries(SeriesInstanceUID: String): Unit = {
     try {
-      val fileList = DicomMove.get(SeriesInstanceUID) // fetch from DICOM source
-      logger.info("For series " + SeriesInstanceUID + " " + fileList.size + " files were received")
-      if (fileList.isEmpty)
-        None
+      val series = DicomMove.get(SeriesInstanceUID) // fetch from DICOM source
+      if (series.isEmpty)
+        logger.warn("Failed to retrieve any files for series instance UID " + SeriesInstanceUID)
       else {
-        val result = ClientUtil.readDicomFile(fileList.head)
-        val al = ClientUtil.readDicomFile(fileList.head).right.get // get one attribute list for creating the Series
-        val modality = al.get(TagFromName.Modality).getSingleStringValueOrEmptyString
-        val PatientID = al.get(TagFromName.PatientID).getSingleStringValueOrEmptyString
-        logger.info("For series " + SeriesInstanceUID + " " + fileList.size +
-          " files were received with modality " + modality + " PatientID: " + PatientID)
-        Series.put(new Series(al))
+        logger.info("Received series: " + series.get)
+        Series.put(series.get)
       }
     } catch {
       case t: Throwable => {
@@ -95,29 +89,29 @@ object DicomProcessing extends Logging {
     PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
   }
 
-  /**
-   * On startup, look for files from the previous run and put them in the Series pool.
-   */
-  private def restoreSavedFiles = {
-    def restoreSaved(dir: File) = {
-      try {
-        val series = new Series(ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get)
-        Series.put(series)
-        //logger.info("Restored series from previous run: " + series)
-      } catch {
-        case t: Throwable => {
-          logger.warn("Unexpected error while getting DICOM series from " + dir.getAbsolutePath + " (deleting) : " + fmtEx(t))
-          Utility.deleteFileTree(dir)
-        }
-      }
-    }
-
-    // list of files from when service was last running
-    val list = ClientUtil.listFiles(ClientConfig.seriesDir).filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
-    list.map(dir => restoreSaved(dir))
-
-    logger.info("Restored " + Series.size + " series from local cache.")
-  }
+  //  /**
+  //   * On startup, look for files from the previous run and put them in the Series pool.
+  //   */
+  //  private def restoreSavedFiles = {
+  //    def restoreSaved(dir: File) = {
+  //      try {
+  //        val series = new Series(ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get)
+  //        Series.put(series)
+  //        //logger.info("Restored series from previous run: " + series)
+  //      } catch {
+  //        case t: Throwable => {
+  //          logger.warn("Unexpected error while getting DICOM series from " + dir.getAbsolutePath + " (deleting) : " + fmtEx(t))
+  //          Utility.deleteFileTree(dir)
+  //        }
+  //      }
+  //    }
+  //
+  //    // list of files from when service was last running
+  //    val list = ClientUtil.listFiles(ClientConfig.seriesDir).filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
+  //    list.map(dir => restoreSaved(dir))
+  //
+  //    logger.info("Restored " + Series.size + " series from local cache.")
+  //  }
 
   /**
    * Remove temporary files if there are any.
@@ -157,7 +151,7 @@ object DicomProcessing extends Logging {
   def init = {
     logger.info("initializing DicomProcessing")
     cleanup
-    restoreSavedFiles
+    //restoreSavedFiles
     poll
     eventListener
     cullSeries

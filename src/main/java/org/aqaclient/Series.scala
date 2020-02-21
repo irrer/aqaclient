@@ -12,11 +12,14 @@ import edu.umro.ScalaUtil.DicomUtil
 import scala.xml.Node
 import edu.umro.util.Utility
 import edu.umro.ScalaUtil.Trace
+import java.text.SimpleDateFormat
+import edu.umro.ScalaUtil.FileUtil
 
 /**
  * Describe a series whose DICOM has been retrieved but has not been processed.
  */
 case class Series(
+  dir: File,
   SeriesInstanceUID: String,
   PatientID: String,
   dataDate: Option[Date],
@@ -25,7 +28,8 @@ case class Series(
   RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
   ReferencedRtplanUID: Option[String]) extends Logging {
 
-  def this(al: AttributeList) = this(
+  def this(al: AttributeList, dir: File) = this(
+    dir,
     Series.getString(al, TagFromName.SeriesInstanceUID),
     Series.getString(al, TagFromName.PatientID),
     ClientUtil.dataDateTime(al),
@@ -34,16 +38,14 @@ case class Series(
     Series.getRegFrameOfReferenceUID(al),
     Series.getReferencedRtplanUID(al))
 
-  def this(xml: Elem) = this(
-    (xml \ "@SeriesInstanceUID").head.text,
-    (xml \ "@PatientID").head.text,
-    Series.optDate((xml \ "@dataDate").headOption),
-    ModalityEnum.toModalityEnum((xml \ "@Modality").head.text),
-    Series.optText(xml, "FrameOfReferenceUID"),
-    Series.optText(xml, "RegFrameOfReferenceUID"),
-    Series.optText(xml, "ReferencedRtplanUID"))
-
-  val dir = new File(ClientConfig.seriesDir, SeriesInstanceUID)
+  //  def this(xml: Elem) = this(
+  //    (xml \ "@SeriesInstanceUID").head.text,
+  //    (xml \ "@PatientID").head.text,
+  //    Series.optDate((xml \ "@dataDate").headOption),
+  //    ModalityEnum.toModalityEnum((xml \ "@Modality").head.text),
+  //    Series.optText(xml, "FrameOfReferenceUID"),
+  //    Series.optText(xml, "RegFrameOfReferenceUID"),
+  //    Series.optText(xml, "ReferencedRtplanUID"))
 
   private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else "unknown"
 
@@ -61,7 +63,7 @@ case class Series(
 
   override def toString: String = {
     val dateText = if (dataDate.isDefined) dataDate.get.toString else "None"
-    "PatientID: " + PatientID + " : " + Modality + "    date: " + dateText + "    SeriesUID: " + SeriesInstanceUID
+    "PatientID: " + PatientID + " : " + Modality + "    date: " + dateText + "    dir: " + dir.getAbsolutePath
   }
 }
 
@@ -82,6 +84,25 @@ object Series extends Logging {
     } catch {
       case t: Throwable => None
     }
+  }
+
+  def dirOf(alList: Seq[AttributeList]): File = {
+
+    /** Used for creating directory name. */
+    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss")
+
+    val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).flatten.maxBy(_.getTime)
+
+    val patientDirName = FileUtil.replaceInvalidFileNameCharacters(alList.head.get(TagFromName.PatientID).getSingleStringValueOrNull, '_')
+    val patientDir = new File(ClientConfig.seriesDir, patientDirName)
+    patientDir.mkdirs
+    val dateText = dateFormat.format(maxDate)
+    val modality = alList.head.get(TagFromName.Modality).getSingleStringValueOrDefault("unknown")
+    val seriesUid = alList.head.get(TagFromName.SeriesInstanceUID).getSingleStringValueOrDefault("unknown")
+    val subDirName = FileUtil.replaceInvalidFileNameCharacters((dateText + "_" + modality + "_" + alList.size + "_" + seriesUid), '_')
+    val seriesDir = new File(patientDir, subDirName)
+
+    seriesDir
   }
 
   private def optText(xml: Elem, tag: String): Option[String] = {
@@ -215,15 +236,22 @@ object Series extends Logging {
   private def reinstate(dir: File) = {
     try {
       val al = ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get
-      val series = new Series(al)
+      val series = new Series(al, dir)
       put(series)
     } catch {
       case t: Throwable => logger.warn("Unexpected error while reading previously saved series from " + dir.getAbsolutePath + " : " + fmtEx(t))
     }
   }
 
+  /**
+   * Look at the series that have already been fetched via C-MOVE and add a Series entry for them.
+   */
   private def reinststatePreviouslyFetchedSeries = {
-    ClientUtil.listFiles(ClientConfig.seriesDir).toList.filter(d => d.isDirectory).map(dir => reinstate(dir))
+    val done = getAllSeries.map(s => s.dir.getAbsolutePath)
+    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => ClientUtil.listFiles(patientDir)).flatten.map(d => d.getAbsolutePath)
+    val todo = dirList.diff(done)
+
+    todo.map(dirName => reinstate(new File(dirName)))
   }
 
   /**

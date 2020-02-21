@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream
 import scala.xml.Node
 import scala.xml.NodeSeq
 import org.restlet.data.ChallengeScheme
+import edu.umro.ScalaUtil.PrettyXML
 
 /**
  * Manage and cache the list of results.
@@ -26,10 +27,23 @@ object Results extends Logging {
 
   private val prettyPrinter = new PrettyPrinter(1024, 2)
 
+  private def resultsDir = new File(ClientConfig.DataDir, "Results")
+
   /**
    * List of results that have been processed.
    */
   private val resultList = scala.collection.mutable.HashMap[String, Elem]()
+
+  private def saveToResultsDir(patientId: String, elem: Elem) = {
+    try {
+      val file = new File(resultsDir, FileUtil.replaceInvalidFileNameCharacters(patientId, '_') + ".xml")
+      val text = PrettyXML.xmlToText(elem)
+      FileUtil.writeFile(file, text)
+      logger.info("Saved results to " + file.getAbsolutePath)
+    } catch {
+      case t: Throwable => logger.warn("Unexpected exception saving to Results dir: " + fmtEx(t))
+    }
+  }
 
   private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
@@ -49,7 +63,7 @@ object Results extends Logging {
     }
     resultList.put(patientId, elem)
     logger.info("patientId: " + patientId + "     number of series: " + (elem \ "Series" \ "SeriesInstanceUID").size)
-
+    saveToResultsDir(patientId, elem)
     elem
   }
 
@@ -103,6 +117,7 @@ object Results extends Logging {
    * Initialize by getting series for all patients from the AQA server.
    */
   def init = {
+    resultsDir.mkdirs
     logger.info("initializing PatientIDList")
     val count = PatientIDList.getPatientIDList.map(patId => updatePatient(patId)).size
     logger.info("Retrieved series lists for " + count + " patients from the AQA server.")
