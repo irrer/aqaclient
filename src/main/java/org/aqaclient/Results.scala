@@ -34,7 +34,10 @@ object Results extends Logging {
    */
   private val resultList = scala.collection.mutable.HashMap[String, Elem]()
 
-  private def saveToResultsDir(patientId: String, elem: Elem) = {
+  /**
+   * Save the patient results to a disk as a debugging aid.
+   */
+  private def persist(patientId: String, elem: Elem) = {
     try {
       val file = new File(resultsDir, FileUtil.replaceInvalidFileNameCharacters(patientId, '_') + ".xml")
       val text = PrettyXML.xmlToText(elem)
@@ -45,12 +48,18 @@ object Results extends Logging {
     }
   }
 
-  private def updatePatient(patientId: String): Elem = {
+  /**
+   * The AQAClient does not have a copy of the outputs for this patient, so it needs to get
+   * them from the server.
+   *
+   * Returns a Left(String) on error.
+   */
+  private def updatePatient(patientId: String): Either[String, Elem] = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
     val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
       case Left(exception) => {
         logger.warn("Unable to fetch result list for patient " + patientId + " : " + fmtEx(exception))
-        <SeriesList></SeriesList>
+        Left("Unable to fetch result list for patient " + patientId + " : " + exception)
       }
       case Right(representation) => {
         val outStream = new ByteArrayOutputStream
@@ -58,18 +67,18 @@ object Results extends Logging {
         val e = XML.loadString(outStream.toString)
         logger.info("Retrieved " + (e \ "Series").size + " results for patient " + patientId)
         //logger.info("\n\nseries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
-        e
+        resultList.synchronized { resultList.put(patientId, e) }
+        logger.info("patientId: " + patientId + "     number of series: " + (e \ "Series" \ "SeriesInstanceUID").size)
+        persist(patientId, e)
+        Right(e)
       }
     }
-    resultList.put(patientId, elem)
-    logger.info("patientId: " + patientId + "     number of series: " + (elem \ "Series" \ "SeriesInstanceUID").size)
-    saveToResultsDir(patientId, elem)
     elem
   }
 
-  private def getPatientResultList(patientId: String): Elem = resultList.synchronized {
+  private def getPatientResultList(patientId: String): Either[String, Elem] = resultList.synchronized {
     resultList.get(patientId) match {
-      case Some(elem) => elem
+      case Some(elem) => Right(elem)
       case _ => updatePatient(patientId)
     }
   }
@@ -83,34 +92,68 @@ object Results extends Logging {
     resultList -= patientId
   }
 
-  def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Option[Procedure] = {
-    (getPatientResultList(patientId) \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.equals(SeriesInstanceUID)) match {
-      case Some(node) => {
-        val proc = (node \ "Procedure").headOption
-        if (proc.isDefined)
-          Procedure.getProcedure(proc.get.text)
-        else
-          None
+  /**
+   * Given a patient and series UID, get the procedure that was used to process the series.
+   *
+   * Possible return values:
+   *
+   *     Right(Some) : success, got the procedure
+   *     Right(None) : no processing has been done for that procedure
+   *     Left(String) : error, either unable to connect to server or the procedure given by the server could not be identified.
+   */
+  def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Either[String, Option[Procedure]] = {
+
+    def extractProcedure(seriesNode: Node) = {
+      ((seriesNode \ "Procedure").headOption) match {
+        case Some(proc) => {
+          val serverProcName = proc.text
+          val procOpt = Procedure.getProcedure(serverProcName)
+          if (procOpt.isDefined) Right(procOpt)
+          else Left("Could not identify procedure for patient " + patientId + " with series UID " + serverProcName + " that server describes as: " + serverProcName)
+        }
+        case _ => Right(None)
       }
-      case _ => None
+    }
+
+    getPatientResultList(patientId) match {
+      case Left(msg) => Left(msg)
+      case Right(elem) => {
+        (elem \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.equals(SeriesInstanceUID)) match {
+          case Some(seriesNode) => extractProcedure(seriesNode)
+          case _ => Right(None)
+        }
+      }
     }
   }
 
   /**
    * Return true if the SeriesInstanceUID is in the results.
    */
-  def containsSeries(patientId: String, SeriesInstanceUID: String): Boolean = {
-    (getPatientResultList(patientId) \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.equals(SeriesInstanceUID)).nonEmpty
+  def containsSeries(patientId: String, SeriesInstanceUID: String): Either[String, Boolean] = {
+    getPatientResultList(patientId) match {
+      case Right(list) => {
+        val seriesNodeList = list \ "Series" \ "SeriesInstanceUID"
+        val doesContain = seriesNodeList.find(n => n.head.text.equals(SeriesInstanceUID)).nonEmpty
+        Right(doesContain)
+      }
+      case Left(msg) => Left(msg)
+    }
   }
 
   /**
    * Return true if there is an RTPLAN with the given FrameOfReferenceUID is in the results.
    */
-  def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Boolean = {
-    (getPatientResultList(patientId) \ "Series").find(n => {
-      (n \ "Modality").head.text.equals(ModalityEnum.RTPLAN.toString) &&
-        (n \ "FrameOfReferenceUID").head.text.equals(FrameOfReferenceUID)
-    }).nonEmpty
+  def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Either[String, Boolean] = {
+    getPatientResultList(patientId) match {
+      case Right(list) => {
+        val doesContain = (list \ "Series").find(n => {
+          (n \ "Modality").head.text.equals(ModalityEnum.RTPLAN.toString) &&
+            (n \ "FrameOfReferenceUID").head.text.equals(FrameOfReferenceUID)
+        }).nonEmpty
+        Right(doesContain)
+      }
+      case Left(msg) => Left(msg)
+    }
   }
 
   /**
