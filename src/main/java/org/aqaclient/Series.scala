@@ -233,13 +233,15 @@ object Series extends Logging {
   /**
    * Given a directory that contains the DICOM files of a series, reinstate the Series (the XML metadata, not the DICOM).
    */
-  private def reinstate(dir: File) = {
+  private def reinstate(seriesDir: File) = {
     try {
-      val al = ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get
-      val series = new Series(al, dir)
-      put(series)
+      if (seriesDir.isDirectory) {
+        val al = ClientUtil.readDicomFile(ClientUtil.listFiles(seriesDir).head).right.get
+        val series = new Series(al, seriesDir)
+        put(series)
+      }
     } catch {
-      case t: Throwable => logger.warn("Unexpected error while reading previously saved series from " + dir.getAbsolutePath + " : " + fmtEx(t))
+      case t: Throwable => logger.warn("Unexpected error while reading previously saved series from " + seriesDir.getAbsolutePath + " : " + fmtEx(t))
     }
   }
 
