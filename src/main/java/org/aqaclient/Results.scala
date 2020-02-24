@@ -15,6 +15,7 @@ import scala.xml.Node
 import scala.xml.NodeSeq
 import org.restlet.data.ChallengeScheme
 import edu.umro.ScalaUtil.PrettyXML
+import scala.annotation.tailrec
 
 /**
  * Manage and cache the list of results.
@@ -28,6 +29,11 @@ object Results extends Logging {
   private val prettyPrinter = new PrettyPrinter(1024, 2)
 
   private def resultsDir = new File(ClientConfig.DataDir, "Results")
+
+  /**
+   * If the server can not be contacted, then wait this long (in seconds) before retrying.
+   */
+  private val retryInterval_sec = 30
 
   /**
    * List of results that have been processed.
@@ -54,12 +60,14 @@ object Results extends Logging {
    *
    * Returns a Left(String) on error.
    */
-  private def updatePatient(patientId: String): Either[String, Elem] = {
+  @tailrec
+  private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
-    val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
+    HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
       case Left(exception) => {
-        logger.warn("Unable to fetch result list for patient " + patientId + " : " + fmtEx(exception))
-        Left("Unable to fetch result list for patient " + patientId + " : " + exception)
+        logger.warn("Unable to fetch result list from server via HTTPS for patient " + patientId + " .  Will retry in " + retryInterval_sec + " seconds.  Exception: " + fmtEx(exception))
+        Thread.sleep(retryInterval_sec * 1000)
+        updatePatient(patientId)
       }
       case Right(representation) => {
         val outStream = new ByteArrayOutputStream
@@ -70,15 +78,14 @@ object Results extends Logging {
         resultList.synchronized { resultList.put(patientId, e) }
         logger.info("patientId: " + patientId + "     number of series: " + (e \ "Series" \ "SeriesInstanceUID").size)
         persist(patientId, e)
-        Right(e)
+        e
       }
     }
-    elem
   }
 
-  private def getPatientResultList(patientId: String): Either[String, Elem] = resultList.synchronized {
+  private def getPatientResultList(patientId: String): Elem = resultList.synchronized {
     resultList.get(patientId) match {
-      case Some(elem) => Right(elem)
+      case Some(elem) => elem
       case _ => updatePatient(patientId)
     }
   }
@@ -101,59 +108,53 @@ object Results extends Logging {
    *     Right(None) : no processing has been done for that procedure
    *     Left(String) : error, either unable to connect to server or the procedure given by the server could not be identified.
    */
-  def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Either[String, Option[Procedure]] = {
+  def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Option[Procedure] = {
 
-    def extractProcedure(seriesNode: Node) = {
+    def extractProcedure(seriesNode: Node): Option[Procedure] = {
       ((seriesNode \ "Procedure").headOption) match {
         case Some(proc) => {
           val serverProcName = proc.text
           val procOpt = Procedure.getProcedure(serverProcName)
-          if (procOpt.isDefined) Right(procOpt)
-          else Left("Could not identify procedure for patient " + patientId + " with series UID " + serverProcName + " that server describes as: " + serverProcName)
+          if (procOpt.isDefined) procOpt
+          else {
+            logger.error("Could not identify procedure for patient " + patientId +
+              " with series UID " +
+              serverProcName +
+              " that server describes as: " +
+              serverProcName +
+              " Series node: " + prettyPrinter.format(seriesNode))
+            None
+          }
         }
-        case _ => Right(None)
+        case _ => None
       }
     }
 
-    getPatientResultList(patientId) match {
-      case Left(msg) => Left(msg)
-      case Right(elem) => {
-        (elem \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.equals(SeriesInstanceUID)) match {
-          case Some(seriesNode) => extractProcedure(seriesNode)
-          case _ => Right(None)
-        }
-      }
+    (getPatientResultList(patientId) \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.equals(SeriesInstanceUID)) match {
+      case Some(seriesNode) => extractProcedure(seriesNode)
+      case _ => None
+
     }
   }
 
   /**
    * Return true if the SeriesInstanceUID is in the results.
    */
-  def containsSeries(patientId: String, SeriesInstanceUID: String): Either[String, Boolean] = {
-    getPatientResultList(patientId) match {
-      case Right(list) => {
-        val seriesNodeList = list \ "Series" \ "SeriesInstanceUID"
-        val doesContain = seriesNodeList.find(n => n.head.text.equals(SeriesInstanceUID)).nonEmpty
-        Right(doesContain)
-      }
-      case Left(msg) => Left(msg)
-    }
+  def containsSeries(patientId: String, SeriesInstanceUID: String): Boolean = {
+    val seriesNodeList = getPatientResultList(patientId) \ "Series" \ "SeriesInstanceUID"
+    val doesContain = seriesNodeList.find(n => n.head.text.equals(SeriesInstanceUID)).nonEmpty
+    doesContain
   }
 
   /**
    * Return true if there is an RTPLAN with the given FrameOfReferenceUID is in the results.
    */
-  def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Either[String, Boolean] = {
-    getPatientResultList(patientId) match {
-      case Right(list) => {
-        val doesContain = (list \ "Series").find(n => {
-          (n \ "Modality").head.text.equals(ModalityEnum.RTPLAN.toString) &&
-            (n \ "FrameOfReferenceUID").head.text.equals(FrameOfReferenceUID)
-        }).nonEmpty
-        Right(doesContain)
-      }
-      case Left(msg) => Left(msg)
-    }
+  def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Boolean = {
+    val doesContain = (getPatientResultList(patientId) \ "Series").find(n => {
+      (n \ "Modality").head.text.equals(ModalityEnum.RTPLAN.toString) &&
+        (n \ "FrameOfReferenceUID").head.text.equals(FrameOfReferenceUID)
+    }).nonEmpty
+    doesContain
   }
 
   /**
