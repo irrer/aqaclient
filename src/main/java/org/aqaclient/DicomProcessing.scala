@@ -1,6 +1,5 @@
 package org.aqaclient
 
-import edu.umro.ScalaUtil.DicomCFind
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.TagFromName
 import com.pixelmed.dicom.AttributeTag
@@ -34,21 +33,12 @@ object DicomProcessing extends Logging {
   }
 
   /**
-   * Get all files for the given series via C-MOVE and put them in a single directory.
+   * Get all files for the given series via C-MOVE.
    */
   private def getSeries(SeriesInstanceUID: String): Unit = {
-    try {
-      val series = DicomMove.get(SeriesInstanceUID) // fetch from DICOM source
-      if (series.isEmpty)
-        logger.warn("Failed to retrieve any files for series instance UID " + SeriesInstanceUID)
-      else {
-        logger.info("Received series: " + series.get)
-        Series.put(series.get)
-      }
-    } catch {
-      case t: Throwable => {
-        logger.error("Unexpected error processing series: " + fmtEx(t))
-      }
+    DicomMove.get(SeriesInstanceUID) match {
+      case Some(series) => Series.put(series)
+      case _ => ;
     }
   }
 
@@ -59,7 +49,7 @@ object DicomProcessing extends Logging {
   private def fetchDicomOfModality(Modality: String, PatientID: String) = {
     // extract serial UIDs from DICOM C-FIND results
     val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten
-    val newSerUidList = serUidList.filter(serUid => needToGet(PatientID, serUid))
+    val newSerUidList = serUidList.filter(serUid => needToGet(PatientID, serUid)).filterNot(serUid => FailedSeries.contains(serUid))
     newSerUidList.map(serUid => getSeries(serUid))
   }
 
@@ -88,30 +78,6 @@ object DicomProcessing extends Logging {
   private def update = updateSync.synchronized {
     PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
   }
-
-  //  /**
-  //   * On startup, look for files from the previous run and put them in the Series pool.
-  //   */
-  //  private def restoreSavedFiles = {
-  //    def restoreSaved(dir: File) = {
-  //      try {
-  //        val series = new Series(ClientUtil.readDicomFile(ClientUtil.listFiles(dir).head).right.get)
-  //        Series.put(series)
-  //        //logger.info("Restored series from previous run: " + series)
-  //      } catch {
-  //        case t: Throwable => {
-  //          logger.warn("Unexpected error while getting DICOM series from " + dir.getAbsolutePath + " (deleting) : " + fmtEx(t))
-  //          Utility.deleteFileTree(dir)
-  //        }
-  //      }
-  //    }
-  //
-  //    // list of files from when service was last running
-  //    val list = ClientUtil.listFiles(ClientConfig.seriesDir).filter(d => d.isDirectory && (!d.getName.equals(DicomMove.activeDirName)))
-  //    list.map(dir => restoreSaved(dir))
-  //
-  //    logger.info("Restored " + Series.size + " series from local cache.")
-  //  }
 
   /**
    * Remove temporary files if there are any.

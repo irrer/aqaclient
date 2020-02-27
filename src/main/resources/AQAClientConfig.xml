@@ -90,6 +90,12 @@
     AMQB broker can not be contacted, then an error will be logged and EventNet support will not be provided. -->
     <AMQPBroker Host="localhost" Port="5672" />
 
+    <!-- If a C-MOVE transfer fails, retry this many times. -->
+    <DICOMRetryCount>3</DICOMRetryCount>
+  
+    <!-- If a C-MOVE transfer fails, wait this long (floating point in seconds) before retrying. -->
+    <DICOMRetryWait_sec>1.0</DICOMRetryWait_sec>
+
     <!-- Maximum data age.  Maximum age of data as a floating point number in days for it to be uploaded to
     the server.  If the data is older than this many days, it will no be uploaded.  If this values is not
     specified then all data will be uploaded, regardless of how old it is.  -->

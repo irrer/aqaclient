@@ -1,0 +1,16 @@
+package org.aqaclient
+
+/**
+ * Respository for series that are problematic to fetch via DICOM.
+ *
+ * There are some series who's UIDs are listed via C-FIND for a
+ * patient, but can not be fetched via C-MOVE.  It is useful to
+ * keep track of them to avoid retrying to fetch them ad infinitum.
+ */
+object FailedSeries {
+  private val failedSeries = scala.collection.mutable.HashSet[String]()
+
+  def put(SeriesInstanceUID: String) = failedSeries.synchronized(failedSeries += SeriesInstanceUID)
+
+  def contains(SeriesInstanceUID: String) = failedSeries.synchronized(failedSeries.contains(SeriesInstanceUID))
+}

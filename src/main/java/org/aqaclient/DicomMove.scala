@@ -15,6 +15,8 @@ import java.util.Date
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
 import java.text.SimpleDateFormat
+import edu.umro.ScalaUtil.DicomCFind
+import edu.umro.ScalaUtil.DicomCFind.QueryRetrieveLevel
 
 /**
  * Utility for getting DICOM via C-MOVE and caching them in the local disk.
@@ -93,6 +95,7 @@ object DicomMove extends Logging {
     else try {
       val alList = activeList.map(f => ClientUtil.readDicomFile(f)).filter(al => al.isRight).map(al => al.right.get)
       val seriesDir = Series.dirOf(alList)
+      Utility.deleteFileTree(seriesDir)
       seriesDir.getParentFile.mkdirs
       activeDir.renameTo(seriesDir)
       val series = new Series(alList.head, seriesDir)
@@ -106,10 +109,66 @@ object DicomMove extends Logging {
   }
 
   /**
-   * Get all files for the given series.  On failure return an empty list and log an error message.
+   * Get a list of the SOPInstanceUIDs of the series via C-FIND
    */
-  def get(SeriesInstanceUID: String): Option[Series] = activeDirName.synchronized({
-    clearActiveDir
+  private def getSliceList(SeriesInstanceUID: String): Seq[String] = {
+    try {
+      val al = new AttributeList
+      val ser = AttributeFactory.newAttribute(TagFromName.SeriesInstanceUID)
+      ser.addValue(SeriesInstanceUID)
+      al.put(ser)
+      val sop = AttributeFactory.newAttribute(TagFromName.SOPInstanceUID)
+      al.put(sop)
+
+      val alList = DicomCFind.cfind(
+        ClientConfig.DICOMClient.aeTitle,
+        ClientConfig.DICOMSource,
+        al, DicomCFind.QueryRetrieveLevel.IMAGE,
+        None,
+        DicomCFind.QueryRetrieveInformationModel.StudyRoot)
+      val sopList = alList.map(s => s.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString)
+      logger.info("SerieSeriesInstanceUID C-FIND found " + sopList.size + " slices for SeriesInstanceUID " + SeriesInstanceUID)
+      sopList
+    } catch {
+      case t: Throwable => {
+        logger.error("Could not get list of slices for Series UID " + SeriesInstanceUID + " : " + fmtEx(t))
+        Seq[String]()
+      }
+    }
+  }
+
+  /**
+   * Get the SOPInstanceUID of a file.
+   */
+  private def fileToSopInstanceUID(file: File): Option[String] = {
+    try {
+      val al = new AttributeList
+      val a = al.read(file)
+      al.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString match {
+        case "" => None
+        case uid => Some(uid)
+      }
+
+    } catch {
+      case t: Throwable => {
+        logger.warn("Unable to get SOPInstanceUID from file " + file.getAbsolutePath + " : " + fmtEx(t))
+        None
+      }
+    }
+  }
+
+  /**
+   * Get the list of all SOPInstanceUID in the active directory.
+   */
+  private def getSopList: Seq[String] = ClientUtil.listFiles(activeDir).map(f => fileToSopInstanceUID(f)).flatten
+
+  /**
+   * Attempt to get an entire series with one DICOM C-MOVE.
+   *
+   * This should always work, but it seems that the Varian VMSDBD daemon sometimes only
+   * sends a partial list of files.
+   */
+  private def getEntireSeries(SeriesInstanceUID: String): Seq[String] = {
     val specification = new AttributeList
 
     def addAttr(tag: AttributeTag, value: String): Unit = {
@@ -121,19 +180,52 @@ object DicomMove extends Logging {
     addAttr(TagFromName.QueryRetrieveLevel, "SERIES")
     addAttr(TagFromName.SeriesInstanceUID, SeriesInstanceUID)
 
-    val series: Option[Series] = dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient, SOPClass.PatientRootQueryRetrieveInformationModelMove) match {
-      case Some(msg) => {
-        logger.error("C-MOVE failed: " + msg)
-        None
-      }
-      case _ => moveActiveDirToSeriesDir
+    ClientUtil.listFiles(activeDir).map(f => f.delete) // delete all files in active directory
+    dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
+    getSopList
+  }
+
+  /**
+   * Get all files for the given series.  On failure return None and log an error message.
+   */
+  def get(SeriesInstanceUID: String): Option[Series] = activeDirName.synchronized({
+    clearActiveDir
+
+    // Get the SOP UID list via C-FIND.  Assume that this works.
+    val sopCFindList = getSliceList(SeriesInstanceUID)
+
+    def failed(msg: String) = {
+      logger.warn(msg)
+      FailedSeries.put(SeriesInstanceUID)
+      None
     }
 
-    // the active directory should be deleted if it still exists
-    if (activeDir.exists)
-      Utility.deleteFileTree(activeDir)
+    def getAll(retry: Int = ClientConfig.DICOMRetryCount): Option[Series] = {
+      val sopCMoveList = getEntireSeries(SeriesInstanceUID)
+      (sopCFindList.size - sopCMoveList.size) match {
+        case 0 => moveActiveDirToSeriesDir // success!
+        case diff if (diff < 0) => failed("C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.")
+        case diff if (diff > 0) => {
+          logger.warn("C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
+          if (0 >= retry)
+            failed("Out of retries for series " + SeriesInstanceUID + " after trying " + ClientConfig.DICOMRetryCount +
+              " times.  Giving up on this series.  It will be ignored until this service restarts.")
+          else {
+            val r = retry - 1
+            logger.info("Retry " + (ClientConfig.DICOMRetryCount - r) + " of C-MOVE for series " + SeriesInstanceUID)
+            Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
+            getAll(r)
+          }
+        }
+      }
+    }
 
-    series
+    val result = getAll(ClientConfig.DICOMRetryCount)
+
+    // the active directory should be deleted if it still exists
+    if (activeDir.exists) Utility.deleteFileTree(activeDir)
+
+    result
   })
 
   /**

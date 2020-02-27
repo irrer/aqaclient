@@ -33,7 +33,7 @@ object ClientConfig extends ClientConfigUtil(
   val zipDir = makeChildDir(DataDir, "tempZip")
 
   val staticDirFile = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
-  
+
   val certificateDir = makeChildDir(staticDirFile, "certificates")
 
   val DICOMClient = getPacs("DICOMClient")
@@ -50,6 +50,9 @@ object ClientConfig extends ClientConfigUtil(
 
   val HTTPSPort = logMainText("HTTPSPort", "443").toInt
   val AMQPBroker = getAMQPBroker
+
+  val DICOMRetryCount = logMainText("DICOMRetryCount", "3").toInt
+  val DICOMRetryWait_sec = logMainText("DICOMRetryWait_sec", "1.0").toDouble
 
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true
