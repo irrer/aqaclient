@@ -9,6 +9,8 @@ import edu.umro.ScalaUtil.Logging
 
 object DicomFind extends Logging {
 
+  private val done = scala.collection.mutable.HashSet[String]()
+
   /**
    * Build the C-FIND query and execute it.
    */
@@ -33,17 +35,23 @@ object DicomFind extends Logging {
       q
     }
 
-    val resultList = DicomCFind.cfind(
-      callingAETitle = ClientConfig.DICOMClient.aeTitle,
-      calledPacs = ClientConfig.DICOMSource,
-      attributeList = query,
-      queryLevel = DicomCFind.QueryRetrieveLevel.SERIES,
-      limit = None,
-      queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot)
+    done.synchronized({
+      val resultList = DicomCFind.cfind(
+        callingAETitle = ClientConfig.DICOMClient.aeTitle,
+        calledPacs = ClientConfig.DICOMSource,
+        attributeList = query,
+        queryLevel = DicomCFind.QueryRetrieveLevel.SERIES,
+        limit = None,
+        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot)
 
-    logger.info("C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size)
-
-    resultList
+      val msg = "C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size
+      logger.info(msg) // TODO rm
+      // TODO should do the following:
+      //      if (!done.contains(msg)) {
+      //        done += msg
+      //        logger.info(msg)
+      //      }
+      resultList
+    })
   }
-
 }

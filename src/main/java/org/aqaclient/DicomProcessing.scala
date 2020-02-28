@@ -35,8 +35,8 @@ object DicomProcessing extends Logging {
   /**
    * Get all files for the given series via C-MOVE.
    */
-  private def getSeries(SeriesInstanceUID: String): Unit = {
-    DicomMove.get(SeriesInstanceUID) match {
+  private def getSeries(SeriesInstanceUID: String, description: String): Unit = {
+    DicomMove.get(SeriesInstanceUID, description) match {
       case Some(series) => Series.put(series)
       case _ => ;
     }
@@ -50,7 +50,7 @@ object DicomProcessing extends Logging {
     // extract serial UIDs from DICOM C-FIND results
     val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten
     val newSerUidList = serUidList.filter(serUid => needToGet(PatientID, serUid)).filterNot(serUid => FailedSeries.contains(serUid))
-    newSerUidList.map(serUid => getSeries(serUid))
+    newSerUidList.map(serUid => getSeries(serUid, PatientID + " : " + Modality))
   }
 
   /**
@@ -76,6 +76,8 @@ object DicomProcessing extends Logging {
   }
 
   private def update = updateSync.synchronized {
+    logger.info("Getting updated list of DICOM files for patients IDs:\n    " + 
+        PatientIDList.getPatientIDList.mkString("\n    "))
     PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
   }
 
