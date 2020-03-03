@@ -21,16 +21,28 @@ object AQAClient extends Logging {
 
       if (ClientConfig.validate) {
         HttpsInit.init
+        logger.info("Initialized HTTPS")
         Procedure.init
+        logger.info("Acquired list of procedures")
         DicomMove.init
+        logger.info("Initialized DICOM interface")
         PatientIDList.init
+        logger.info("Retrieved PatientID list")
         Results.init
+        logger.info("Initialized Results repository")
         Series.init
+        logger.info("Initialized Series repository")
         DicomProcessing.init
+        logger.info("Initialized DicomProcessing")
         Upload.init
+        logger.info("Started Upload")
+        EventReceiver.init
+        logger.info("Initialized EventReceiver")
         new ClientWebServer
+        logger.info("Initialized ClientWebServer")
         new PeriodicRestart(ClientConfig.RestartTime)
-        logger.info("AQAClient started")
+        logger.info("Initialized PeriodicRestart")
+        logger.info("AQAClient fully initialized")
       }
     } catch {
       // Exceptions thrown to this level should not happen, and if they do it probably means that something

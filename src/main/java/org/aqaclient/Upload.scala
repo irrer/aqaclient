@@ -263,14 +263,20 @@ object Upload extends Logging {
       def run = {
         while (true) {
           logger.info("Processing new DICOM files")
-          queue.take
-          queue.clear
+          Trace.trace
           update
+          Trace.trace
+          queue.clear
+          Trace.trace
+          queue.take
+          Trace.trace
         }
       }
     }
 
+    Trace.trace
     (new Thread(new Updater)).start
+    Trace.trace
   }
 
   /**
@@ -283,8 +289,8 @@ object Upload extends Logging {
 
   def init = {
     logger.info("initializing Upload")
-    update
     startUpdateThread
+    logger.info("Upload has been initialized")
   }
 
 }

@@ -86,9 +86,10 @@
     <!-- Log into AQA with this password. -->
     <AQAPassword>224adminUMich</AQAPassword>
 
-    <!-- AMQP broker.  If not defined, then it will be ignored and EventNet will not be supported.  If the
-    AMQB broker can not be contacted, then an error will be logged and EventNet support will not be provided. -->
-    <AMQPBroker Host="localhost" Port="5672" />
+    <!-- AMQP broker host and port.  If the AMQB broker can not be contacted, then an error will
+    be logged and EventNet support will not be provided. Defaults to 'localhost' and '5672'. -->
+    <AMQPBrokerHost>localhost</AMQPBrokerHost>
+    <AMQPBrokerPort>5672</AMQPBrokerPort>
 
     <!-- If a C-MOVE transfer fails, retry this many times. -->
     <DICOMRetryCount>3</DICOMRetryCount>

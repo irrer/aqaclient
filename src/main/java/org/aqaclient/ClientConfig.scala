@@ -49,7 +49,8 @@ object ClientConfig extends ClientConfigUtil(
   val AQAPassword = getMainText("AQAPassword")
 
   val HTTPSPort = logMainText("HTTPSPort", "443").toInt
-  val AMQPBroker = getAMQPBroker
+  val AMQPBrokerHost = logMainText("AMQPBrokerHost", "localhost")
+  val AMQPBrokerPort = logMainText("AMQPBrokerPort", "5672").toInt
 
   val DICOMRetryCount = logMainText("DICOMRetryCount", "3").toInt
   val DICOMRetryWait_sec = logMainText("DICOMRetryWait_sec", "1.0").toDouble

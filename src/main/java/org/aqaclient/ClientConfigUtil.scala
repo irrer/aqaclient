@@ -278,8 +278,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     pacs
   }
 
-  protected def getAMQPBroker = None // TODO
-
   private def requireReadableDirectory(name: String, dir: File) = {
     if (!dir.canRead) fail("Directory " + name + " is not readable: " + dir)
     if (!dir.isDirectory) fail("Directory " + name + " is required but is not a directory: " + dir)

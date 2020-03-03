@@ -57,7 +57,7 @@ object DicomProcessing extends Logging {
    * Look for new files to process.  It is important to process CT series before
    * RTIMAGE because RTIMAGEs are dependent on the data from CTs.
    */
-  private def updatePatient(PatientID: String) = {
+  def updatePatient(PatientID: String) = updateSync.synchronized {
     Seq("RTPLAN", "REG", "CT", "RTIMAGE").map(Modality => fetchDicomOfModality(Modality, PatientID))
   }
 
@@ -75,9 +75,9 @@ object DicomProcessing extends Logging {
     toRemove.map(ser => Series.remove(ser))
   }
 
-  private def update = updateSync.synchronized {
-    logger.info("Getting updated list of DICOM files for patients IDs:\n    " + 
-        PatientIDList.getPatientIDList.mkString("\n    "))
+  private def update = {
+    logger.info("Getting updated list of DICOM files for patients IDs:\n    " +
+      PatientIDList.getPatientIDList.mkString("\n    "))
     PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
   }
 
