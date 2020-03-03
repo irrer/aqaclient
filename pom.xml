@@ -35,7 +35,7 @@
         <dependency> <groupId>org.slf4j</groupId>                <artifactId>log4j-over-slf4j</artifactId>           <version>1.7.25</version>          </dependency>
         <dependency> <groupId>org.slf4j</groupId>                <artifactId>slf4j-api</artifactId>                  <version>1.7.25</version>          </dependency>
         <dependency> <groupId>pixelmed</groupId>                 <artifactId>pixelmed</artifactId>                   <version>20180401</version>        </dependency>
-        
+        <dependency> <groupId>edu.umro</groupId>                 <artifactId>EventNetClient_2.12</artifactId>        <version>0.0.3</version>           </dependency>
     </dependencies>
 
   <build>
