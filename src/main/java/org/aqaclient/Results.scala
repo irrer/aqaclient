@@ -16,6 +16,8 @@ import scala.xml.NodeSeq
 import org.restlet.data.ChallengeScheme
 import edu.umro.ScalaUtil.PrettyXML
 import scala.annotation.tailrec
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
  * Manage and cache the list of results.
@@ -94,9 +96,17 @@ object Results extends Logging {
    * Mark the given patient's information as stale by removing it from the list.  If the patient's data is
    * needed, then a fresh, updated copy will be retrieved.  This function should
    * be called when a new data set is uploaded for analysis.
+   * 
+   * After marking the results as stale, this function starts another update for that patient in the
+   * background so that it will be ready when needed.
    */
-  def markAsStale(patientId: String): Unit = resultList.synchronized {
-    resultList -= patientId
+  def markAsStale(patientId: String): Unit = {
+    resultList.synchronized {
+      resultList -= patientId
+    }
+    Future {
+      getPatientResultList(patientId)
+    }
   }
 
   /**
