@@ -262,14 +262,12 @@ object Upload extends Logging {
     class Updater extends Runnable {
       def run = {
         while (true) {
-          logger.info("Processing new DICOM files")
-          Trace.trace
+          logger.info("Processing new DICOM files.  queue size: " + queue.size)
+          Trace.trace("Processing new DICOM files.  queue size: " + queue.size)
           update
-          Trace.trace
-          queue.clear
-          Trace.trace
+          Trace.trace("Done with update.  Waiting for more DICOM series.  queue size: " + queue.size)
           queue.take
-          Trace.trace
+          Trace.trace("Got another DICOM series.  queue size: " + queue.size)
         }
       }
     }
@@ -281,9 +279,10 @@ object Upload extends Logging {
 
   /**
    * Indicate that new data is available for processing.  There may or may not be a set that can be
-   * processed.  This function sends a message to the Upload actor and returns immediately.
+   * processed.  This function sends a message to the Upload thread and returns immediately.
    */
   def scanSeries = {
+    Trace.trace("scanSeries adding series to queue")
     queue.put(true)
   }
 

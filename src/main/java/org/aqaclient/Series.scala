@@ -38,15 +38,6 @@ case class Series(
     Series.getRegFrameOfReferenceUID(al),
     Series.getReferencedRtplanUID(al))
 
-  //  def this(xml: Elem) = this(
-  //    (xml \ "@SeriesInstanceUID").head.text,
-  //    (xml \ "@PatientID").head.text,
-  //    Series.optDate((xml \ "@dataDate").headOption),
-  //    ModalityEnum.toModalityEnum((xml \ "@Modality").head.text),
-  //    Series.optText(xml, "FrameOfReferenceUID"),
-  //    Series.optText(xml, "RegFrameOfReferenceUID"),
-  //    Series.optText(xml, "ReferencedRtplanUID"))
-
   private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else "unknown"
 
   def toXml = {
@@ -185,9 +176,9 @@ object Series extends Logging {
   /**
    * Put a series into the pool for uploading.  Also notify the uploader to update.
    */
-  def put(series: Series) = {
+  def put(series: Series, showInfo: Boolean = true) = {
     SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
-    Trace.trace("put series: " + series)
+    if (showInfo) logger.info("put series: " + series)
     Upload.scanSeries
   }
 
@@ -238,7 +229,7 @@ object Series extends Logging {
       if (seriesDir.isDirectory) {
         val al = ClientUtil.readDicomFile(ClientUtil.listFiles(seriesDir).head).right.get
         val series = new Series(al, seriesDir)
-        put(series)
+        put(series, false)
       }
     } catch {
       case t: Throwable => logger.warn("Unexpected error while reading previously saved series from " + seriesDir.getAbsolutePath + " : " + fmtEx(t))
