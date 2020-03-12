@@ -47,6 +47,8 @@ object ClientConfig extends ClientConfigUtil(
   val AQAURL = getMainText("AQAURL")
   val AQAUser = getMainText("AQAUser")
   val AQAPassword = getMainText("AQAPassword")
+  val ServerSocketTimeout_sec = getMainText("ServerSocketTimeout_sec", "300").toInt
+  val httpsClientParameters = Seq(("socketTimeout", (ServerSocketTimeout_sec * 1000).toString)).toMap
 
   val HTTPSPort = logMainText("HTTPSPort", "443").toInt
   val AMQPBrokerHost = logMainText("AMQPBrokerHost", "localhost")

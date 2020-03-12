@@ -13,6 +13,7 @@ import org.restlet.ext.html.FormData
 import org.restlet.resource.ClientResource
 import org.restlet.data.ChallengeResponse
 import org.restlet.data.ChallengeScheme
+import edu.umro.RestletUtil.HttpsClient
 
 /**
  * Group series into sets of data that can be processed and upload to the AQA platform.
@@ -63,17 +64,21 @@ object Upload extends Logging {
    */
   private def uploadToAQA(procedure: Procedure, zipFile: File): Option[String] = {
     try {
-      val fds = new FormDataSet
-      val entity = new FileRepresentation(zipFile, MediaType.APPLICATION_ZIP)
-      fds.getEntries.add(new FormData("AQAClient1", entity))
-      fds.setMultipart(true)
-
-      val clientResource = new ClientResource(procedure.URL)
-      val challengeResponse = new ChallengeResponse(ChallengeScheme.HTTP_BASIC, ClientConfig.AQAUser, ClientConfig.AQAPassword)
-      clientResource.setChallengeResponse(challengeResponse)
-      val representation = clientResource.put(fds, MediaType.MULTIPART_FORM_DATA)
-      val text = representation.getText
-      if (text == null) None else Some("Error reported from AQA: " + text)
+      val start = System.currentTimeMillis
+      val result = HttpsClient.httpsPostSingleFileAsMulipartForm(procedure.URL, zipFile, MediaType.APPLICATION_ZIP, 
+          ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters)
+      val elapsed = System.currentTimeMillis - start
+      result match {
+        case Right(good) => {
+          logger.info("Elapsed time in ms of upload: " + elapsed + "  Successful upload of data set to AQA.")
+          println(good)
+          None
+        }
+        case Left(failure) => {
+          logger.warn("Elapsed time in ms of upload: " + elapsed + "  Failed to upload data set to AQA: " + fmtEx(failure))
+          Some("Elapsed time in ms of upload: " + elapsed + "  failed to upload data set to AQA: " + failure.getMessage)
+        }
+      }
     } catch {
       case t: Throwable => {
         logger.warn("Unexpected error while using HTTPS client to upload zip file to AQA: " + fmtEx(t))
@@ -221,7 +226,7 @@ object Upload extends Logging {
       filter(_.dataDate.isDefined).
       sortBy(_.dataDate.get).
       filterNot(ser => Sent.hasImageSeries(ser.SeriesInstanceUID))
-      .filter(_.dataDate.get.getTime > recent) // TODO rm
+      .filter(_.dataDate.get.getTime > recent)
 
     def trySeries(seriesList: Seq[Series]): Option[UploadSet] = {
       if (seriesList.isEmpty) None

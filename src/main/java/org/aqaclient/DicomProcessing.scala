@@ -76,8 +76,8 @@ object DicomProcessing extends Logging {
   }
 
   private def update = {
-    logger.info("Getting updated list of DICOM files for patients IDs:\n    " +
-      PatientIDList.getPatientIDList.mkString("\n    "))
+    logger.info("Getting updated list of DICOM files for patients IDs:    " +
+      PatientIDList.getPatientIDList.mkString("    "))
     PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
   }
 

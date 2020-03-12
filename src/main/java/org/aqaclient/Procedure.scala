@@ -52,7 +52,7 @@ object Procedure extends Logging {
       logger.info("Initializing list of procedures")
       val url = ClientConfig.AQAURL + "/run/WebRunIndex?list=true"
 
-      val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
+      val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters) match {
         case Left(exception) => {
           logger.warn("Unable to fetch list of procedures to run list for patient: " + fmtEx(exception))
           <RunList></RunList>

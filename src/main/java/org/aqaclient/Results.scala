@@ -65,7 +65,7 @@ object Results extends Logging {
   @tailrec
   private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
-    HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true) match {
+    HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters) match {
       case Left(exception) => {
         logger.warn("Unable to fetch result list from server via HTTPS for patient " + patientId + " .  Will retry in " + retryInterval_sec + " seconds.  Exception: " + fmtEx(exception))
         Thread.sleep(retryInterval_sec * 1000)
@@ -96,7 +96,7 @@ object Results extends Logging {
    * Mark the given patient's information as stale by removing it from the list.  If the patient's data is
    * needed, then a fresh, updated copy will be retrieved.  This function should
    * be called when a new data set is uploaded for analysis.
-   * 
+   *
    * After marking the results as stale, this function starts another update for that patient in the
    * background so that it will be ready when needed.
    */

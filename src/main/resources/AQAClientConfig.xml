@@ -86,6 +86,9 @@
     <!-- Log into AQA with this password. -->
     <AQAPassword>224adminUMich</AQAPassword>
 
+    <!-- Amount of time in seconds to wait for the server to respond.  Must be a positive integer.  -->
+    <ServerSocketTimeout_sec>300</ServerSocketTimeout_sec>
+
     <!-- AMQP broker host and port.  If the AMQB broker can not be contacted, then an error will
     be logged and EventNet support will not be provided. Defaults to 'localhost' and '5672'. -->
     <AMQPBrokerHost>localhost</AMQPBrokerHost>
