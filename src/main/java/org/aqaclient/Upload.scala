@@ -62,20 +62,21 @@ object Upload extends Logging {
    * Send the zip file to the AQA server. Return true on success.  There may later be a failure on
    * the server side, but this success just indicates that the upload was successful.
    */
-  private def uploadToAQA(procedure: Procedure, zipFile: File): Option[String] = {
+  private def uploadToAQA(procedure: Procedure, series: Series, zipFile: File): Option[String] = {
     try {
       val start = System.currentTimeMillis
-      val result = HttpsClient.httpsPostSingleFileAsMulipartForm(procedure.URL, zipFile, MediaType.APPLICATION_ZIP, 
-          ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters)
+      logger.info("Starting upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
+      val result = HttpsClient.httpsPostSingleFileAsMulipartForm(procedure.URL, zipFile, MediaType.APPLICATION_ZIP,
+        ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters)
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) => {
-          logger.info("Elapsed time in ms of upload: " + elapsed + "  Successful upload of data set to AQA.")
+          logger.info("Elapsed time in ms of upload: " + elapsed + "  Successful upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
           println(good)
           None
         }
         case Left(failure) => {
-          logger.warn("Elapsed time in ms of upload: " + elapsed + "  Failed to upload data set to AQA: " + fmtEx(failure))
+          logger.warn("Elapsed time in ms of upload: " + elapsed + "  Failed to upload data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID + " : " + fmtEx(failure))
           Some("Elapsed time in ms of upload: " + elapsed + "  failed to upload data set to AQA: " + failure.getMessage)
         }
       }
@@ -96,9 +97,9 @@ object Upload extends Logging {
     try {
       val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
       val zipFile = makeZipFile(allDicomFiles)
-      Trace.trace("Beginning upload ...")
-      val msg = uploadToAQA(uploadSet.procedure, zipFile)
-      Trace.trace("Finished upload")
+      Trace.trace("Beginning upload of " + uploadSet)
+      val msg = uploadToAQA(uploadSet.procedure, uploadSet.imageSeries, zipFile)
+      Trace.trace("Finished upload of " + uploadSet)
       Sent.add(new Sent(uploadSet, msg))
       if (msg.isEmpty)
         logger.info("Successfully uploaded " + uploadSet)
