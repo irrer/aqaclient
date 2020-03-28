@@ -23,7 +23,7 @@ class Procedure(node: Node) extends Logging {
   final val isBBbyEPID = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("epid")
   final val isPhase2 = Name.toLowerCase.contains("phase2")
   final val isLOC = (Name.toLowerCase.contains("loc") || Name.toLowerCase.contains("leaf offset")) && (!Name.toLowerCase.contains("base"))
-  final val isLOCBaseline = URL.toLowerCase.contains("loc") && Name.toLowerCase.contains("base")
+  final val isLOCBaseline = Name.toLowerCase.contains("loc") && Name.toLowerCase.contains("base")
 
   override def toString = {
     Name + ":" + Version
