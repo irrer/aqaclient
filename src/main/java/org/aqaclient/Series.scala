@@ -185,7 +185,7 @@ object Series extends Logging {
   /**
    * Remove a series.
    */
-  def remove(series: Series): Unit = SeriesPool.synchronized {
+  private def remove(series: Series): Unit = SeriesPool.synchronized {
     if (SeriesPool.get(series.SeriesInstanceUID).isDefined) {
       logger.info("Removing local copy of series " + series)
       SeriesPool -= series.SeriesInstanceUID
@@ -252,7 +252,7 @@ object Series extends Logging {
    */
   private def removeObsoletePatientSeries = {
     val patSet = PatientIDList.getPatientIDList.toSet
-    val toRemove = getAllSeries.filterNot(series => patSet.contains(series.PatientID)).map(series => remove(series))
+    getAllSeries.filterNot(series => patSet.contains(series.PatientID)).map(series => remove(series))
   }
 
   /**
@@ -260,8 +260,16 @@ object Series extends Logging {
    */
   def init = {
     logger.info("initializing Series")
+    Trace.trace("Number of series in pool: " + Series.size)
     removeObsoleteZipFiles
+    Trace.trace("Number of series in pool: " + Series.size)
     reinststatePreviouslyFetchedSeries
+    Trace.trace("Number of series in pool: " + Series.size)
+    if (true) { // TODO rm
+      Trace.trace("begin Series     -----------------------------------------")
+      Trace.trace("\n" + getAllSeries.filter(s => s.Modality.toString.equals("RTIMAGE")).map(s => "SS " + s.dataDate + " " + s.Modality + " " + s.SeriesInstanceUID).mkString("\n"))
+      Trace.trace("end   Series     -----------------------------------------")
+    }
     removeObsoletePatientSeries
     logger.info("Series initialization complete.   Number of series in pool: " + Series.size)
   }

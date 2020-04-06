@@ -3,8 +3,8 @@
 
     <!-- Directory containing data files.  Try them in order until one works. -->
     <DataDirList>
-        <DataDir>E:\Program Files\UMRO\AQAClient\data</DataDir>
         <DataDir>D:\Program Files\UMRO\AQAClient\data</DataDir>
+        <DataDir>E:\Program Files\UMRO\AQAClient\data</DataDir>
         <DataDir>C:\Program Files\UMRO\AQAClient\data</DataDir>
     </DataDirList>
 

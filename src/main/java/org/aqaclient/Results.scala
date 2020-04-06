@@ -156,6 +156,8 @@ object Results extends Logging {
     doesContain
   }
 
+  def containsSeries(series: Series): Boolean = containsSeries(series.PatientID, series.SeriesInstanceUID)
+
   /**
    * Return true if there is an RTPLAN with the given FrameOfReferenceUID is in the results.
    */

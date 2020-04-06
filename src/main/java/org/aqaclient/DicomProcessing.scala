@@ -16,13 +16,6 @@ import edu.umro.util.Utility
 object DicomProcessing extends Logging {
 
   /**
-   * Return true if the series needs to be retrieved.
-   */
-  private def needToGet(PatientID: String, SeriesInstanceUID: String): Boolean = {
-    (!Results.containsSeries(PatientID, SeriesInstanceUID)) && (!Series.contains(SeriesInstanceUID))
-  }
-
-  /**
    * Move the temporary directory to the permanent directory.
    */
   private def moveSeriesFiles(fileList: List[File], SeriesInstanceUID: String) = {
@@ -43,13 +36,16 @@ object DicomProcessing extends Logging {
   }
 
   /**
-   * Get all the series for the given modality and patient, ignore those that for which there are
-   * already results, and send the new series to the uploader.
+   * Get all the series for the given modality and patient and send the new series to the
+   * uploader.  Ignore series that are marked as failed or have already been gotten or those
+   * that are known by the server.
    */
   private def fetchDicomOfModality(Modality: String, PatientID: String) = {
-    // extract serial UIDs from DICOM C-FIND results
     val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten
-    val newSerUidList = serUidList.filter(serUid => needToGet(PatientID, serUid)).filterNot(serUid => FailedSeries.contains(serUid))
+    val newSerUidList = serUidList.
+      filterNot(serUid => FailedSeries.contains(serUid)).
+      filterNot(serUid => Series.contains(serUid)).
+      filterNot(serUid => Results.containsSeries(PatientID, serUid))
     newSerUidList.map(serUid => getSeries(serUid, PatientID + " : " + Modality))
   }
 
@@ -69,11 +65,11 @@ object DicomProcessing extends Logging {
   /**
    * Remove any series that have been processed.
    */
-  def cullSeries = {
-    val toRemove = Series.getAllSeries.filter(ser => Results.containsSeries(ser.PatientID, ser.SeriesInstanceUID))
-    logger.info("Found " + toRemove.size + " locally cached series to remove.")
-    toRemove.map(ser => Series.remove(ser))
-  }
+  //  def cullSeries = {
+  //    val toRemove = Series.getAllSeries.filter(ser => Results.containsSeries(ser.PatientID, ser.SeriesInstanceUID))
+  //    logger.info("Found " + toRemove.size + " locally cached series to remove.")
+  //    toRemove.map(ser => Series.remove(ser))
+  //  }
 
   private def update = {
     logger.info("Getting updated list of DICOM files for patients IDs:    " +
@@ -122,6 +118,6 @@ object DicomProcessing extends Logging {
     //restoreSavedFiles
     poll
     eventListener
-    cullSeries
+    //    cullSeries
   }
 }

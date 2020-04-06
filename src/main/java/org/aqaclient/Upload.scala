@@ -22,6 +22,11 @@ import edu.umro.RestletUtil.HttpsClient
 object Upload extends Logging {
 
   /**
+   * Semaphore for maintaining atomicity of update function.
+   */
+  private val updateSync = ""
+
+  /**
    * A complete set of DICOM series that can be uploaded.  A set of series may consist of any of these:
    *
    *     - A CT series                 (with or without an RTPLAN)
@@ -106,9 +111,9 @@ object Upload extends Logging {
       else {
         logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
       }
-      Series.remove(uploadSet.imageSeries)
-      if (uploadSet.reg.isDefined) Series.remove(uploadSet.reg.get)
-      if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
+      //      Series.remove(uploadSet.imageSeries)
+      //      if (uploadSet.reg.isDefined) Series.remove(uploadSet.reg.get)
+      //      if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
       Results.markAsStale(uploadSet.imageSeries.PatientID)
 
       Trace.trace("Waiting " + ClientConfig.GracePeriod_sec + " for server to process")
@@ -217,49 +222,23 @@ object Upload extends Logging {
   }
 
   /**
-   * Look for test-ready sets of series and upload them.  Search in time-order, trying the
-   * oldest sets first.
-   */
-  private def findSetToUploadSet: Option[UploadSet] = {
-    val recent = System.currentTimeMillis - (ClientConfig.MaximumDataAge * 24 * 60 * 60 * 1000).round.toLong
-    // list of all available image series, sorted by acquisition date, and not already sent
-    val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).
-      filter(_.dataDate.isDefined).
-      sortBy(_.dataDate.get).
-      filterNot(ser => Sent.hasImageSeries(ser.SeriesInstanceUID))
-      .filter(_.dataDate.get.getTime > recent)
-
-    def trySeries(seriesList: Seq[Series]): Option[UploadSet] = {
-      if (seriesList.isEmpty) None
-      else {
-        seriesToUploadSet(seriesList.head) match {
-          case Some(uploadSet) => Some(uploadSet)
-          case _ => trySeries(seriesList.tail)
-        }
-      }
-    }
-
-    val us = trySeries(list)
-    us
-  }
-
-  /**
-   * Semaphore for maintaining atomicity of update function.
-   */
-  private val updateSync = ""
-
-  /**
    * Look for sets of DICOM series that can be uploaded, and then upload them.
    */
   private def update: Unit = updateSync.synchronized {
-    findSetToUploadSet match {
-      case Some(uploadSet) => {
-        // upload this one and try for another
-        upload(uploadSet)
-        update
-      }
-      case _ => ; // None to upload.  All done.
-    }
+    // ignore image series that are too old
+    val recent = System.currentTimeMillis - (ClientConfig.MaximumDataAge * 24 * 60 * 60 * 1000).round.toLong
+
+    // list of all available image series, not have failed before, sorted by acquisition date, and not already sent
+    val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).
+      filterNot(series => Results.containsSeries(series)).
+      filterNot(series => FailedSeries.contains(series.SeriesInstanceUID)).
+      filter(_.dataDate.isDefined).
+      sortBy(_.dataDate.get).
+      filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
+      .filter(_.dataDate.get.getTime > recent)
+
+    list.map(series => seriesToUploadSet(series)).flatten.map(uploadSet => upload(uploadSet))
+
   }
 
   private val queue = new java.util.concurrent.LinkedBlockingQueue[Boolean]
@@ -288,7 +267,7 @@ object Upload extends Logging {
    * processed.  This function sends a message to the Upload thread and returns immediately.
    */
   def scanSeries = {
-    Trace.trace("scanSeries adding series to queue")
+    //Trace.trace("scanSeries adding series to queue")
     queue.put(true)
   }
 

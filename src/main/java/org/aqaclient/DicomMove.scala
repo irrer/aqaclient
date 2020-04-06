@@ -126,7 +126,11 @@ object DicomMove extends Logging {
         al, DicomCFind.QueryRetrieveLevel.IMAGE,
         None,
         DicomCFind.QueryRetrieveInformationModel.StudyRoot)
-      val sopList = alList.map(s => s.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString)
+      def gg(al: AttributeList) = {
+        val s = al.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString
+        s
+      }
+      val sopList = alList.map(s => gg(s)).toSeq
       logger.info("SerieSeriesInstanceUID C-FIND found " + sopList.size + " slices for SeriesInstanceUID " + SeriesInstanceUID)
       sopList
     } catch {
@@ -186,45 +190,88 @@ object DicomMove extends Logging {
   }
 
   /**
+   * Perform a C-FIND multiple times and require exactly the same results multiple times before it
+   * is considered credible.
+   */
+  private def getCredibleSliceList(SeriesInstanceUID: String, history: Seq[Seq[String]] = Seq()): Seq[String] = {
+    // At least this many C-FINDS must return the same result before we believe it.
+    val minCredibleSize = 3
+
+    // Wait this many ms between C-FINDs to avoid overloading the server
+    val cfindWaitInterval_ms = 250
+
+    def s2s(sliceSeq: Seq[String]) = sliceSeq.sorted.mkString(" ")
+
+    history.groupBy(ss => s2s(ss)).find(g => g._2.size >= minCredibleSize) match {
+      case Some(g) => {
+        logger.info("getCredibleSliceList: C-FIND was executed " + history.size + " times to get a consistent list of " + g._2.head.size + " slices   " + g._2.size + " times.")
+        g._2.head
+      }
+      case _ => {
+        if (history.nonEmpty) Thread.sleep(cfindWaitInterval_ms)
+        val sliceList = getSliceList(SeriesInstanceUID)
+        getCredibleSliceList(SeriesInstanceUID, history :+ sliceList)
+      }
+    }
+  }
+
+  /**
    * Get all files for the given series.  On failure return None and log an error message.
+   *
+   * @param SeriesInstanceUID: Get this series
+   *
+   * @param description: Text used to log descriptive messages
    */
   def get(SeriesInstanceUID: String, description: String): Option[Series] = activeDirName.synchronized({
     clearActiveDir
 
-    // Get the SOP UID list via C-FIND.  Assume that this works.
-    val sopCFindList = getSliceList(SeriesInstanceUID)
+    // Get the SOP UID list via C-FIND.
+    val sopCFindList = getCredibleSliceList(SeriesInstanceUID)
 
+    /**
+     * Log a message, marked the series as failed (so it will not be tried in the future), and return None.  Note
+     * that the list of series marked as failed will be reset when the server restarts, at which point they will
+     * be tried again.
+     */
     def failed(msg: String) = {
       logger.warn(description + " " + msg)
       FailedSeries.put(SeriesInstanceUID)
       None
     }
 
-    def getAll(retry: Int = ClientConfig.DICOMRetryCount): Option[Series] = {
-      val sopCMoveList = getEntireSeries(SeriesInstanceUID)
-      logger.info("Number of slices received for " + description + " " + SeriesInstanceUID + " : " + sopCMoveList.size)
-      (sopCFindList.size - sopCMoveList.size) match {
-        case 0 => moveActiveDirToSeriesDir // success!
-        case diff if (diff < 0) => failed("C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.")
-        case diff if (diff > 0) => {
-          logger.warn(description + " C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
-          if (0 >= retry)
-            failed("Out of retries for series " + SeriesInstanceUID + " after trying " + ClientConfig.DICOMRetryCount +
-              " times.  Giving up on this series.  It will be ignored until this service restarts.")
-          else {
-            val r = retry - 1
-            logger.info(description + " Retry " + (ClientConfig.DICOMRetryCount - r) + " of C-MOVE for series " + SeriesInstanceUID)
+    def getAll(retry: Int): Option[Series] = {
+
+      logger.warn("trying series " + description + "    retry count " + retry)
+
+      if (ClientConfig.DICOMRetryCount >= retry) {
+        val sopCMoveList = getEntireSeries(SeriesInstanceUID)
+
+        logger.info("Number of slices received for " + description + " " + SeriesInstanceUID + " : " + sopCMoveList.size)
+        val diff = sopCFindList.size - sopCMoveList.size
+        if (diff == 0) {
+          logger.info("Successfully got " + sopCMoveList.size + " slices on try " + retry)
+          moveActiveDirToSeriesDir
+        } else {
+          if (diff < 0) {
+            logger.warn(description + "C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.  Retrying C-MOVE.")
+          } else {
+            logger.warn(description + " C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
+
+            logger.info(description + " DicomMove.get Retry " + (1 + ClientConfig.DICOMRetryCount - retry) + " of C-MOVE for series " + SeriesInstanceUID)
             Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
-            getAll(r)
           }
+          getAll(retry + 1)
         }
+      } else {
+        failed(" Giving up on getting series " + SeriesInstanceUID + " via C-MOVE after retrying " + ClientConfig.DICOMRetryCount +
+          " times.    It will be ignored until this service restarts.")
       }
     }
 
-    if (sopCFindList.isEmpty) // if no slices, then never bother again (until next server restart)
+    if (sopCFindList.isEmpty) { // if no slices, then never bother again (until next server restart)
       failed("C-FIND could not find any slices for this series: " + SeriesInstanceUID)
-    else {
-      val result = getAll(ClientConfig.DICOMRetryCount)
+    } else {
+      val result = getAll(1)
 
       // the active directory should be deleted if it still exists
       if (activeDir.exists) Utility.deleteFileTree(activeDir)

@@ -9,12 +9,7 @@ import edu.umro.ScalaUtil.Logging
 
 object DicomFind extends Logging {
 
-  private val done = scala.collection.mutable.HashSet[String]()
-
-  /**
-   * Build the C-FIND query and execute it.
-   */
-  def find(modality: String, patientID: String): Seq[AttributeList] = {
+  private class Query(tagSeq: Seq[AttributeTag], tagValueSeq: Seq[(AttributeTag, String)]) {
     val query = {
       val q = new AttributeList
 
@@ -23,19 +18,32 @@ object DicomFind extends Logging {
         q.put(a)
       }
 
-      def addWithValue(text: String, tag: AttributeTag): Unit = {
+      def addWithValue(tag: AttributeTag, text: String): Unit = {
         val a = AttributeFactory.newAttribute(tag)
         a.addValue(text)
         q.put(a)
       }
 
-      addWithValue(modality, TagFromName.Modality)
-      addWithValue(patientID, TagFromName.PatientID)
-      add(TagFromName.SeriesInstanceUID)
+      tagSeq.map(tag => add(tag))
+      tagValueSeq.map(tagValue => addWithValue(tagValue._1, tagValue._2))
+
       q
     }
+  }
 
-    done.synchronized({
+  /**
+   * Build the C-FIND query and execute it.
+   */
+  def find(modality: String, patientID: String): Seq[AttributeList] = {
+
+    val tagSeq = Seq(TagFromName.SeriesInstanceUID)
+    val tagValueSeq = Seq(
+      (TagFromName.Modality, modality),
+      (TagFromName.PatientID, patientID))
+
+    val query = (new Query(tagSeq, tagValueSeq)).query
+
+    DicomFind.synchronized({
       val resultList = DicomCFind.cfind(
         callingAETitle = ClientConfig.DICOMClient.aeTitle,
         calledPacs = ClientConfig.DICOMSource,
@@ -45,13 +53,34 @@ object DicomFind extends Logging {
         queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot)
 
       val msg = "C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size
-      logger.info(msg) // TODO rm
-      // TODO should do the following:
-      //      if (!done.contains(msg)) {
-      //        done += msg
-      //        logger.info(msg)
-      //      }
+      logger.info(msg)
       resultList
+    })
+  }
+
+  /**
+   * Get the list of SOPInstanceUID's for the given series.
+   */
+  def getSliceUIDsInSeries(SeriesInstanceUID: String): Seq[String] = {
+
+    val tagSeq = Seq(TagFromName.SOPInstanceUID)
+    val tagValueSeq = Seq((TagFromName.SeriesInstanceUID, SeriesInstanceUID))
+
+    val query = (new Query(tagSeq, tagValueSeq)).query
+
+    DicomFind.synchronized({
+      val resultList = DicomCFind.cfind(
+        callingAETitle = ClientConfig.DICOMClient.aeTitle,
+        calledPacs = ClientConfig.DICOMSource,
+        attributeList = query,
+        queryLevel = DicomCFind.QueryRetrieveLevel.IMAGE,
+        limit = None,
+        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot)
+
+      val seq = resultList.map(r => r.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
+      val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size
+      logger.info(msg)
+      seq
     })
   }
 }

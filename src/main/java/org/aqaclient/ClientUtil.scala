@@ -62,19 +62,8 @@ object ClientUtil extends Logging {
       (TagFromName.SeriesDate, TagFromName.SeriesTime),
       (TagFromName.InstanceCreationDate, TagFromName.InstanceCreationTime))
 
-    def getDateTime(dateTag: AttributeTag, timeTag: AttributeTag): Option[Date] = {
-      try {
-        val d = al.get(dateTag).getSingleStringValueOrNull
-        val t = al.get(timeTag).getSingleStringValueOrNull
-        val ms = DicomUtil.dicomDateFormat.parse(d).getTime + DicomUtil.parseDicomTime(t).get
-        Some(new Date(ms))
-      } catch {
-        case t: Throwable => None
-      }
-    }
-
     val date = try {
-      dateTimeTagPairList.map(dtp => getDateTime(dtp._1, dtp._2)).flatten.headOption
+      dateTimeTagPairList.map(dtp => DicomUtil.getTimeAndDate(al, dtp._1, dtp._2)).flatten.headOption
     } catch {
       case t: Throwable => throw new RuntimeException("Could not get date+time from DICOM: " + fmtEx(t))
     }
@@ -87,8 +76,7 @@ object ClientUtil extends Logging {
   def listFiles(dir: File): List[File] = {
     try {
       dir.listFiles.toList
-    }
-    catch {
+    } catch {
       case t: Throwable => List[File]()
     }
   }
