@@ -43,6 +43,7 @@ object ClientConfig extends ClientConfigUtil(
   val PollInterval_sec = getMainText("PollInterval_sec").toInt
 
   val MaximumDataAge = getMainText("MaximumDataAge", "100000.0").toDouble
+  val MaximumDataAge_ms = (ClientConfig.MaximumDataAge * 24 * 60 * 60 * 1000).round.toLong
 
   val AQAURL = getMainText("AQAURL")
   val AQAUser = getMainText("AQAUser")

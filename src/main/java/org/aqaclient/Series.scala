@@ -52,6 +52,16 @@ case class Series(
 
   def isRtplan = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 
+  def isRecent = {
+    val cutoff = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
+    dataDate.isDefined && dataDate.get.getTime > cutoff
+  }
+
+  /**
+   *  True if we are interested in it.  The criteria is that either it is an RTPLAN or it was created recently.
+   */
+  def isViable = isRtplan || isRecent
+
   override def toString: String = {
     val dateText = if (dataDate.isDefined) dataDate.get.toString else "None"
     "PatientID: " + PatientID + " : " + Modality + "    date: " + dateText + "    dir: " + dir.getAbsolutePath
@@ -177,9 +187,12 @@ object Series extends Logging {
    * Put a series into the pool for uploading.  Also notify the uploader to update.
    */
   def put(series: Series, showInfo: Boolean = true) = {
-    SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
-    if (showInfo) logger.info("put series: " + series)
-    Upload.scanSeries
+    if (series.isViable) {
+      SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
+      if (showInfo) logger.info("put series: " + series)
+      Upload.scanSeries
+    } else
+      logger.info("Series is not viable for processing: " + series)
   }
 
   /**
