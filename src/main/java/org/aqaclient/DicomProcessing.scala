@@ -30,7 +30,10 @@ object DicomProcessing extends Logging {
    */
   private def getSeries(SeriesInstanceUID: String, description: String): Unit = {
     DicomMove.get(SeriesInstanceUID, description) match {
-      case Some(series) => Series.put(series)
+      case Some(series) => {
+        Series.put(series)
+        if (series.isViable) Upload.scanSeries
+      }
       case _ => ;
     }
   }

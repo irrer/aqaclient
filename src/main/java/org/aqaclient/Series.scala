@@ -42,9 +42,11 @@ case class Series(
 
   def toXml = {
     <Series Modality={ Modality.toString } PatientID={ PatientID } dataDate={ dateToText(dataDate) }>
+      <dir>{ dir.getAbsolutePath }</dir>
       <SeriesInstanceUID>{ SeriesInstanceUID }</SeriesInstanceUID>
       { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID }</FrameOfReferenceUID> }
       { if (RegFrameOfReferenceUID.isDefined) <RegFrameOfReferenceUID>{ RegFrameOfReferenceUID }</RegFrameOfReferenceUID> }
+      { if (RegFrameOfReferenceUID.isDefined) <ReferencedRtplanUID>{ ReferencedRtplanUID }</ReferencedRtplanUID> }
     </Series>
   }
 
@@ -187,12 +189,8 @@ object Series extends Logging {
    * Put a series into the pool for uploading.  Also notify the uploader to update.
    */
   def put(series: Series, showInfo: Boolean = true) = {
-    if (series.isViable) {
-      SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
-      if (showInfo) logger.info("put series: " + series)
-      Upload.scanSeries
-    } else
-      logger.info("Series is not viable for processing: " + series)
+    if (showInfo) logger.info("put series: " + series)
+    SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
   }
 
   /**
@@ -258,6 +256,7 @@ object Series extends Logging {
     val todo = dirList.diff(done)
 
     todo.map(dirName => reinstate(new File(dirName)))
+    Upload.scanSeries
   }
 
   /**
