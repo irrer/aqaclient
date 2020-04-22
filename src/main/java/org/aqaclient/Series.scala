@@ -14,6 +14,8 @@ import edu.umro.util.Utility
 import edu.umro.ScalaUtil.Trace
 import java.text.SimpleDateFormat
 import edu.umro.ScalaUtil.FileUtil
+import scala.xml.XML
+import edu.umro.ScalaUtil.PrettyXML
 
 /**
  * Describe a series whose DICOM has been retrieved but has not been processed.
@@ -38,11 +40,21 @@ case class Series(
     Series.getRegFrameOfReferenceUID(al),
     Series.getReferencedRtplanUID(al))
 
-  private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else "unknown"
+  def this(node: Node) = this(
+    new File(ClientConfig.seriesDir, (node \ "dir").head.text.toString),
+    (node \ "SeriesInstanceUID").head.text.toString,
+    (node \ "@PatientID").head.text.toString,
+    Series.getDataDate(node),
+    ModalityEnum.toModalityEnum((node \ "@Modality").head.text.toString),
+    Series.optText(node, "FrameOfReferenceUID"),
+    Series.optText(node, "RegFrameOfReferenceUID"),
+    Series.optText(node, "ReferencedRtplanUID"))
+
+  private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else Series.unknownXmlValue
 
   def toXml = {
     <Series Modality={ Modality.toString } PatientID={ PatientID } dataDate={ dateToText(dataDate) }>
-      <dir>{ dir.getAbsolutePath }</dir>
+      <dir>{ dir.getAbsolutePath.drop(ClientConfig.seriesDir.getAbsolutePath.size) }</dir>
       <SeriesInstanceUID>{ SeriesInstanceUID }</SeriesInstanceUID>
       { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID }</FrameOfReferenceUID> }
       { if (RegFrameOfReferenceUID.isDefined) <RegFrameOfReferenceUID>{ RegFrameOfReferenceUID }</RegFrameOfReferenceUID> }
@@ -76,6 +88,15 @@ case class Series(
  */
 
 object Series extends Logging {
+
+  /**
+   * Name of file in each patient directory that contains a list of Series for that patient as XML.
+   */
+  private val xmlFileName = "index.xml"
+
+  /** If a value in a series is not known, then use this text in the XML. */
+  private val unknownXmlValue = "unknown"
+
   /**
    * Get the given attribute as a string.  Make a new string to break the link to the AttributeList
    */
@@ -108,10 +129,31 @@ object Series extends Logging {
     seriesDir
   }
 
-  private def optText(xml: Elem, tag: String): Option[String] = {
+  private def optText(xml: Node, tag: String): Option[String] = {
     (xml \ tag).headOption match {
       case Some(node) => Some(node.text)
       case _ => None
+    }
+  }
+
+  /**
+   * Parse the dataDate from Series XML.
+   */
+  private def getDataDate(xml: Node): Option[Date] = {
+    try {
+      val node = xml \ "dataDate"
+      if (node.isEmpty) None
+      else {
+        val text = node.head.text
+        if (text.equals(unknownXmlValue)) None
+        else
+          Some(Util.textToDate(text))
+      }
+    } catch {
+      case t: Throwable => {
+        logger.warn("Unexpected error parsing Series dataDate: " + fmtEx(t))
+        None
+      }
     }
   }
 
@@ -188,9 +230,31 @@ object Series extends Logging {
   /**
    * Put a series into the pool for uploading.  Also notify the uploader to update.
    */
-  def put(series: Series, showInfo: Boolean = true) = {
+  private def put(series: Series, showInfo: Boolean = true) = {
     if (showInfo) logger.info("put series: " + series)
     SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
+  }
+
+  /**
+   * Put a series into the pool for uploading.  Also notify the uploader to update.
+   */
+  private def putList(seriesList: Seq[Series]) = {
+    SeriesPool.synchronized(seriesList.map(series => SeriesPool.put(series.SeriesInstanceUID, series)))
+  }
+
+  /**
+   * Put the series in the pool and persist it's metadata in the xml file.
+   */
+  def persist(series: Series) = {
+    if (get(series.SeriesInstanceUID).isEmpty) {
+      put(series)
+      val text = "\n" + PrettyXML.xmlToText(series.toXml) + "\n"
+      val xmlFile = new File(series.dir.getParentFile, xmlFileName)
+      val t = FileUtil.appendFile(xmlFile, text.getBytes)
+      if (t.isDefined) {
+        logger.warn("Unexpected error appending file " + xmlFile.getAbsolutePath + " : " + fmtEx(t.get))
+      }
+    }
   }
 
   /**
@@ -233,29 +297,71 @@ object Series extends Logging {
   }
 
   /**
-   * Given a directory that contains the DICOM files of a series, reinstate the Series (the XML metadata, not the DICOM).
+   * Given a directory that contains the DICOM files of a series, reinstate the Series object.
    */
-  private def reinstate(seriesDir: File) = {
+  private def reinstateFromDicom(seriesDir: File): Option[Series] = {
     try {
       if (seriesDir.isDirectory) {
         val al = ClientUtil.readDicomFile(ClientUtil.listFiles(seriesDir).head).right.get
         val series = new Series(al, seriesDir)
-        put(series, false)
+        Some(series)
+      } else
+        None
+    } catch {
+      case t: Throwable =>
+        logger.warn("Unexpected error while reading previously saved series from " + seriesDir.getAbsolutePath + " : " + fmtEx(t))
+        None
+    }
+  }
+
+  private def reinstateFromXml(patientDir: File): Unit = {
+    val xmlFile = new File(patientDir, xmlFileName)
+
+    def makeSeries(node: Node): Option[Series] = {
+      try {
+        Some(new Series(node))
+      } catch {
+        case t: Throwable =>
+          logger.warn("Problem reinstating Series from " + xmlFile.getAbsolutePath + " : " + node + " : " + fmtEx(t))
+          None
+      }
+    }
+
+    try {
+      if (xmlFile.isFile) {
+        val text = "<SeriesList>\n" + FileUtil.readTextFile(xmlFile).right.get + "\n</SeriesList>"
+        val doc = XML.loadString(text)
+        val list = (doc \ "Series").map(node => makeSeries(node)).flatten
+        putList(list)
+        SeriesPool.synchronized {
+          list.map(series => SeriesPool.put(series.SeriesInstanceUID, series))
+        }
+        logger.info("Reinstated " + list.size + " series from " + xmlFile.getAbsolutePath)
       }
     } catch {
-      case t: Throwable => logger.warn("Unexpected error while reading previously saved series from " + seriesDir.getAbsolutePath + " : " + fmtEx(t))
+      case t: Throwable =>
+        logger.warn("Problem reinstating Series from " + xmlFile.getAbsolutePath + " : " + fmtEx(t))
     }
   }
 
   /**
-   * Look at the series that have already been fetched via C-MOVE and add a Series entry for them.
+   * Look at the series whose metadata is in XML or that have already been
+   * fetched via C-MOVE and add a Series entry for them.
    */
   private def reinststatePreviouslyFetchedSeries = {
-    val done = getAllSeries.map(s => s.dir.getAbsolutePath)
-    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => ClientUtil.listFiles(patientDir)).flatten.map(d => d.getAbsolutePath)
-    val todo = dirList.diff(done)
+    // get from XML
+    ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => reinstateFromXml(patientDir))
 
-    todo.map(dirName => reinstate(new File(dirName)))
+    // get DICOM files that may not be in XML
+    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => ClientUtil.listFiles(patientDir)).flatten.map(d => d.getAbsolutePath)
+    val dicomList = dirList.map(dirName => reinstateFromDicom(new File(dirName))).flatten
+
+    // Find series that are stored as DICOM but are not in the xml file.
+    val newDicomList = dicomList.filter(ds => get(ds.SeriesInstanceUID).isEmpty)
+    if (newDicomList.nonEmpty) {
+      logger.info("found " + newDicomList.size + " Series entries that were not saved in the XML list.")
+      newDicomList.map(series => persist(series))
+    }
     Upload.scanSeries
   }
 

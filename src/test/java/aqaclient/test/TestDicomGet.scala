@@ -29,6 +29,10 @@ class TestDicomGet extends FlatSpec with Matchers {
     ClientConfig.validate
     ClientConfig.validated should be(true)
 
-    testDataSeq.map(t => t.get)
+    // Note that a PACS (ConQuest?) device must be running and have the appropriate test data.
+    if (false) // remove this to run the test
+      testDataSeq.map(t => t.get)
+    else
+      println("This test has been disabled.")
   }
 }
