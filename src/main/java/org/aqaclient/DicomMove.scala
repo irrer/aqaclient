@@ -190,7 +190,7 @@ object DicomMove extends Logging {
   }
 
   /**
-   * Perform a C-FIND multiple times and require exactly the same results multiple times before it
+   * Perform a C-FIND multiple times and require the maximum slice count multiple times before it
    * is considered credible.
    */
   private def getCredibleSliceList(SeriesInstanceUID: String, history: Seq[Seq[String]] = Seq()): Seq[String] = {
@@ -202,16 +202,19 @@ object DicomMove extends Logging {
 
     def s2s(sliceSeq: Seq[String]) = sliceSeq.sorted.mkString(" ")
 
-    history.groupBy(ss => s2s(ss)).find(g => g._2.size >= minCredibleSize) match {
-      case Some(g) => {
-        logger.info("getCredibleSliceList: C-FIND was executed " + history.size + " times to get a consistent list of " + g._2.head.size + " slices   " + g._2.size + " times.")
-        g._2.head
-      }
-      case _ => {
-        if (history.nonEmpty) Thread.sleep(cfindWaitInterval_ms)
-        val sliceList = getSliceList(SeriesInstanceUID)
-        getCredibleSliceList(SeriesInstanceUID, history :+ sliceList)
-      }
+    // the maximum number of slices found with multiple attempts
+    val maxSliceCount = if (history.isEmpty) 0 else history.maxBy(h => h.size).size
+
+    // list of attempts that have the max number of slices
+    val hasMaxSliceCount = history.filter(h => h.size == maxSliceCount)
+
+    if (hasMaxSliceCount.size >= minCredibleSize) {
+      logger.info("getCredibleSliceList: C-FIND was executed " + history.size + " times to get a consistent list of " + hasMaxSliceCount.head.size + " slices   " + hasMaxSliceCount.size + " times.")
+      hasMaxSliceCount.head
+    } else {
+      if (history.nonEmpty) Thread.sleep(cfindWaitInterval_ms)
+      val sliceList = getSliceList(SeriesInstanceUID)
+      getCredibleSliceList(SeriesInstanceUID, history :+ sliceList)
     }
   }
 
