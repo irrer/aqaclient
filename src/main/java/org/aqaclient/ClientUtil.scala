@@ -15,6 +15,8 @@ object ClientUtil extends Logging {
 
   def timeHumanFriendly(date: Date) = timeHumanFriendlyFormat.format(date)
 
+  val defaultDateTime = new Date(24 * 60 * 60 * 1000)
+
   /**
    * Get the jar file that contains this class.
    */
@@ -54,7 +56,7 @@ object ClientUtil extends Logging {
    *
    * On failure return None.
    */
-  def dataDateTime(al: AttributeList): Option[Date] = {
+  def dataDateTime(al: AttributeList): Date = {
     val dateTimeTagPairList = Seq(
       (TagFromName.RTPlanDate, TagFromName.RTPlanTime),
       (TagFromName.ContentDate, TagFromName.ContentTime),
@@ -67,7 +69,7 @@ object ClientUtil extends Logging {
     } catch {
       case t: Throwable => throw new RuntimeException("Could not get date+time from DICOM: " + fmtEx(t))
     }
-    date
+    if (date.isDefined) date.get else defaultDateTime
   }
 
   /**

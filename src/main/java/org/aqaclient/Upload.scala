@@ -232,10 +232,9 @@ object Upload extends Logging {
     val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).
       filterNot(series => Results.containsSeries(series)).
       filterNot(series => FailedSeries.contains(series.SeriesInstanceUID)).
-      filter(_.dataDate.isDefined).
-      sortBy(_.dataDate.get).
+      sortBy(_.dataDate).
       filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
-      .filter(_.dataDate.get.getTime > recent)
+      .filter(_.dataDate.getTime > recent)
 
     list.map(series => seriesToUploadSet(series)).flatten.map(uploadSet => upload(uploadSet))
 

@@ -24,7 +24,7 @@ case class Series(
   dir: File,
   SeriesInstanceUID: String,
   PatientID: String,
-  dataDate: Option[Date],
+  dataDate: Date,
   Modality: ModalityEnum.Value,
   FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
   RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
@@ -50,10 +50,8 @@ case class Series(
     Series.optText(node, "RegFrameOfReferenceUID"),
     Series.optText(node, "ReferencedRtplanUID"))
 
-  private def dateToText(date: Option[Date]) = if (date.isDefined) Util.standardFormat(date.get) else Series.unknownXmlValue
-
   def toXml = {
-    <Series Modality={ Modality.toString } PatientID={ PatientID } dataDate={ dateToText(dataDate) }>
+    <Series Modality={ Modality.toString } PatientID={ PatientID } dataDate={ Series.xmlDateFormat.format(dataDate) }>
       <dir>{ dir.getAbsolutePath.drop(ClientConfig.seriesDir.getAbsolutePath.size) }</dir>
       <SeriesInstanceUID>{ SeriesInstanceUID }</SeriesInstanceUID>
       { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID }</FrameOfReferenceUID> }
@@ -68,7 +66,7 @@ case class Series(
 
   def isRecent = {
     val cutoff = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
-    dataDate.isDefined && dataDate.get.getTime > cutoff
+    dataDate.getTime > cutoff
   }
 
   /**
@@ -77,8 +75,7 @@ case class Series(
   def isViable = isRtplan || isRecent
 
   override def toString: String = {
-    val dateText = if (dataDate.isDefined) dataDate.get.toString else "None"
-    "PatientID: " + PatientID + " : " + Modality + "    date: " + dateText + "    dir: " + dir.getAbsolutePath
+    "PatientID: " + PatientID + " : " + Modality + "    date: " + Series.xmlDateFormat.format(dataDate) + "    dir: " + dir.getAbsolutePath
   }
 }
 
@@ -96,6 +93,9 @@ object Series extends Logging {
 
   /** If a value in a series is not known, then use this text in the XML. */
   private val unknownXmlValue = "unknown"
+
+  /** Date format used when storing as XML. */
+  val xmlDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss.SSS")
 
   /**
    * Get the given attribute as a string.  Make a new string to break the link to the AttributeList
@@ -115,7 +115,7 @@ object Series extends Logging {
     /** Used for creating directory name. */
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss")
 
-    val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).flatten.maxBy(_.getTime)
+    val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).maxBy(_.getTime)
 
     val patientDirName = FileUtil.replaceInvalidFileNameCharacters(alList.head.get(TagFromName.PatientID).getSingleStringValueOrNull, '_')
     val patientDir = new File(ClientConfig.seriesDir, patientDirName)
@@ -139,20 +139,21 @@ object Series extends Logging {
   /**
    * Parse the dataDate from Series XML.
    */
-  private def getDataDate(xml: Node): Option[Date] = {
+  private def getDataDate(xml: Node): Date = {
+    lazy val defaultDate = new Date
     try {
-      val node = xml \ "dataDate"
-      if (node.isEmpty) None
+      val node = xml \ "@dataDate"
+      if (node.isEmpty) defaultDate
       else {
         val text = node.head.text
-        if (text.equals(unknownXmlValue)) None
+        if (text.equals(unknownXmlValue)) defaultDate
         else
-          Some(Util.textToDate(text))
+          xmlDateFormat.parse(text)
       }
     } catch {
       case t: Throwable => {
         logger.warn("Unexpected error parsing Series dataDate: " + fmtEx(t))
-        None
+        defaultDate
       }
     }
   }
@@ -325,6 +326,14 @@ object Series extends Logging {
           logger.warn("Problem reinstating Series from " + xmlFile.getAbsolutePath + " : " + node + " : " + fmtEx(t))
           None
       }
+    }
+
+    def updateFile(list: Seq[Series]): Unit = {
+      val patIdList = PatientIDList.getPatientIDList
+      val updated = list.
+        groupBy(s => s.SeriesInstanceUID).
+        map(g => g._2.head).
+        filter(s => patIdList.contains(s.PatientID)).toSeq.sortBy(s => s.dataDate)
     }
 
     try {
