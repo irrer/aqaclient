@@ -50,13 +50,14 @@ case class Series(
     Series.optText(node, "RegFrameOfReferenceUID"),
     Series.optText(node, "ReferencedRtplanUID"))
 
-  def toXml = {
+  def toXml: Elem = {
+
     <Series Modality={ Modality.toString } PatientID={ PatientID } dataDate={ Series.xmlDateFormat.format(dataDate) }>
       <dir>{ dir.getAbsolutePath.drop(ClientConfig.seriesDir.getAbsolutePath.size) }</dir>
       <SeriesInstanceUID>{ SeriesInstanceUID }</SeriesInstanceUID>
-      { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID }</FrameOfReferenceUID> }
-      { if (RegFrameOfReferenceUID.isDefined) <RegFrameOfReferenceUID>{ RegFrameOfReferenceUID }</RegFrameOfReferenceUID> }
-      { if (RegFrameOfReferenceUID.isDefined) <ReferencedRtplanUID>{ ReferencedRtplanUID }</ReferencedRtplanUID> }
+      { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID.get }</FrameOfReferenceUID> }
+      { if (RegFrameOfReferenceUID.isDefined) <RegFrameOfReferenceUID>{ RegFrameOfReferenceUID.get }</RegFrameOfReferenceUID> }
+      { if (RegFrameOfReferenceUID.isDefined) <ReferencedRtplanUID>{ ReferencedRtplanUID.get }</ReferencedRtplanUID> }
     </Series>
   }
 
@@ -87,9 +88,13 @@ case class Series(
 object Series extends Logging {
 
   /**
-   * Name of file in each patient directory that contains a list of Series for that patient as XML.
+   * Name of file in each patient directory that contains a list of Series for that patient as
+   * XML.  The new and old versions are transient and only exist while a new version of the
+   * file is being written.
    */
   private val xmlFileName = "index.xml"
+  private val xmlFileNameNew = "indexNew.xml"
+  private val xmlFileNameOld = "indexOld.xml"
 
   /** If a value in a series is not known, then use this text in the XML. */
   private val unknownXmlValue = "unknown"
@@ -316,7 +321,13 @@ object Series extends Logging {
   }
 
   private def reinstateFromXml(patientDir: File): Unit = {
-    val xmlFile = new File(patientDir, xmlFileName)
+    val xmlFile = {
+      // Try different versions of the file in case there was a problem with updating it.
+      val fileList = Seq(xmlFileName, xmlFileNameNew, xmlFileNameOld).map(n => new File(patientDir, n))
+      val best = fileList.find(f => f.canRead)
+      // handle case where this is the first time that this patient is being used and there is no xml file.
+      if (best.isDefined) best.get else fileList.head
+    }
 
     def makeSeries(node: Node): Option[Series] = {
       try {
@@ -338,18 +349,60 @@ object Series extends Logging {
 
     try {
       if (xmlFile.isFile) {
-        val text = "<SeriesList>\n" + FileUtil.readTextFile(xmlFile).right.get + "\n</SeriesList>"
-        val doc = XML.loadString(text)
+        val mainText = {
+          val endTag = "</Series>"
+          val t = FileUtil.readTextFile(xmlFile).right.get
+          val last = t.lastIndexOf(endTag)
+          if (last < 1)
+            ""
+          else {
+            t.take(last + endTag.size)
+          }
+        }
+        val xmlText = "<SeriesList>\n" + mainText + "\n</SeriesList>"
+        xmlText.lastIndexOf("</Series>")
+        val doc = XML.loadString(xmlText)
         val list = (doc \ "Series").map(node => makeSeries(node)).flatten
         putList(list)
-        SeriesPool.synchronized {
-          list.map(series => SeriesPool.put(series.SeriesInstanceUID, series))
-        }
         logger.info("Reinstated " + list.size + " series from " + xmlFile.getAbsolutePath)
+        updatePatientXml(list) // save them back, sorted by date with duplicates removed
       }
     } catch {
       case t: Throwable =>
         logger.warn("Problem reinstating Series from " + xmlFile.getAbsolutePath + " : " + fmtEx(t))
+    }
+  }
+
+  /**
+   * Update the XML file with the latest contents of the patient.  The list should
+   * contain entries for only one patient.  When writing, do it using renaming so as to
+   * minimize the chance of losing the contents in the event that the service is
+   * unexpectedly shut down.
+   */
+  private def updatePatientXml(list: Seq[Series]): Unit = {
+    if (list.nonEmpty) {
+      if (list.groupBy(s => s.PatientID).size > 1) throw new RuntimeException("Error: series from more than one patient can not be in XML file.")
+      val patIdList = PatientIDList.getPatientIDList.toSet
+      val updated = list.
+        groupBy(s => s.SeriesInstanceUID).map(g => g._2.head). // remove multiple Series that have the same series UID
+        filter(s => patIdList.contains(s.PatientID)).toSeq.sortBy(s => s.dataDate) // sort to make them findable by a human looking at the xml
+
+      val text = updated.map(s => PrettyXML.xmlToText(s.toXml)).mkString("\n", "\n", "\n")
+
+      val file = new File(updated.head.dir.getParentFile, xmlFileName)
+      val newFile = new File(updated.head.dir.getParentFile, xmlFileNameNew)
+      val oldFile = new File(updated.head.dir.getParentFile, xmlFileNameOld)
+
+      if (!(file.canRead && FileUtil.readTextFile(file).right.get.equals(text))) { // Only over-write the file if the contents would be different.
+        FileUtil.writeBinaryFile(newFile, text.getBytes)
+        if (file.exists) {
+          oldFile.delete
+          file.renameTo(oldFile)
+        }
+
+        newFile.renameTo(file)
+        oldFile.delete
+      }
     }
   }
 
