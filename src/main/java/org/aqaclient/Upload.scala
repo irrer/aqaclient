@@ -226,7 +226,7 @@ object Upload extends Logging {
    */
   private def update: Unit = updateSync.synchronized {
     // ignore image series that are too old
-    val recent = System.currentTimeMillis - (ClientConfig.MaximumDataAge * 24 * 60 * 60 * 1000).round.toLong
+    val recent = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
 
     // list of all available image series, not have failed before, sorted by acquisition date, and not already sent
     val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE)).

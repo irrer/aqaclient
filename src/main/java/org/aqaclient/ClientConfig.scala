@@ -42,8 +42,16 @@ object ClientConfig extends ClientConfigUtil(
 
   val PollInterval_sec = getMainText("PollInterval_sec").toInt
 
-  val MaximumDataAge = getMainText("MaximumDataAge", "100000.0").toDouble
-  val MaximumDataAge_ms = (ClientConfig.MaximumDataAge * 24 * 60 * 60 * 1000).round.toLong
+  private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round.toLong
+
+  val MaximumDataAge_day = getMainText("MaximumDataAge_day", "100000.0").toDouble
+  val MaximumDataAge_ms = dayToMs(MaximumDataAge_day)
+
+  val MaximumDICOMDataAge_day = getMainText("MaximumDICOMDataAge_day", "7.0").toDouble
+  val MaximumDICOMDataAge_ms = dayToMs(MaximumDICOMDataAge_day)
+
+  val MaximumDICOMFileAge_day = getMainText("MaximumDICOMFileAge_day", "3.0").toDouble
+  val MaximumDICOMFileAge_ms = dayToMs(MaximumDICOMFileAge_day)
 
   val AQAURL = getMainText("AQAURL")
   val AQAUser = getMainText("AQAUser")

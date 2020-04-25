@@ -407,6 +407,22 @@ object Series extends Logging {
   }
 
   /**
+   * Determine the DICOM files for a series should be kept.
+   */
+  private def cullOldDicom(s: Series): Option[Series] = {
+
+    def keeper = {
+      s.isRtplan ||
+        s.dataDate.getTime > (System.currentTimeMillis - ClientConfig.MaximumDICOMDataAge_ms) ||
+        s.dir.lastModified > (System.currentTimeMillis - ClientConfig.MaximumDICOMFileAge_ms)
+    }
+
+    if (!keeper) Trace.trace("cull series: " + s) // TODO rm
+
+    if (keeper) Some(s) else None
+  }
+
+  /**
    * Look at the series whose metadata is in XML or that have already been
    * fetched via C-MOVE and add a Series entry for them.
    */
@@ -417,6 +433,9 @@ object Series extends Logging {
     // get DICOM files that may not be in XML
     val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => ClientUtil.listFiles(patientDir)).flatten.map(d => d.getAbsolutePath)
     val dicomList = dirList.map(dirName => reinstateFromDicom(new File(dirName))).flatten
+
+    val culledDicom = dicomList.map(s => cullOldDicom(s)).flatten
+    ??? // TODO incorporate DICOM culling
 
     // Find series that are stored as DICOM but are not in the xml file.
     val newDicomList = dicomList.filter(ds => get(ds.SeriesInstanceUID).isEmpty)
