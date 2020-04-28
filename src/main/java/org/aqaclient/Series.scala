@@ -30,16 +30,6 @@ case class Series(
   RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
   ReferencedRtplanUID: Option[String]) extends Logging {
 
-  def this(al: AttributeList, dir: File) = this(
-    dir,
-    Series.getString(al, TagFromName.SeriesInstanceUID),
-    Series.getString(al, TagFromName.PatientID),
-    ClientUtil.dataDateTime(al),
-    ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
-    Series.getFrameOfReferenceUID(al),
-    Series.getRegFrameOfReferenceUID(al),
-    Series.getReferencedRtplanUID(al))
-
   def this(node: Node) = this(
     new File(ClientConfig.seriesDir, (node \ "dir").head.text.toString),
     (node \ "SeriesInstanceUID").head.text.toString,
@@ -57,7 +47,7 @@ case class Series(
       <SeriesInstanceUID>{ SeriesInstanceUID }</SeriesInstanceUID>
       { if (FrameOfReferenceUID.isDefined) <FrameOfReferenceUID>{ FrameOfReferenceUID.get }</FrameOfReferenceUID> }
       { if (RegFrameOfReferenceUID.isDefined) <RegFrameOfReferenceUID>{ RegFrameOfReferenceUID.get }</RegFrameOfReferenceUID> }
-      { if (RegFrameOfReferenceUID.isDefined) <ReferencedRtplanUID>{ ReferencedRtplanUID.get }</ReferencedRtplanUID> }
+      { if (ReferencedRtplanUID.isDefined) <ReferencedRtplanUID>{ ReferencedRtplanUID.get }</ReferencedRtplanUID> }
     </Series>
   }
 
@@ -74,6 +64,12 @@ case class Series(
    *  True if we are interested in it.  The criteria is that either it is an RTPLAN or it was created recently.
    */
   def isViable = isRtplan || isRecent
+
+  def ensureFilesExist {
+    if (!((dir.isDirectory) && (ClientUtil.listFiles(dir).nonEmpty))) {
+      DicomMove.get(SeriesInstanceUID, toString)
+    }
+  }
 
   override def toString: String = {
     "PatientID: " + PatientID + " : " + Modality + "    date: " + Series.xmlDateFormat.format(dataDate) + "    dir: " + dir.getAbsolutePath
@@ -134,6 +130,27 @@ object Series extends Logging {
     seriesDir
   }
 
+  /**
+   * Make a series from the DICOM files in the given directory.
+   */
+  def makeSeriesFromDicomFileDir(seriesDir: File) = {
+    val alList = ClientUtil.listFiles(seriesDir).map(f => ClientUtil.readDicomFile(f)).filter(e => e.isRight).map(e => e.right.get)
+
+    val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).maxBy(_.getTime)
+    val al = alList.head
+    val series = new Series(
+      dirOf(alList),
+      Series.getString(al, TagFromName.SeriesInstanceUID),
+      Series.getString(al, TagFromName.PatientID),
+      ClientUtil.dataDateTime(al),
+      ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
+      Series.getFrameOfReferenceUID(al),
+      Series.getRegFrameOfReferenceUID(al),
+      Series.getReferencedRtplanUID(al))
+
+    series
+  }
+
   private def optText(xml: Node, tag: String): Option[String] = {
     (xml \ tag).headOption match {
       case Some(node) => Some(node.text)
@@ -168,7 +185,7 @@ object Series extends Logging {
     if (a == null)
       None
     else
-      Some(a.getSingleStringValueOrEmptyString)
+      Some(new String(a.getSingleStringValueOrEmptyString))
   }
 
   private def getRegFrameOfReferenceUID(al: AttributeList): Option[String] = {
@@ -176,11 +193,12 @@ object Series extends Logging {
     val FrameOfReferenceUID = getFrameOfReferenceUID(al)
 
     if (FrameOfReferenceUID.isDefined) {
-      DicomUtil.findAllSingle(al, TagFromName.FrameOfReferenceUID).
+      val frmOfRef = DicomUtil.findAllSingle(al, TagFromName.FrameOfReferenceUID).
         map(a => a.getSingleStringValueOrEmptyString).
         distinct.
         filterNot(frmRef => frmRef.equals(FrameOfReferenceUID.get)).
         headOption
+      if (frmOfRef.isDefined) Some(new String(frmOfRef.get)) else None
     } else
       None
   }
@@ -192,7 +210,7 @@ object Series extends Logging {
     if (al.get(TagFromName.ReferencedRTPlanSequence) != null) {
       val rtplanSeq = DicomUtil.seqToAttr(al, TagFromName.ReferencedRTPlanSequence)
       val rtplanUid = rtplanSeq.head.get(TagFromName.ReferencedSOPInstanceUID).getSingleStringValueOrEmptyString
-      Some(rtplanUid)
+      Some(new String(rtplanUid))
     } else
       None
   }
@@ -257,9 +275,9 @@ object Series extends Logging {
       val text = "\n" + PrettyXML.xmlToText(series.toXml) + "\n"
       val xmlFile = new File(series.dir.getParentFile, xmlFileName)
       val t = FileUtil.appendFile(xmlFile, text.getBytes)
-      if (t.isDefined) {
-        logger.warn("Unexpected error appending file " + xmlFile.getAbsolutePath + " : " + fmtEx(t.get))
-      }
+      if (t.isDefined) logger.warn("Unexpected error appending file " + xmlFile.getAbsolutePath + " : " + fmtEx(t.get))
+
+      logger.info("Persisted series to XML: " + series)
     }
   }
 
@@ -308,9 +326,16 @@ object Series extends Logging {
   private def reinstateFromDicom(seriesDir: File): Option[Series] = {
     try {
       if (seriesDir.isDirectory) {
-        val al = ClientUtil.readDicomFile(ClientUtil.listFiles(seriesDir).head).right.get
-        val series = new Series(al, seriesDir)
-        Some(series)
+        val series = makeSeriesFromDicomFileDir(seriesDir)
+        // warn if seriesDir does not match series.dir
+        logger.info("Loaded series from DICOM: " + series)
+        if (!seriesDir.getAbsolutePath.equals(series.dir.getAbsolutePath)) {
+          logger.warn(
+            " Error in series.  Derived series.dir does not match source series dir.  The DICOM should probably be deleted.\n" +
+              "    source Dir : " + seriesDir.getAbsolutePath.formatted("%-160s") + " (dir where DICOM files were found)\n" +
+              "    series.dir : " + series.dir.getAbsolutePath.formatted("%-160s") + " (derived/expected/correct directory)")
+          None
+        } else Some(series)
       } else
         None
     } catch {
@@ -407,19 +432,33 @@ object Series extends Logging {
   }
 
   /**
-   * Determine the DICOM files for a series should be kept.
+   * Determine which DICOM directories should be kept based on age and remove any old ones.  An
+   * index of them is still maintained in XML, but the DICOM files are removed to save disk space.
    */
-  private def cullOldDicom(s: Series): Option[Series] = {
+  private def removeOldDicom: Unit = {
 
-    def keeper = {
+    def keep(s: Series) = {
       s.isRtplan ||
         s.dataDate.getTime > (System.currentTimeMillis - ClientConfig.MaximumDICOMDataAge_ms) ||
         s.dir.lastModified > (System.currentTimeMillis - ClientConfig.MaximumDICOMFileAge_ms)
     }
 
-    if (!keeper) Trace.trace("cull series: " + s) // TODO rm
+    def removeDicom(s: Series) = {
+      try {
+        if (s.dir.isDirectory) {
+          logger.info("removing DICOM files for old series: " + s)
+          Utility.deleteFileTree(s.dir)
+        }
+      } catch {
+        case t: Throwable => {
+          logger.error("Problem removing old DICOM series " + s.dir.getAbsolutePath + " : " + fmtEx(t))
+        }
+      }
+    }
 
-    if (keeper) Some(s) else None
+    logger.info("Removing (culling) old copies of DICOM files to save disk space.")
+
+    getAllSeries.filterNot(s => keep(s)).map(s => removeDicom(s))
   }
 
   /**
@@ -431,18 +470,25 @@ object Series extends Logging {
     ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => reinstateFromXml(patientDir))
 
     // get DICOM files that may not be in XML
-    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => ClientUtil.listFiles(patientDir)).flatten.map(d => d.getAbsolutePath)
-    val dicomList = dirList.map(dirName => reinstateFromDicom(new File(dirName))).flatten
+    // list of all DICOM directories
+    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).map(patientDir => ClientUtil.listFiles(patientDir)).flatten
 
-    val culledDicom = dicomList.map(s => cullOldDicom(s)).flatten
-    ??? // TODO incorporate DICOM culling
+    // set of all directory paths from series loaded from XML
+    val dirSetFromXml = getAllSeries.map(s => s.dir.getAbsolutePath).toSet
 
-    // Find series that are stored as DICOM but are not in the xml file.
-    val newDicomList = dicomList.filter(ds => get(ds.SeriesInstanceUID).isEmpty)
-    if (newDicomList.nonEmpty) {
-      logger.info("found " + newDicomList.size + " Series entries that were not saved in the XML list.")
-      newDicomList.map(series => persist(series))
-    }
+    // list of DICOM directories that are not listed in XML
+    val dirNotInXml = dirList.filterNot(dir => dirSetFromXml.contains(dir.getAbsolutePath))
+    logger.info("Number of DICOM directories that were not saved in XML: " + dirNotInXml.size)
+
+    // Make Series object from DICOM not in XML
+    val seriesNotInXml = dirNotInXml.map(dir => reinstateFromDicom(dir)).flatten
+
+    seriesNotInXml.map(series => persist(series))
+
+    // clean up old DICOM files
+    removeOldDicom
+
+    // tell the uploader to check for series that needs to be uploaded
     Upload.scanSeries
   }
 
@@ -459,16 +505,8 @@ object Series extends Logging {
    */
   def init = {
     logger.info("initializing Series")
-    Trace.trace("Number of series in pool: " + Series.size)
     removeObsoleteZipFiles
-    Trace.trace("Number of series in pool: " + Series.size)
     reinststatePreviouslyFetchedSeries
-    Trace.trace("Number of series in pool: " + Series.size)
-    if (true) { // TODO rm
-      Trace.trace("begin Series     -----------------------------------------")
-      Trace.trace("\n" + getAllSeries.filter(s => s.Modality.toString.equals("RTIMAGE")).map(s => "SS " + s.dataDate + " " + s.Modality + " " + s.SeriesInstanceUID).mkString("\n"))
-      Trace.trace("end   Series     -----------------------------------------")
-    }
     removeObsoletePatientSeries
     logger.info("Series initialization complete.   Number of series in pool: " + Series.size)
   }

@@ -65,15 +65,6 @@ object DicomProcessing extends Logging {
    */
   private val updateSync = 0
 
-  /**
-   * Remove any series that have been processed.
-   */
-  //  def cullSeries = {
-  //    val toRemove = Series.getAllSeries.filter(ser => Results.containsSeries(ser.PatientID, ser.SeriesInstanceUID))
-  //    logger.info("Found " + toRemove.size + " locally cached series to remove.")
-  //    toRemove.map(ser => Series.remove(ser))
-  //  }
-
   private def update = {
     logger.info("Getting updated list of DICOM files for patients IDs:    " +
       PatientIDList.getPatientIDList.mkString("    "))

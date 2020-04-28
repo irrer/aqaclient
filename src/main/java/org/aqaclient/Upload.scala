@@ -48,9 +48,12 @@ object Upload extends Logging {
      * Get a list of all files in this upload set.
      */
     def getAllDicomFiles = {
-      def filesOf(series: Option[Series]) = if (series.isDefined) ClientUtil.listFiles(series.get.dir).toSeq else Seq[File]()
-      val imageFiles = ClientUtil.listFiles(imageSeries.dir).toSeq
-      imageFiles ++ filesOf(reg) ++ filesOf(plan)
+      def filesOf(series: Option[Series]) =
+        if (series.isDefined) {
+          series.get.ensureFilesExist
+          ClientUtil.listFiles(series.get.dir).toSeq
+        } else Seq[File]()
+      filesOf(Some(imageSeries)) ++ filesOf(reg) ++ filesOf(plan)
     }
   }
 
@@ -189,6 +192,7 @@ object Upload extends Logging {
     if (procByResult.isDefined)
       procByResult.get
     else {
+      rtimage.ensureFilesExist
       if (rtimage.dir.list.size > 8) Procedure.Phase2 else Procedure.BBbyEPID
     }
   }

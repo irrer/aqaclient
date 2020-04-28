@@ -98,7 +98,7 @@ object DicomMove extends Logging {
       Utility.deleteFileTree(seriesDir)
       seriesDir.getParentFile.mkdirs
       activeDir.renameTo(seriesDir)
-      val series = new Series(alList.head, seriesDir)
+      val series = Series.makeSeriesFromDicomFileDir(seriesDir)
       Some(series)
     } catch {
       case t: Throwable => {
