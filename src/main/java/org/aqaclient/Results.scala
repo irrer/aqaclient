@@ -65,6 +65,7 @@ object Results extends Logging {
   @tailrec
   private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
+    logger.info("Getting list of series for PatientID " + patientId)
     HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters) match {
       case Left(exception) => {
         logger.warn("Unable to fetch result list from server via HTTPS for patient " + patientId + " .  Will retry in " + retryInterval_sec + " seconds.  Exception: " + fmtEx(exception))
