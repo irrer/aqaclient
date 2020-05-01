@@ -24,7 +24,7 @@ object ClientConfig extends ClientConfigUtil(
   /** Number of minutes into a 24 hour day at which time service should be restarted. */
   val RestartTime = getHourMinuteTime("RestartTime", "3:45")
 
-  val GracePeriod_sec = getMainText("GracePeriod_sec").toDouble
+  val GracePeriod_sec = logMainText("GracePeriod_sec").toDouble
 
   val DataDir = getDataDir
 
@@ -40,23 +40,23 @@ object ClientConfig extends ClientConfigUtil(
 
   val DICOMSource = getPacs("DICOMSource")
 
-  val PollInterval_sec = getMainText("PollInterval_sec").toInt
+  val PollInterval_sec = logMainText("PollInterval_sec").toInt
 
   private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round.toLong
 
-  val MaximumDataAge_day = getMainText("MaximumDataAge_day", "100000.0").toDouble
+  val MaximumDataAge_day = logMainText("MaximumDataAge_day", "100000.0").toDouble
   val MaximumDataAge_ms = dayToMs(MaximumDataAge_day)
 
-  val MaximumDICOMDataAge_day = getMainText("MaximumDICOMDataAge_day", "7.0").toDouble
-  val MaximumDICOMDataAge_ms = dayToMs(MaximumDICOMDataAge_day)
+  val MaximumDICOMCacheDataAge_day = logMainText("MaximumDICOMCacheDataAge_day", "7.0").toDouble
+  val MaximumDICOMCacheDataAge_ms = dayToMs(MaximumDICOMCacheDataAge_day)
 
-  val MaximumDICOMFileAge_day = getMainText("MaximumDICOMFileAge_day", "3.0").toDouble
-  val MaximumDICOMFileAge_ms = dayToMs(MaximumDICOMFileAge_day)
+  val MaximumDICOMCacheFileAge_day = logMainText("MaximumDICOMCacheFileAge_day", "3.0").toDouble
+  val MaximumDICOMCacheFileAge_ms = dayToMs(MaximumDICOMCacheFileAge_day)
 
-  val AQAURL = getMainText("AQAURL")
-  val AQAUser = getMainText("AQAUser")
-  val AQAPassword = getMainText("AQAPassword")
-  val ServerSocketTimeout_sec = getMainText("ServerSocketTimeout_sec", "300").toInt
+  val AQAURL = logMainText("AQAURL")
+  val AQAUser = logMainText("AQAUser")
+  val AQAPassword = logMainText("AQAPassword")
+  val ServerSocketTimeout_sec = logMainText("ServerSocketTimeout_sec", "300").toInt
   val httpsClientParameters = Seq(("socketTimeout", (ServerSocketTimeout_sec * 1000).toString)).toMap
 
   val HTTPSPort = logMainText("HTTPSPort", "443").toInt

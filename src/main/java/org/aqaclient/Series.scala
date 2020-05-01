@@ -72,7 +72,7 @@ case class Series(
   }
 
   override def toString: String = {
-    "PatientID: " + PatientID + " : " + Modality + "    date: " + Series.xmlDateFormat.format(dataDate) + "    dir: " + dir.getAbsolutePath
+    "PatientID: " + PatientID + " : " + Modality + "/" + FileUtil.listFiles(dir).size + "    date: " + Series.xmlDateFormat.format(dataDate) + "    dir: " + dir.getAbsolutePath
   }
 }
 
@@ -439,8 +439,8 @@ object Series extends Logging {
 
     def keep(s: Series) = {
       s.isRtplan ||
-        s.dataDate.getTime > (System.currentTimeMillis - ClientConfig.MaximumDICOMDataAge_ms) ||
-        s.dir.lastModified > (System.currentTimeMillis - ClientConfig.MaximumDICOMFileAge_ms)
+        s.dataDate.getTime > (System.currentTimeMillis - ClientConfig.MaximumDICOMCacheDataAge_ms) ||
+        s.dir.lastModified > (System.currentTimeMillis - ClientConfig.MaximumDICOMCacheFileAge_ms)
     }
 
     def removeDicom(s: Series) = {

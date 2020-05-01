@@ -105,17 +105,17 @@
     uploaded.  If this values is not specified then all data will be uploaded, regardless of how old it is.  -->
     <MaximumDataAge_day>10000.0</MaximumDataAge_day>
     
-    <!-- Maximum data age to keep DICOM files stored locally.  The term 'data age' refers to the time
+    <!-- Maximum data age to keep DICOM files stored locally in a file cache.  The term 'data age' refers to the time
     since the DICOM was captured.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days. -->
-    <MaximumDICOMDataAge_day>7.0</MaximumDICOMDataAge_day>
+    <MaximumDICOMCacheDataAge_day>7.0</MaximumDICOMCacheDataAge_day>
     
-    <!-- Maximum file age to keep DICOM files stored locally.  The term 'file age' refers to the time
+    <!-- Maximum file age to keep DICOM files stored locally in a file cache.  The term 'file age' refers to the time
     stamp of the DICOM file, regardless of when the DICOM was first created.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days.  -->
-    <MaximumDICOMFileAge_day>3.0</MaximumDICOMFileAge_day>
+    <MaximumDICOMCacheFileAge_day>3.0</MaximumDICOMCacheFileAge_day>
     
     <!-- Time of day as hours and minutes (HH:MM) that program will restart
     itself. This is done to avoid errors that build up over time.  The time is
