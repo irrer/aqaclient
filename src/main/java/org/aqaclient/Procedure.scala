@@ -15,7 +15,7 @@ class Procedure(node: Node) extends Logging {
    * full URL to run procedure.  The AutoUpload parameter indicates this http client is not a human and that
    *  the call should not return until processing is finished.
    */
-  val URL = ClientConfig.AQAURL + "/" + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true&Await=true"
+  val URL = ClientConfig.AQAURL + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true&Await=true"
 
   final def toText = Name + " " + Version
 
