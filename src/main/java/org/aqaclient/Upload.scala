@@ -139,6 +139,7 @@ object Upload extends Logging {
     if (ct.isModality(ModalityEnum.CT)) {
       val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get)
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
+      Trace.trace("localPlan: " + localPlan + "    remotePlan: " + remotePlan)
 
       (localPlan, remotePlan) match {
         case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(rtplan))) // upload CT and RTPLAN
@@ -156,10 +157,12 @@ object Upload extends Logging {
   private def connectWithPlanViaReg(ct: Series): Option[UploadSet] = {
     if (ct.isModality(ModalityEnum.CT)) {
       val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get)
+      Trace.trace("regOpt: " + regOpt)
       if (regOpt.isDefined) {
         val reg = regOpt.get
         val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
         val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
+        Trace.trace("localPlan: " + localPlan + "    remotePlan: " + remotePlan)
 
         (localPlan, remotePlan) match {
           case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
@@ -193,7 +196,7 @@ object Upload extends Logging {
       procByResult.get
     else {
       rtimage.ensureFilesExist
-      if (rtimage.dir.list.size > 8) Procedure.Phase2 else Procedure.BBbyEPID
+      if (FileUtil.listFiles(rtimage.dir).size > 8) Procedure.Phase2 else Procedure.BBbyEPID
     }
   }
 
@@ -214,7 +217,7 @@ object Upload extends Logging {
    * plan.  If that fails, try RTIMAGE.
    */
   private def seriesToUploadSet(series: Series): Option[UploadSet] = {
-    connectWithPlanbyFrameOfRef(series) match {
+    val uploadSet = connectWithPlanbyFrameOfRef(series) match {
       case Some(uploadSet) => Some(uploadSet)
       case _ => {
         connectWithPlanViaReg(series) match {
@@ -223,6 +226,8 @@ object Upload extends Logging {
         }
       }
     }
+    Trace.trace("seriesToUploadSet series: " + series + "    uploadSet: " + uploadSet)
+    uploadSet
   }
 
   /**
@@ -239,6 +244,8 @@ object Upload extends Logging {
       sortBy(_.dataDate).
       filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
       .filter(_.dataDate.getTime > recent)
+
+    Trace.trace("List of CT series under consideration for upload:\n    " + list.mkString("\n    "))
 
     list.map(series => seriesToUploadSet(series)).flatten.map(uploadSet => upload(uploadSet))
 
