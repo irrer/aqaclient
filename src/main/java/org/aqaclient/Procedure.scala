@@ -21,7 +21,7 @@ class Procedure(node: Node) extends Logging {
 
   final val isBBbyCBCT = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("cbct")
   final val isBBbyEPID = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("epid")
-  final val isPhase2 = Name.toLowerCase.contains("phase2")
+  final val isPhase2 = Name.toLowerCase.matches(".*phase *2.*")
   final val isLOC = (Name.toLowerCase.contains("loc") || Name.toLowerCase.contains("leaf offset")) && (!Name.toLowerCase.contains("base"))
   final val isLOCBaseline = Name.toLowerCase.contains("loc") && Name.toLowerCase.contains("base")
 
@@ -71,9 +71,9 @@ object Procedure extends Logging {
 
   def getProcedure(ref: String) = procedureList.find(p => p.toText.equalsIgnoreCase(ref))
 
-  lazy val BBbyCBCT = procedureList.filter(_.isBBbyCBCT).head
-  lazy val BBbyEPID = procedureList.filter(_.isBBbyEPID).head
-  lazy val Phase2 = procedureList.filter(_.isPhase2).head
-  lazy val LOC = procedureList.filter(_.isLOC).head
-  lazy val LOCBaseline = procedureList.filter(_.isLOCBaseline).head
+  lazy val BBbyCBCT = procedureList.filter(_.isBBbyCBCT).headOption
+  lazy val BBbyEPID = procedureList.filter(_.isBBbyEPID).headOption
+  lazy val Phase2 = procedureList.filter(_.isPhase2).headOption
+  lazy val LOC = procedureList.filter(_.isLOC).headOption
+  lazy val LOCBaseline = procedureList.filter(_.isLOCBaseline).headOption
 }

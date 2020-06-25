@@ -412,21 +412,23 @@ object Series extends Logging {
         groupBy(s => s.SeriesInstanceUID).map(g => g._2.head). // remove multiple Series that have the same series UID
         filter(s => patIdList.contains(s.PatientID)).toSeq.sortBy(s => s.dataDate) // sort to make them findable by a human looking at the xml
 
-      val text = updated.map(s => PrettyXML.xmlToText(s.toXml)).mkString("\n", "\n", "\n")
+      if (updated.nonEmpty) {
+        val text = updated.map(s => PrettyXML.xmlToText(s.toXml)).mkString("\n", "\n", "\n")
 
-      val file = new File(updated.head.dir.getParentFile, xmlFileName)
-      val newFile = new File(updated.head.dir.getParentFile, xmlFileNameNew)
-      val oldFile = new File(updated.head.dir.getParentFile, xmlFileNameOld)
+        val file = new File(updated.head.dir.getParentFile, xmlFileName)
+        val newFile = new File(updated.head.dir.getParentFile, xmlFileNameNew)
+        val oldFile = new File(updated.head.dir.getParentFile, xmlFileNameOld)
 
-      if (!(file.canRead && FileUtil.readTextFile(file).right.get.equals(text))) { // Only over-write the file if the contents would be different.
-        FileUtil.writeBinaryFile(newFile, text.getBytes)
-        if (file.exists) {
+        if (!(file.canRead && FileUtil.readTextFile(file).right.get.equals(text))) { // Only over-write the file if the contents would be different.
+          FileUtil.writeBinaryFile(newFile, text.getBytes)
+          if (file.exists) {
+            oldFile.delete
+            file.renameTo(oldFile)
+          }
+
+          newFile.renameTo(file)
           oldFile.delete
-          file.renameTo(oldFile)
         }
-
-        newFile.renameTo(file)
-        oldFile.delete
       }
     }
   }

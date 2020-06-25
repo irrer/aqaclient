@@ -142,8 +142,8 @@ object Upload extends Logging {
       Trace.trace("localPlan: " + localPlan + "    remotePlan: " + remotePlan)
 
       (localPlan, remotePlan) match {
-        case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(rtplan))) // upload CT and RTPLAN
-        case (_, true) => Some(new UploadSet(Procedure.BBbyCBCT, ct)) // upload just the CT.  The RTPLAN has already been uploaded
+        case (Some(rtplan), _) if Procedure.BBbyCBCT.isDefined => Some(new UploadSet(Procedure.BBbyCBCT.get, ct, Some(rtplan))) // upload CT and RTPLAN
+        case (_, true) if Procedure.BBbyCBCT.isDefined => Some(new UploadSet(Procedure.BBbyCBCT.get, ct)) // upload just the CT.  The RTPLAN has already been uploaded
         case _ => None // no plan available that has the same frame of reference as this CT
       }
     } else
@@ -165,8 +165,8 @@ object Upload extends Logging {
         Trace.trace("localPlan: " + localPlan + "    remotePlan: " + remotePlan)
 
         (localPlan, remotePlan) match {
-          case (Some(rtplan), _) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
-          case (_, true) => Some(new UploadSet(Procedure.BBbyCBCT, ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
+          case (Some(rtplan), _) if Procedure.BBbyCBCT.isDefined => Some(new UploadSet(Procedure.BBbyCBCT.get, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
+          case (_, true) if Procedure.BBbyCBCT.isDefined => Some(new UploadSet(Procedure.BBbyCBCT.get, ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
           case _ => None
         }
       } else
@@ -179,13 +179,13 @@ object Upload extends Logging {
    * Get the procedure that this series should be processed with.  First try by looking at the plan it references to see what that
    * was processed with.  If that fails, then just look at the number of slices in the series and make an assumption.
    */
-  private def getRtimageProcedure(rtimage: Series): Procedure = {
+  private def getRtimageProcedure(rtimage: Series): Option[Procedure] = {
     val procByResult: Option[Procedure] = {
       if (rtimage.ReferencedRtplanUID.isDefined) {
         val proc = Results.getProcedureOfSeries(rtimage.PatientID, rtimage.ReferencedRtplanUID.get)
         // if DailyQACT, then it is DailyQARTIMAGE
         if (proc.isDefined && proc.get.isBBbyEPID)
-          Some(Procedure.BBbyEPID)
+          Procedure.BBbyEPID
         else
           proc
       } else
@@ -193,7 +193,7 @@ object Upload extends Logging {
     }
 
     if (procByResult.isDefined)
-      procByResult.get
+      procByResult
     else {
       rtimage.ensureFilesExist
       if (FileUtil.listFiles(rtimage.dir).size > 8) Procedure.Phase2 else Procedure.BBbyEPID
@@ -206,7 +206,7 @@ object Upload extends Logging {
   private def uploadableRtimage(rtimage: Series): Option[UploadSet] = {
     if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
       val procedure = getRtimageProcedure(rtimage)
-      Some(new UploadSet(procedure, rtimage))
+      if (procedure.isDefined) Some(new UploadSet(procedure.get, rtimage)) else None
     } else
       None
   }
