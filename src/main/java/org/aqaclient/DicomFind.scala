@@ -43,7 +43,7 @@ object DicomFind extends Logging {
 
     val query = (new Query(tagSeq, tagValueSeq)).query
 
-    DicomFind.synchronized({
+    ClientConfig.DICOMClient.synchronized({
       val resultList = DicomCFind.cfind(
         callingAETitle = ClientConfig.DICOMClient.aeTitle,
         calledPacs = ClientConfig.DICOMSource,
@@ -68,7 +68,7 @@ object DicomFind extends Logging {
 
     val query = (new Query(tagSeq, tagValueSeq)).query
 
-    DicomFind.synchronized({
+    ClientConfig.DICOMClient.synchronized({
       val resultList = DicomCFind.cfind(
         callingAETitle = ClientConfig.DICOMClient.aeTitle,
         calledPacs = ClientConfig.DICOMSource,

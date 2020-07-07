@@ -185,7 +185,8 @@ object DicomMove extends Logging {
     addAttr(TagFromName.SeriesInstanceUID, SeriesInstanceUID)
 
     ClientUtil.listFiles(activeDir).map(f => f.delete) // delete all files in active directory
-    dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
+    ClientConfig.DICOMClient.synchronized(
+      dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient))
     getSopList
   }
 
