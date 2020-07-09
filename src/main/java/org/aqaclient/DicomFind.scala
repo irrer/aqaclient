@@ -32,7 +32,7 @@ object DicomFind extends Logging {
   }
 
   /**
-   * Build the C-FIND query and execute it.
+   * Perform a C-FIND query that gets a list of series of the given modality for the given patient.
    */
   def find(modality: String, patientID: String): Seq[AttributeList] = {
 
