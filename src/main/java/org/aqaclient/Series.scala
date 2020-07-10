@@ -298,6 +298,31 @@ object Series extends Logging {
   }
 
   /**
+   * Update a series, including the internal pool, the XML index file, and the DICOM directory.
+   */
+  def update(SeriesInstanceUID: String): Option[Series] = {
+    get(SeriesInstanceUID) match {
+      case Some(oldSeries) => {
+        remove(oldSeries)
+
+        DicomMove.get(SeriesInstanceUID, oldSeries.PatientID + " : " + oldSeries.Modality + " : " + oldSeries.dataDate) match {
+          case Some(newSeries) => {
+            Some(newSeries)
+          }
+          case _ => {
+            logger.warn("Could not C-MOVE DICOM files of series with SeriesInstanceUID " + SeriesInstanceUID)
+            None
+          }
+        }
+      }
+      case _ => {
+        logger.warn("Could not find old series with SeriesInstanceUID " + SeriesInstanceUID)
+        None
+      }
+    }
+  }
+
+  /**
    * Remove zip files that may remain from the previous instantiation of this server.
    */
   def removeObsoleteZipFiles = {

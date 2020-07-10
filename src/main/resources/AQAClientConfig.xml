@@ -127,5 +127,14 @@
     made to get the list of processed series will include those just uploaded.  This delay also functions to avoid
     overloading the AQA server.   This value gets resolved to the nearest millisecond. -->
     <GracePeriod_sec>0.01</GracePeriod_sec>
+    
+    <!-- Amount of time as a floating point number in seconds to wait between tries to confirm that more DICOM slices
+    have not been received by the PACS. -->
+    <!-- <ConfirmDicomCompleteInterval_sec>10.0</ConfirmDicomCompleteInterval_sec> -->
+    <ConfirmDicomCompleteInterval_sec>2.0</ConfirmDicomCompleteInterval_sec>
+    
+    <!-- Amount of time as a floating point number in seconds to wait before assuming that all DICOM slices
+    have been received by the PACS. -->
+    <ConfirmDicomCompleteTimeout_sec>300.0</ConfirmDicomCompleteTimeout_sec>
 
 </AQAClientConfig>

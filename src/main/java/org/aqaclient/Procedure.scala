@@ -7,8 +7,9 @@ import scala.xml.XML
 import scala.xml.Elem
 import scala.xml.Node
 import org.restlet.data.ChallengeScheme
+import edu.umro.ScalaUtil.PrettyXML
 
-class Procedure(node: Node) extends Logging {
+class Procedure(val node: Node) extends Logging {
   val Version = (node \ "@Version").head.text
   val Name = (node \ "@Name").head.text
   /**
@@ -16,6 +17,8 @@ class Procedure(node: Node) extends Logging {
    *  the call should not return until processing is finished.
    */
   val URL = ClientConfig.AQAURL + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true&Await=true"
+  
+  val toXml = PrettyXML.xmlToText(node)
 
   final def toText = Name + " " + Version
 

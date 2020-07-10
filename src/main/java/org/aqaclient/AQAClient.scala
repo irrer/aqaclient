@@ -40,6 +40,8 @@ object AQAClient extends Logging {
         logger.info("Initialized EventReceiver")
         new ClientWebServer
         logger.info("Initialized ClientWebServer")
+        ConfirmDicomComplete.init        
+        logger.info("Initialized ConfirmDicomComplete")
         new PeriodicRestart(ClientConfig.RestartTime)
         logger.info("Initialized PeriodicRestart")
         logger.info("AQAClient fully initialized")

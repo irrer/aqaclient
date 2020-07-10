@@ -100,7 +100,7 @@ object Upload extends Logging {
   /**
    * Upload a set of DICOM files for processing.
    */
-  private def upload(uploadSet: UploadSet): Unit = {
+  def upload(uploadSet: UploadSet): Unit = {
     logger.info("Processing upload " + uploadSet)
     try {
       val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
@@ -247,8 +247,9 @@ object Upload extends Logging {
 
     Trace.trace("List of CT series under consideration for upload:\n    " + list.mkString("\n    "))
 
-    list.map(series => seriesToUploadSet(series)).flatten.map(uploadSet => upload(uploadSet))
-
+    val todoList = list.map(series => seriesToUploadSet(series)).flatten
+    todoList.map(uploadSet => upload(uploadSet))
+    todoList.map(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
   }
 
   private val queue = new java.util.concurrent.LinkedBlockingQueue[Boolean]

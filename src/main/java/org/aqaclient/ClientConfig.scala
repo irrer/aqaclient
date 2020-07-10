@@ -32,6 +32,8 @@ object ClientConfig extends ClientConfigUtil(
 
   val zipDir = makeChildDir(DataDir, "tempZip")
 
+  val confirmDicomCompleteDir = makeChildDir(DataDir, "ConfirmDicomComplete")
+
   val staticDirFile = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
 
   val certificateDir = makeChildDir(staticDirFile, "certificates")
@@ -65,6 +67,11 @@ object ClientConfig extends ClientConfigUtil(
 
   val DICOMRetryCount = logMainText("DICOMRetryCount", "3").toInt
   val DICOMRetryWait_sec = logMainText("DICOMRetryWait_sec", "1.0").toDouble
+
+  val ConfirmDicomCompleteInterval_sec = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
+  val ConfirmDicomCompleteInterval_ms = (ConfirmDicomCompleteInterval_sec * 1000).round
+  val ConfirmDicomCompleteTimeout_sec = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
+  val ConfirmDicomCompleteTimeout_ms = (ConfirmDicomCompleteTimeout_sec * 1000).round
 
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true
