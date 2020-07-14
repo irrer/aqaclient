@@ -17,7 +17,7 @@ class Procedure(val node: Node) extends Logging {
    *  the call should not return until processing is finished.
    */
   val URL = ClientConfig.AQAURL + (node \ "@URL").head.text + "?Run=Run&AutoUpload=true&Await=true"
-  
+
   val toXml = PrettyXML.xmlToText(node)
 
   final def toText = Name + " " + Version
@@ -55,7 +55,7 @@ object Procedure extends Logging {
       logger.info("Initializing list of procedures")
       val url = ClientConfig.AQAURL + "/run/WebRunIndex?list=true"
 
-      val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters) match {
+      val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters, timeout_ms = ClientConfig.HttpsGetTimeout_ms) match {
         case Left(exception) => {
           logger.warn("Unable to fetch list of procedures to run list for patient: " + fmtEx(exception))
           <RunList></RunList>

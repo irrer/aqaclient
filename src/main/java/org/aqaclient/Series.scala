@@ -305,18 +305,19 @@ object Series extends Logging {
       case Some(oldSeries) => {
         remove(oldSeries)
 
-        DicomMove.get(SeriesInstanceUID, oldSeries.PatientID + " : " + oldSeries.Modality + " : " + oldSeries.dataDate) match {
-          case Some(newSeries) => {
-            Some(newSeries)
-          }
-          case _ => {
-            logger.warn("Could not C-MOVE DICOM files of series with SeriesInstanceUID " + SeriesInstanceUID)
-            None
-          }
-        }
       }
       case _ => {
         logger.warn("Could not find old series with SeriesInstanceUID " + SeriesInstanceUID)
+        None
+      }
+    }
+
+    DicomMove.get(SeriesInstanceUID, SeriesInstanceUID) match {
+      case Some(newSeries) => {
+        Some(newSeries)
+      }
+      case _ => {
+        logger.warn("Could not C-MOVE DICOM files of series with SeriesInstanceUID " + SeriesInstanceUID)
         None
       }
     }

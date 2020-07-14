@@ -75,7 +75,7 @@ object Upload extends Logging {
       val start = System.currentTimeMillis
       logger.info("Starting upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
       val result = HttpsClient.httpsPostSingleFileAsMulipartForm(procedure.URL, zipFile, MediaType.APPLICATION_ZIP,
-        ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters)
+        ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters, timeout_ms = ClientConfig.HttpsUploadTimeout_ms)
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) => {

@@ -18,6 +18,9 @@ import edu.umro.ScalaUtil.PrettyXML
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
 
 /**
  * Manage and cache the list of results.
@@ -31,11 +34,6 @@ object Results extends Logging {
   private val prettyPrinter = new PrettyPrinter(1024, 2)
 
   private def resultsDir = new File(ClientConfig.DataDir, "Results")
-
-  /**
-   * If the server can not be contacted, then wait this long (in seconds) before retrying.
-   */
-  private val retryInterval_sec = 30
 
   /**
    * List of results that have been processed.
@@ -59,20 +57,19 @@ object Results extends Logging {
   /**
    * The AQAClient does not have a copy of the outputs for this patient, so it needs to get
    * them from the server.
-   *
-   * Returns a Left(String) on error.
    */
   @tailrec
   private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
     logger.info("Getting list of series for PatientID " + patientId)
-    HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters) match {
+    HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, true, ClientConfig.httpsClientParameters, timeout_ms = ClientConfig.HttpsGetTimeout_ms) match {
       case Left(exception) => {
-        logger.warn("Unable to fetch result list from server via HTTPS for patient " + patientId + " .  Will retry in " + retryInterval_sec + " seconds.  Exception: " + fmtEx(exception))
-        Thread.sleep(retryInterval_sec * 1000)
+        logger.warn("Unable to fetch list of series for PatientID " + patientId + " .  Will retry in " + ClientConfig.HttpsGetTimeout_sec + " seconds.  Exception: " + fmtEx(exception))
+        Thread.sleep(ClientConfig.HttpsGetTimeout_ms.get)
         updatePatient(patientId)
       }
       case Right(representation) => {
+        logger.info("Retrieved list of series for PatientID " + patientId)
         val outStream = new ByteArrayOutputStream
         representation.write(outStream)
         val e = XML.loadString(outStream.toString)

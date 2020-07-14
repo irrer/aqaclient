@@ -58,13 +58,17 @@ object ConfirmDicomComplete extends Logging {
   /**
    * Redo the given upload.
    */
-  private def redoUpload(confirmState: ConfirmState): Unit = {
+  private def redoUpload(confirmState: ConfirmState): Option[UploadSet] = {
     Series.update(confirmState.uploadSet.imageSeries.SeriesInstanceUID) match {
       case Some(series) => {
-        val uploadSet = new UploadSet(confirmState.uploadSet.procedure, series, confirmState.uploadSet.reg, confirmState.uploadSet.plan)
-        Upload.upload(uploadSet)
+        val newUploadSet = confirmState.uploadSet.copy(imageSeries = series)
+        Upload.upload(newUploadSet)
+        Some(newUploadSet)
       }
-      case _ => logger.warn("Unable to update series " + confirmState.uploadSet.imageSeries)
+      case _ => {
+        logger.warn("Unable to update series " + confirmState.uploadSet.imageSeries)
+        None
+      }
     }
   }
 
@@ -73,28 +77,43 @@ object ConfirmDicomComplete extends Logging {
    * source PACS. If they are, then get them and redo the upload. If no more slices appear within
    * a configured timeout (<code>ClientConfig.ConfirmDicomCompleteInterval_sec</code>) then stop
    * monitoring it.
+   *
+   * When this function is called it will make at least one attempt to redo the upload. This is to
+   * cover the case where the service was restarted, and even though a lot of time has elapsed, the
+   * upload was not monitored during that period and so should be checked.
    */
   private def monitor(confirmState: ConfirmState): Unit = {
+
+    def continueIfNeeded = {
+      val timeout = confirmState.InitialUploadTime.getTime + ClientConfig.ConfirmDicomCompleteInterval_ms
+      val j = new Date
+      val jtmout = new Date(timeout)
+      if (timeout < System.currentTimeMillis) {
+        logger.info("Completed confirmation of DICOM upload and have deleted " + confirmState.file.getAbsolutePath)
+        confirmState.file.delete
+      } else
+        monitor(confirmState)
+    }
+
+    logger.info("Continuing to monitor DICOM upload for " + confirmState.file.getAbsolutePath)
+
     Thread.sleep(ClientConfig.ConfirmDicomCompleteInterval_ms)
     val newSize = DicomFind.getSliceUIDsInSeries(confirmState.uploadSet.imageSeries.SeriesInstanceUID).size
 
     // if the number of slices changed, then redo upload.
     if (newSize != confirmState.imageSeriesSize) {
       logger.info("Need to redo upload.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + " for " + confirmState.fileName)
-      redoUpload(confirmState)
-      val newConfirmState = new ConfirmState(confirmState.uploadSet)
-      newConfirmState.persist // overwrite the previous version
-      monitor(newConfirmState) // make new ConfirmState with current time
-    } else {
-      val timeout = confirmState.InitialUploadTime.getTime + ClientConfig.ConfirmDicomCompleteInterval_ms
-      if (timeout < System.currentTimeMillis) {
-        logger.info("Contuing to monitor of DICOM upload for " + confirmState.file.getAbsolutePath)
-        monitor(confirmState)
-      } else {
-        logger.info("Completed confirmation of DICOM upload and have deleted " + confirmState.file.getAbsolutePath)
-        confirmState.file.delete
+
+      redoUpload(confirmState) match {
+        case Some(newUploadSet) => {
+          val newConfirmState = new ConfirmState(newUploadSet)
+          newConfirmState.persist // overwrite the previous version
+          monitor(newConfirmState) // make new ConfirmState with current time
+        }
+        case _ => continueIfNeeded
       }
-    }
+    } else continueIfNeeded
+
   }
 
   /**

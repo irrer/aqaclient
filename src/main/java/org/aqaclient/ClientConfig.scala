@@ -44,6 +44,12 @@ object ClientConfig extends ClientConfigUtil(
 
   val PollInterval_sec = logMainText("PollInterval_sec").toInt
 
+  val HttpsGetTimeout_sec = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
+  val HttpsGetTimeout_ms = Some((HttpsGetTimeout_sec * 1000).round.toLong)
+
+  val HttpsUploadTimeout_sec = logMainText("HttpsUploadTimeout_sec", "300.0").toDouble
+  val HttpsUploadTimeout_ms = Some((HttpsUploadTimeout_sec * 1000).round.toLong)
+
   private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round.toLong
 
   val MaximumDataAge_day = logMainText("MaximumDataAge_day", "100000.0").toDouble
