@@ -83,19 +83,17 @@ object ConfirmDicomComplete extends Logging {
    * upload was not monitored during that period and so should be checked.
    */
   private def monitor(confirmState: ConfirmState): Unit = {
+    val timeout = confirmState.InitialUploadTime.getTime + ClientConfig.ConfirmDicomCompleteInterval_ms
 
     def continueIfNeeded = {
-      val timeout = confirmState.InitialUploadTime.getTime + ClientConfig.ConfirmDicomCompleteInterval_ms
-      val j = new Date
-      val jtmout = new Date(timeout)
-      if (timeout < System.currentTimeMillis) {
+      if (timeout > System.currentTimeMillis) {
         logger.info("Completed confirmation of DICOM upload and have deleted " + confirmState.file.getAbsolutePath)
         confirmState.file.delete
       } else
         monitor(confirmState)
     }
 
-    logger.info("Continuing to monitor DICOM upload for " + confirmState.file.getAbsolutePath)
+    logger.info("Continuing to monitor DICOM upload with timeout at: " + (new Date(timeout)) + " for " + confirmState.file.getAbsolutePath)
 
     Thread.sleep(ClientConfig.ConfirmDicomCompleteInterval_ms)
     val newSize = DicomFind.getSliceUIDsInSeries(confirmState.uploadSet.imageSeries.SeriesInstanceUID).size
