@@ -351,7 +351,7 @@ object Series extends Logging {
    */
   private def reinstateFromDicom(seriesDir: File): Option[Series] = {
     try {
-      if (seriesDir.isDirectory) {
+      if (seriesDir.isDirectory && ClientUtil.listFiles(seriesDir).nonEmpty) {
         val series = makeSeriesFromDicomFileDir(seriesDir)
         // warn if seriesDir does not match series.dir
         logger.info("Loaded series from DICOM: " + series)
