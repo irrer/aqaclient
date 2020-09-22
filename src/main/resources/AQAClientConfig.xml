@@ -114,13 +114,13 @@
     since the DICOM was captured.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days. -->
-    <MaximumDICOMCacheDataAge_day>7.0</MaximumDICOMCacheDataAge_day>
+    <MaximumDICOMCacheDataAge_day>10000.0</MaximumDICOMCacheDataAge_day>
     
     <!-- Maximum file age to keep DICOM files stored locally in a file cache.  The term 'file age' refers to the time
     stamp of the DICOM file, regardless of when the DICOM was first created.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days.  -->
-    <MaximumDICOMCacheFileAge_day>3.0</MaximumDICOMCacheFileAge_day>
+    <MaximumDICOMCacheFileAge_day>10000.0</MaximumDICOMCacheFileAge_day>
     
     <!-- Time of day as hours and minutes (HH:MM) that program will restart
     itself. This is done to avoid errors that build up over time.  The time is
@@ -136,10 +136,10 @@
     <!-- Amount of time as a floating point number in seconds to wait between tries to confirm that more DICOM slices
     have not been received by the PACS. -->
     <!-- <ConfirmDicomCompleteInterval_sec>10.0</ConfirmDicomCompleteInterval_sec> -->
-    <ConfirmDicomCompleteInterval_sec>2.0</ConfirmDicomCompleteInterval_sec>
+    <ConfirmDicomCompleteInterval_sec>5.0</ConfirmDicomCompleteInterval_sec>
     
     <!-- Amount of time as a floating point number in seconds to wait before assuming that all DICOM slices
     have been received by the PACS. -->
-    <ConfirmDicomCompleteTimeout_sec>60.0</ConfirmDicomCompleteTimeout_sec>
+    <ConfirmDicomCompleteTimeout_sec>3660.0</ConfirmDicomCompleteTimeout_sec>
 
 </AQAClientConfig>
