@@ -38,7 +38,8 @@ object EventReceiver extends Logging {
     if (PatientIDList.getPatientIDList.find(p => p.trim.equalsIgnoreCase(PatientId.trim)).isDefined) {
       logger.info("Retrieving updated list of DICOM series for PatientId: " + PatientId)
       DicomProcessing.updatePatient(PatientId)
-    }
+    } else
+      logger.info("PatientId " + PatientId + " is not listed in the " + PatientIDList.PatientIDFile.getAbsolutePath + " file. Ignoring event.")
   }
 
   /** Send an event. */
