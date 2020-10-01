@@ -14,6 +14,9 @@ import org.restlet.resource.ClientResource
 import org.restlet.data.ChallengeResponse
 import org.restlet.data.ChallengeScheme
 import edu.umro.RestletUtil.HttpsClient
+import edu.umro.ScalaUtil.DicomUtil
+import com.pixelmed.dicom.TagFromName
+import com.pixelmed.dicom.AttributeList
 
 /**
  * Group series into sets of data that can be processed and upload to the AQA platform.
@@ -47,13 +50,28 @@ object Upload extends Logging {
     /**
      * Get a list of all files in this upload set.
      */
-    def getAllDicomFiles = {
-      def filesOf(series: Option[Series]) =
+    def getAllDicomFiles: Seq[File] = {
+      def filesOf(series: Option[Series]): Seq[File] =
         if (series.isDefined) {
           series.get.ensureFilesExist
           ClientUtil.listFiles(series.get.dir).toSeq
         } else Seq[File]()
-      filesOf(Some(imageSeries)) ++ filesOf(reg) ++ filesOf(plan)
+
+      val regFiles: Seq[File] = {
+        if (reg.isDefined) {
+          reg.get.ensureFilesExist
+          val regFileList = ClientUtil.listFiles(reg.get.dir).toSeq
+          def regRefsImage(regFile: File): Boolean = {
+            val regAl = ClientUtil.readDicomFile(regFile).right.get
+            val serList = DicomUtil.findAllSingle(regAl, TagFromName.SeriesInstanceUID).map(at => at.getSingleStringValueOrEmptyString)
+            val contains = serList.contains(imageSeries.SeriesInstanceUID)
+            contains
+          }
+          regFileList.filter(regFile => regRefsImage(regFile))
+        } else Seq[File]()
+      }
+
+      filesOf(Some(imageSeries)) ++ regFiles ++ filesOf(plan)
     }
   }
 
@@ -105,9 +123,9 @@ object Upload extends Logging {
     try {
       val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
       val zipFile = makeZipFile(allDicomFiles)
-      Trace.trace("Beginning upload of " + uploadSet)
+      logger.info("Beginning upload of " + uploadSet)
       val msg = uploadToAQA(uploadSet.procedure, uploadSet.imageSeries, zipFile)
-      Trace.trace("Finished upload of " + uploadSet)
+      logger.info("Finished upload of " + uploadSet)
       Sent.add(new Sent(uploadSet, msg))
       if (msg.isEmpty)
         logger.info("Successfully uploaded " + uploadSet)
@@ -119,9 +137,7 @@ object Upload extends Logging {
       //      if (uploadSet.plan.isDefined) Series.remove(uploadSet.plan.get)
       Results.markAsStale(uploadSet.imageSeries.PatientID)
 
-      Trace.trace("Waiting " + ClientConfig.GracePeriod_sec + " for server to process")
       Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
-      Trace.trace("Done waiting for server to process")
       Series.removeObsoleteZipFiles // clean up any zip files
     } catch {
       case t: Throwable => {
@@ -139,7 +155,6 @@ object Upload extends Logging {
     if (ct.isModality(ModalityEnum.CT)) {
       val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get)
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
-      Trace.trace("localPlan: " + localPlan + "    remotePlan: " + remotePlan)
 
       (localPlan, remotePlan) match {
         case (Some(rtplan), _) if Procedure.BBbyCBCT.isDefined => Some(new UploadSet(Procedure.BBbyCBCT.get, ct, Some(rtplan))) // upload CT and RTPLAN
@@ -153,16 +168,14 @@ object Upload extends Logging {
   /**
    * If there is a CT-REG pair that connect to an RTPLAN, then upload it.  Only upload the RTPLAN as necessary.
    */
-
   private def connectWithPlanViaReg(ct: Series): Option[UploadSet] = {
     if (ct.isModality(ModalityEnum.CT)) {
       val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get)
-      Trace.trace("regOpt: " + regOpt)
+
       if (regOpt.isDefined) {
         val reg = regOpt.get
         val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
         val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
-        Trace.trace("localPlan: " + localPlan + "    remotePlan: " + remotePlan)
 
         (localPlan, remotePlan) match {
           case (Some(rtplan), _) if Procedure.BBbyCBCT.isDefined => Some(new UploadSet(Procedure.BBbyCBCT.get, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
@@ -173,6 +186,28 @@ object Upload extends Logging {
         None
     } else
       None
+  }
+
+  /**
+   * Determine if the given series is a Phase2 data set based on the the content.  It must have
+   * a minimum number of files (currently 16), and each file must reference a different beam.
+   */
+  private def isPhase2(rtimage: Series): Boolean = {
+
+    /** The data set must have at least this many files to be a Phase 2 data set. */
+    val minNumberOfFiles = 16
+
+    val fileList = FileUtil.listFiles(rtimage.dir)
+
+    def beamReferencesAreAllUnique: Boolean = {
+      val alList = fileList.map(file => ClientUtil.readDicomFile(file)).filter(_.isRight).map(_.right.get)
+      val beamList = alList.map(al => al.get(TagFromName.ReferencedBeamNumber).getIntegerValues()(0)).distinct
+      val isP2 = alList.size == beamList.size
+      logger.info("Number of attribute lists: " + alList.size + "    Number of unique beams: " + beamList.size + "    isPhase2 data set: " + isP2)
+      isP2
+    }
+
+    (fileList.size >= minNumberOfFiles) && beamReferencesAreAllUnique
   }
 
   /**
@@ -196,7 +231,7 @@ object Upload extends Logging {
       procByResult
     else {
       rtimage.ensureFilesExist
-      if (FileUtil.listFiles(rtimage.dir).size > 8) Procedure.Phase2 else Procedure.BBbyEPID
+      if (isPhase2(rtimage)) Procedure.Phase2 else Procedure.BBbyEPID
     }
   }
 
@@ -226,7 +261,6 @@ object Upload extends Logging {
         }
       }
     }
-    Trace.trace("seriesToUploadSet series: " + series + "    uploadSet: " + uploadSet)
     uploadSet
   }
 
@@ -245,8 +279,6 @@ object Upload extends Logging {
       filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
       .filter(_.dataDate.getTime > recent)
 
-    Trace.trace("List of CT series under consideration for upload:\n    " + list.mkString("\n    "))
-
     val todoList = list.map(series => seriesToUploadSet(series)).flatten
     todoList.map(uploadSet => upload(uploadSet))
     todoList.map(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
@@ -259,18 +291,13 @@ object Upload extends Logging {
       def run = {
         while (true) {
           logger.info("Processing new DICOM files.  queue size: " + queue.size)
-          Trace.trace("Processing new DICOM files.  queue size: " + queue.size)
           update
-          Trace.trace("Done with update.  Waiting for more DICOM series.  queue size: " + queue.size)
           queue.take
-          Trace.trace("Got another DICOM series.  queue size: " + queue.size)
         }
       }
     }
 
-    Trace.trace
     (new Thread(new Updater)).start
-    Trace.trace
   }
 
   /**
@@ -278,7 +305,6 @@ object Upload extends Logging {
    * processed.  This function sends a message to the Upload thread and returns immediately.
    */
   def scanSeries = {
-    //Trace.trace("scanSeries adding series to queue")
     queue.put(true)
   }
 

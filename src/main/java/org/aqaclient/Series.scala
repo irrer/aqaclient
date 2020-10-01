@@ -145,7 +145,7 @@ object Series extends Logging {
       ClientUtil.dataDateTime(al),
       ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
       Series.getFrameOfReferenceUID(al),
-      Series.getRegFrameOfReferenceUID(al),
+      Series.getRegFrameOfReferenceUID(alList),
       Series.getReferencedRtplanUID(al))
 
     series
@@ -188,19 +188,22 @@ object Series extends Logging {
       Some(new String(a.getSingleStringValueOrEmptyString))
   }
 
-  private def getRegFrameOfReferenceUID(al: AttributeList): Option[String] = {
+  /**
+   * Get the frames of references that match the CTs.
+   */
+  private def getRegFrameOfReferenceUID(alList: Seq[AttributeList]): Option[String] = {
 
-    val FrameOfReferenceUID = getFrameOfReferenceUID(al)
+    // all the frames of reference
+    val allFOR = alList.map(al => DicomUtil.findAllSingle(al, TagFromName.FrameOfReferenceUID)).flatten.map(at => at.getSingleStringValueOrEmptyString).distinct.filterNot(uid => uid.equals(""))
 
-    if (FrameOfReferenceUID.isDefined) {
-      val frmOfRef = DicomUtil.findAllSingle(al, TagFromName.FrameOfReferenceUID).
-        map(a => a.getSingleStringValueOrEmptyString).
-        distinct.
-        filterNot(frmRef => frmRef.equals(FrameOfReferenceUID.get)).
-        headOption
-      if (frmOfRef.isDefined) Some(new String(frmOfRef.get)) else None
-    } else
-      None
+    // just the frames of references that match the RTPLAN
+    val FrameOfReferenceUIDList = alList.map(al => getFrameOfReferenceUID(al)).flatten.distinct
+
+    // just the frames of references that match the CT (or whatever image)
+    val list = allFOR.diff(FrameOfReferenceUIDList)
+
+    if (list.nonEmpty) Some(list.mkString(" ", " ", " "))
+    else None
   }
 
   /**
@@ -248,7 +251,15 @@ object Series extends Logging {
   }
 
   def getRegByRegFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
-    getByModality(ModalityEnum.REG).filter(s => s.RegFrameOfReferenceUID.isDefined && s.RegFrameOfReferenceUID.get.equals(FrameOfReferenceUID)).headOption
+    def forMatches(fr: String) = {
+      fr.equals(FrameOfReferenceUID) ||
+        fr.contains(" " + FrameOfReferenceUID + " ") ||
+        fr.matches(".* " + FrameOfReferenceUID + " .*") ||
+        fr.matches(FrameOfReferenceUID + " .*") ||
+        fr.matches(".* " + FrameOfReferenceUID)
+    }
+
+    getByModality(ModalityEnum.REG).filter(s => s.RegFrameOfReferenceUID.isDefined && forMatches(s.RegFrameOfReferenceUID.get)).headOption
   }
 
   /**
