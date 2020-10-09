@@ -70,15 +70,26 @@ object Results extends Logging {
       }
       case Right(representation) => {
         logger.info("Retrieved list of series for PatientID " + patientId)
-        val outStream = new ByteArrayOutputStream
-        representation.write(outStream)
-        val e = XML.loadString(outStream.toString)
-        logger.info("Retrieved " + (e \ "Series").size + " results for patient " + patientId)
-        //logger.info("\n\nseries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
-        resultList.synchronized { resultList.put(patientId, e) }
-        logger.info("patientId: " + patientId + "     number of series: " + (e \ "Series" \ "SeriesInstanceUID").size)
-        persist(patientId, e)
-        e
+        try {
+          val outStream = new ByteArrayOutputStream
+          // representation.write intermittently gets the error:
+          //     javax.net.ssl.SSLProtocolException: Data received in non-data state: 6
+          // So this code needs to be wrapped with a 'try'.
+          representation.write(outStream)
+          val e = XML.loadString(outStream.toString)
+          logger.info("Retrieved " + (e \ "Series").size + " results for patient " + patientId)
+          //logger.info("\n\nseries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
+          resultList.synchronized { resultList.put(patientId, e) }
+          logger.info("patientId: " + patientId + "     number of series: " + (e \ "Series" \ "SeriesInstanceUID").size)
+          persist(patientId, e)
+          e
+        } catch {
+          case t: Throwable => {
+            logger.warn("Unexpected error getting list of outputs.  Will retry in " + ClientConfig.HttpsGetTimeout_sec + " seconds. PatientID:  " + patientId + " : " + fmtEx(t))
+            Thread.sleep(ClientConfig.HttpsGetTimeout_ms.get)
+            updatePatient(patientId)
+          }
+        }
       }
     }
   }
