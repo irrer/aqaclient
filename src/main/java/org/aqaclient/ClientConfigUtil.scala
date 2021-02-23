@@ -189,7 +189,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   }
 
   protected def logMainText(name: String): String = {
-    println("Name: " + name) // TODO rm
     val value = getMainText(name)
     logText(name, value)
     value

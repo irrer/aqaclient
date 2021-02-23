@@ -4,16 +4,22 @@ import java.io.File
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.TagFromName
 import com.pixelmed.dicom.AttributeTag
+import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.Logging
+
 import scala.xml.Elem
 import edu.umro.ScalaUtil.Util
+
 import java.util.Date
 import edu.umro.ScalaUtil.DicomUtil
+
 import scala.xml.Node
 import edu.umro.util.Utility
 import edu.umro.ScalaUtil.Trace
+
 import java.text.SimpleDateFormat
 import edu.umro.ScalaUtil.FileUtil
+
 import scala.xml.XML
 import edu.umro.ScalaUtil.PrettyXML
 
@@ -210,8 +216,8 @@ object Series extends Logging {
    * Get the reference RTPLAN UID if it there is one.
    */
   private def getReferencedRtplanUID(al: AttributeList): Option[String] = {
-    if (al.get(TagFromName.ReferencedRTPlanSequence) != null) {
-      val rtplanSeq = DicomUtil.seqToAttr(al, TagFromName.ReferencedRTPlanSequence)
+    if (al.get(TagByName.ReferencedRTPlanSequence) != null) {
+      val rtplanSeq = DicomUtil.seqToAttr(al, TagByName.ReferencedRTPlanSequence)
       val rtplanUid = rtplanSeq.head.get(TagFromName.ReferencedSOPInstanceUID).getSingleStringValueOrEmptyString
       Some(new String(rtplanUid))
     } else

@@ -4,16 +4,21 @@ import edu.umro.ScalaUtil.DicomReceiver
 import com.pixelmed.network.ReceivedObjectHandler
 import com.pixelmed.dicom.AttributeList
 import edu.umro.ScalaUtil.Logging
+
 import scala.collection.mutable.ArrayBuffer
 import com.pixelmed.dicom.TagFromName
 import com.pixelmed.dicom.AttributeTag
 import com.pixelmed.dicom.AttributeFactory
 import com.pixelmed.dicom.SOPClass
+import edu.umro.DicomDict.TagByName
+
 import java.io.File
 import edu.umro.util.Utility
+
 import java.util.Date
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
+
 import java.text.SimpleDateFormat
 import edu.umro.ScalaUtil.DicomCFind
 import edu.umro.ScalaUtil.DicomCFind.QueryRetrieveLevel
@@ -63,7 +68,7 @@ object DicomMove extends Logging {
     val dateTimeTagPairList = List(
       (TagFromName.ContentDate, TagFromName.ContentTime),
       (TagFromName.AcquisitionDate, TagFromName.AcquisitionTime),
-      (TagFromName.CreationDate, TagFromName.CreationTime),
+      (TagByName.CreationDate, TagByName.CreationTime),
       (TagFromName.StudyDate, TagFromName.StudyTime),
       (TagFromName.SeriesDate, TagFromName.SeriesTime),
       (TagFromName.InstanceCreationDate, TagFromName.InstanceCreationTime))

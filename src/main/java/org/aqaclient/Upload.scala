@@ -2,9 +2,11 @@ package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
+
 import java.io.File
 import java.util.Date
 import edu.umro.ScalaUtil.FileUtil
+
 import java.io.ByteArrayOutputStream
 import org.restlet.ext.html.FormDataSet
 import org.restlet.representation.FileRepresentation
@@ -17,6 +19,7 @@ import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.DicomUtil
 import com.pixelmed.dicom.TagFromName
 import com.pixelmed.dicom.AttributeList
+import edu.umro.DicomDict.TagByName
 
 /**
  * Group series into sets of data that can be processed and upload to the AQA platform.
@@ -201,7 +204,7 @@ object Upload extends Logging {
 
     def beamReferencesAreAllUnique: Boolean = {
       val alList = fileList.map(file => ClientUtil.readDicomFile(file)).filter(_.isRight).map(_.right.get)
-      val beamList = alList.map(al => al.get(TagFromName.ReferencedBeamNumber).getIntegerValues()(0)).distinct
+      val beamList = alList.map(al => al.get(TagByName.ReferencedBeamNumber).getIntegerValues()(0)).distinct
       val isP2 = alList.size == beamList.size
       logger.info("Number of attribute lists: " + alList.size + "    Number of unique beams: " + beamList.size + "    isPhase2 data set: " + isP2)
       isP2
