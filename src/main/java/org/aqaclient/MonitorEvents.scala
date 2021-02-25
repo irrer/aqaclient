@@ -5,12 +5,12 @@ object MonitorEvents {
   /**
    * Look for new files to process.
    */
-  private def update = {
+  private def update(): Unit = {
 
   }
 
-  def init = {
-    update
+  def init(): Unit = {
+    update()
 
   }
 }

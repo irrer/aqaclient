@@ -1,19 +1,19 @@
 package org.aqaclient
 
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.io.File
-import scala.xml.Node
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.TagFromName
 import edu.umro.ScalaUtil.DicomUtil
-import com.pixelmed.dicom.AttributeTag
 import edu.umro.ScalaUtil.Logging
+
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import scala.xml.Node
 
 object ClientUtil extends Logging {
   private val timeHumanFriendlyFormat = new SimpleDateFormat("EEE MMM dd yyyy HH:mm:ss Z")
 
-  def timeHumanFriendly(date: Date) = timeHumanFriendlyFormat.format(date)
+  def timeHumanFriendly(date: Date): String = timeHumanFriendlyFormat.format(date)
 
   val defaultDateTime = new Date(24 * 60 * 60 * 1000)
 
@@ -28,7 +28,7 @@ object ClientUtil extends Logging {
   /**
    * Get an attribute of a node as text.
    */
-  def getAttr(node: Node, name: String) = (node \ ("@" + name)).text.toString
+  def getAttr(node: Node, name: String): String = (node \ ("@" + name)).text
 
   /**
    * Get SeriesInstanceUID
@@ -65,7 +65,7 @@ object ClientUtil extends Logging {
       (TagFromName.InstanceCreationDate, TagFromName.InstanceCreationTime))
 
     val date = try {
-      dateTimeTagPairList.map(dtp => DicomUtil.getTimeAndDate(al, dtp._1, dtp._2)).flatten.headOption
+      dateTimeTagPairList.flatMap(dtp => DicomUtil.getTimeAndDate(al, dtp._1, dtp._2)).headOption
     } catch {
       case t: Throwable => throw new RuntimeException("Could not get date+time from DICOM: " + fmtEx(t))
     }
@@ -79,7 +79,7 @@ object ClientUtil extends Logging {
     try {
       dir.listFiles.toList
     } catch {
-      case t: Throwable => List[File]()
+      case _: Throwable => List[File]()
     }
   }
 }

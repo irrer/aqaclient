@@ -1,10 +1,11 @@
 package org.aqaclient
 
-import scala.collection.mutable.ArrayBuffer
-import java.io.File
-import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.FileUtil
+import edu.umro.ScalaUtil.Logging
 import edu.umro.util.Utility
+
+import java.io.File
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * CRUD interface for the list of patient IDs used for fetching DICOM files.
@@ -27,7 +28,7 @@ object PatientIDList extends Logging {
     patIDList
   }
 
-  private def createFileIfItDoesNotExist = {
+  private def createFileIfItDoesNotExist(): Unit = {
     if (!PatientIDFile.canRead) {
       Utility.writeFile(PatientIDFile, ("// Add list of Patient IDs to this file, one per line." + edu.umro.ScalaUtil.Util.LS + edu.umro.ScalaUtil.Util.LS).getBytes)
       if (!PatientIDFile.createNewFile)
@@ -38,7 +39,7 @@ object PatientIDList extends Logging {
   private def read =
     patientIDList.synchronized({
       patientIDList.clear
-      createFileIfItDoesNotExist
+      createFileIfItDoesNotExist()
       FileUtil.readTextFile(PatientIDFile) match {
         case Right(content) => parse(content).map(patId => patientIDList += patId)
         case Left(t) => logger.warn("Error reading patient ID file " + PatientIDFile.getAbsolutePath + " : " + fmtEx(t))
@@ -48,12 +49,12 @@ object PatientIDList extends Logging {
   /**
    * Get a read-only list of patient IDs.
    */
-  def getPatientIDList = patientIDList.synchronized(patientIDList.toSeq)
+  def getPatientIDList: List[String] = patientIDList.synchronized(patientIDList).toList
 
   /**
    * Initialize list of patient IDs.
    */
-  def init = {
+  def init(): Unit = {
     logger.info("initializing PatientIDList")
     read
     logger.info("Number of patient IDs: " + getPatientIDList.size + "\n    " + getPatientIDList.mkString("\n    "))

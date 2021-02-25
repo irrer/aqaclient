@@ -1,5 +1,7 @@
 package org.aqaclient
 
+import edu.umro.ScalaUtil.PACS
+
 import java.io.File
 
 /**
@@ -16,73 +18,73 @@ object ClientConfig extends ClientConfigUtil(
     new File("""src\main\resources""") // for development
   )) {
 
-  val JavaKeyStorePassword = getPassword("JavaKeyStorePassword")
-  val JavaKeyStoreFileList = getJavaKeyStoreFileList
+  val JavaKeyStorePassword: String = getPassword("JavaKeyStorePassword")
+  val JavaKeyStoreFileList: List[File] = getJavaKeyStoreFileList
 
-  val rtplanTypeList = getRtplanTypeList
+  val rtplanTypeList: Seq[RtplanType] = getRtplanTypeList
 
   /** Number of minutes into a 24 hour day at which time service should be restarted. */
-  val RestartTime = getHourMinuteTime("RestartTime", "3:45")
+  val RestartTime: Long = getHourMinuteTime("RestartTime", "3:45")
 
-  val GracePeriod_sec = logMainText("GracePeriod_sec").toDouble
+  val GracePeriod_sec: Double = logMainText("GracePeriod_sec").toDouble
 
-  val DataDir = getDataDir
+  val DataDir: File = getDataDir
 
-  val seriesDir = makeChildDir(DataDir, "DICOMSeries")
+  val seriesDir: File = makeChildDir(DataDir, "DICOMSeries")
 
-  val zipDir = makeChildDir(DataDir, "tempZip")
+  val zipDir: File = makeChildDir(DataDir, "tempZip")
 
-  val confirmDicomCompleteDir = makeChildDir(DataDir, "ConfirmDicomComplete")
+  val confirmDicomCompleteDir: File = makeChildDir(DataDir, "ConfirmDicomComplete")
 
-  val staticDirFile = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
+  val staticDirFile: File = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
 
-  val certificateDir = makeChildDir(staticDirFile, "certificates")
+  val certificateDir: File = makeChildDir(staticDirFile, "certificates")
 
-  val DICOMClient = getPacs("DICOMClient")
+  val DICOMClient: PACS = getPacs("DICOMClient")
 
-  val DICOMSource = getPacs("DICOMSource")
+  val DICOMSource: PACS = getPacs("DICOMSource")
 
-  val PollInterval_sec = logMainText("PollInterval_sec").toInt
+  val PollInterval_sec: Int = logMainText("PollInterval_sec").toInt
 
-  val HttpsGetTimeout_sec = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
-  val HttpsGetTimeout_ms = Some((HttpsGetTimeout_sec * 1000).round.toLong)
+  val HttpsGetTimeout_sec: Double = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
+  val HttpsGetTimeout_ms: Some[Long] = Some((HttpsGetTimeout_sec * 1000).round)
 
-  val HttpsUploadTimeout_sec = logMainText("HttpsUploadTimeout_sec", "300.0").toDouble
-  val HttpsUploadTimeout_ms = Some((HttpsUploadTimeout_sec * 1000).round.toLong)
+  val HttpsUploadTimeout_sec: Double = logMainText("HttpsUploadTimeout_sec", "300.0").toDouble
+  val HttpsUploadTimeout_ms: Some[Long] = Some((HttpsUploadTimeout_sec * 1000).round)
 
-  private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round.toLong
+  private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round
 
-  val MaximumDataAge_day = logMainText("MaximumDataAge_day", "100000.0").toDouble
-  val MaximumDataAge_ms = dayToMs(MaximumDataAge_day)
+  val MaximumDataAge_day: Double = logMainText("MaximumDataAge_day", "100000.0").toDouble
+  val MaximumDataAge_ms: Long = dayToMs(MaximumDataAge_day)
 
-  val MaximumDICOMCacheDataAge_day = logMainText("MaximumDICOMCacheDataAge_day", "7.0").toDouble
-  val MaximumDICOMCacheDataAge_ms = dayToMs(MaximumDICOMCacheDataAge_day)
+  val MaximumDICOMCacheDataAge_day: Double = logMainText("MaximumDICOMCacheDataAge_day", "7.0").toDouble
+  val MaximumDICOMCacheDataAge_ms: Long = dayToMs(MaximumDICOMCacheDataAge_day)
 
-  val MaximumDICOMCacheFileAge_day = logMainText("MaximumDICOMCacheFileAge_day", "3.0").toDouble
-  val MaximumDICOMCacheFileAge_ms = dayToMs(MaximumDICOMCacheFileAge_day)
+  val MaximumDICOMCacheFileAge_day: Double = logMainText("MaximumDICOMCacheFileAge_day", "3.0").toDouble
+  val MaximumDICOMCacheFileAge_ms: Long = dayToMs(MaximumDICOMCacheFileAge_day)
 
-  val AQAURL = logMainText("AQAURL")
-  val AQAUser = logMainText("AQAUser")
-  val AQAPassword = logMainText("AQAPassword")
-  val ServerSocketTimeout_sec = logMainText("ServerSocketTimeout_sec", "300").toInt
-  val httpsClientParameters = Seq(("socketTimeout", (ServerSocketTimeout_sec * 1000).toString)).toMap
+  val AQAURL: String = logMainText("AQAURL")
+  val AQAUser: String = logMainText("AQAUser")
+  val AQAPassword: String = logMainText("AQAPassword")
+  val ServerSocketTimeout_sec: Int = logMainText("ServerSocketTimeout_sec", "300").toInt
+  val httpsClientParameters: Map[String, String] = Seq(("socketTimeout", (ServerSocketTimeout_sec * 1000).toString)).toMap
 
-  val HTTPSPort = logMainText("HTTPSPort", "443").toInt
-  val AMQPBrokerHost = logMainText("AMQPBrokerHost", "localhost")
-  val AMQPBrokerPort = logMainText("AMQPBrokerPort", "5672").toInt
+  val HTTPSPort: Int = logMainText("HTTPSPort", "443").toInt
+  val AMQPBrokerHost: String = logMainText("AMQPBrokerHost", "localhost")
+  val AMQPBrokerPort: Int = logMainText("AMQPBrokerPort", "5672").toInt
 
-  val DICOMRetryCount = logMainText("DICOMRetryCount", "3").toInt
-  val DICOMRetryWait_sec = logMainText("DICOMRetryWait_sec", "1.0").toDouble
+  val DICOMRetryCount: Int = logMainText("DICOMRetryCount", "3").toInt
+  val DICOMRetryWait_sec: Double = logMainText("DICOMRetryWait_sec", "1.0").toDouble
 
-  val ConfirmDicomCompleteInterval_sec = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
-  val ConfirmDicomCompleteInterval_ms = (ConfirmDicomCompleteInterval_sec * 1000).round
-  val ConfirmDicomCompleteTimeout_sec = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
-  val ConfirmDicomCompleteTimeout_ms = (ConfirmDicomCompleteTimeout_sec * 1000).round
+  val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
+  val ConfirmDicomCompleteInterval_ms: Long = (ConfirmDicomCompleteInterval_sec * 1000).round
+  val ConfirmDicomCompleteTimeout_sec: Double = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
+  val ConfirmDicomCompleteTimeout_ms: Long = (ConfirmDicomCompleteTimeout_sec * 1000).round
 
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true
 
-  def validate = validated
+  def validate: Boolean = validated
 
   logger.info("Configuration has been validated.")
   logger.info(toString)

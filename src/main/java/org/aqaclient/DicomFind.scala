@@ -10,7 +10,7 @@ import edu.umro.ScalaUtil.Logging
 object DicomFind extends Logging {
 
   private class Query(tagSeq: Seq[AttributeTag], tagValueSeq: Seq[(AttributeTag, String)]) {
-    val query = {
+    val query: AttributeList = {
       val q = new AttributeList
 
       def add(tag: AttributeTag): Unit = {
@@ -24,8 +24,8 @@ object DicomFind extends Logging {
         q.put(a)
       }
 
-      tagSeq.map(tag => add(tag))
-      tagValueSeq.map(tagValue => addWithValue(tagValue._1, tagValue._2))
+      tagSeq.foreach(tag => add(tag))
+      tagValueSeq.foreach(tagValue => addWithValue(tagValue._1, tagValue._2))
 
       q
     }
@@ -41,7 +41,7 @@ object DicomFind extends Logging {
       (TagFromName.Modality, modality),
       (TagFromName.PatientID, patientID))
 
-    val query = (new Query(tagSeq, tagValueSeq)).query
+    val query = new Query(tagSeq, tagValueSeq).query
 
     ClientConfig.DICOMClient.synchronized({
       val resultList = DicomCFind.cfind(
@@ -66,7 +66,7 @@ object DicomFind extends Logging {
     val tagSeq = Seq(TagFromName.SOPInstanceUID)
     val tagValueSeq = Seq((TagFromName.SeriesInstanceUID, SeriesInstanceUID))
 
-    val query = (new Query(tagSeq, tagValueSeq)).query
+    val query = new Query(tagSeq, tagValueSeq).query
 
     ClientConfig.DICOMClient.synchronized({
       val resultList = DicomCFind.cfind(

@@ -2,15 +2,14 @@ package org.aqaclient
 
 import edu.umro.EventNetClient.EventNetClient
 import edu.umro.EventNetClient.EventNetClientConfig
-import edu.umro.ScalaUtil.Trace
-import scala.xml.Elem
 import edu.umro.ScalaUtil.PrettyXML
-import scala.xml.XML
-import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
+
+import scala.xml.Elem
 
 object SendTestEvent {
 
-  val testEvent = {
+  val testEvent: Elem = {
     <EventPlanApproval xmlns="urn:EventPlanApproval">
       <PatientId>MobiusDailyQA</PatientId>
       <DoctorId/>
@@ -41,9 +40,6 @@ object SendTestEvent {
     Trace.trace("Config validated: " + ClientConfig.validated)
     Trace.trace
 
-    object FmtT extends Logging {
-      def ft(t: Throwable) = fmtEx(t)
-    }
 
     Trace.trace
     val eventNetConfig = new EventNetClientConfig(ClientConfig.AMQPBrokerHost, ClientConfig.AMQPBrokerPort, "gbtopic", "admintopic", "Aria.Event.")
@@ -64,7 +60,7 @@ object SendTestEvent {
 
     Trace.trace
 
-    Seq(1, 2).map(i => {
+    Seq(1, 2).foreach(_ => {
       Trace.trace
       Thread.sleep(1000)
       Trace.trace

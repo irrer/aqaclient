@@ -9,13 +9,13 @@ import java.security.cert.X509Certificate
  */
 object HttpsInit extends Logging {
 
-  def certToHuman(cert: X509Certificate) = {
+  def certToHuman(cert: X509Certificate): String = {
     cert.getSubjectDN.getName + "  " + "Valid from " + cert.getNotBefore + " to " + cert.getNotAfter
   }
 
-  def init = {
+  def init(): Unit = {
     val fileList = ClientConfig.certificateDir.listFiles
-    if ((fileList == null) || (fileList.isEmpty)) {
+    if ((fileList == null) || fileList.isEmpty) {
       logger.warn("HTTPS will trust all server certificates regardless of their authenticity.  Put certs in " + ClientConfig.certificateDir.getAbsolutePath)
     } else {
       TrustKnownCertificates.init(fileList)
@@ -23,7 +23,7 @@ object HttpsInit extends Logging {
       if (certList.isEmpty)
         logger.warn("Could not find certificates.  HTTPS will trust all server certificates regardless of their authenticity.  Put certs in " + ClientConfig.certificateDir.getAbsolutePath)
       else
-        logger.info("Number of X509 certificates: " + certList.size + certList.map(cert => certToHuman(cert)).mkString("\n", "\n", ""))
+        logger.info("Number of X509 certificates: " + certList.length + certList.map(cert => certToHuman(cert)).mkString("\n", "\n", ""))
     }
   }
 }

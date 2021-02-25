@@ -20,10 +20,9 @@ object EventReceiver extends Logging {
       Some(ec)
 
     } catch {
-      case t: Throwable => {
+      case t: Throwable =>
         logger.warn("EventNet is not being enabled.  Unable to connect to broker at " + ClientConfig.AMQPBrokerHost + ":" + ClientConfig.AMQPBrokerPort + " : " + fmtEx(t))
         None
-      }
     }
   }
 
@@ -35,7 +34,7 @@ object EventReceiver extends Logging {
     val document = XML.loadString(new String(data))
     val PatientId = (document \ "PatientId").head.text
     logger.info("Received event " + document.label + " for PatientId: " + PatientId)
-    if (PatientIDList.getPatientIDList.find(p => p.trim.equalsIgnoreCase(PatientId.trim)).isDefined) {
+    if (PatientIDList.getPatientIDList.exists(p => p.trim.equalsIgnoreCase(PatientId.trim))) {
       logger.info("Retrieving updated list of DICOM series for PatientId: " + PatientId)
       DicomProcessing.updatePatient(PatientId)
     } else
@@ -56,10 +55,10 @@ object EventReceiver extends Logging {
   /**
    * Initialize by connecting to the AMQP broker and starting listeners.
    */
-  def init = {
+  def init(): Unit = {
     if (eventNetClient.isDefined) {
       logger.info("Starting EventNet interface.")
-      queueNameList.map(queueName => eventNetClient.get.consumeNonDurable("gbtopic", queueName, updatePatient))
+      queueNameList.foreach(queueName => eventNetClient.get.consumeNonDurable("gbtopic", queueName, updatePatient))
     } else
       logger.info("EventNet is disabled")
   }

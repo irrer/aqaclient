@@ -1,26 +1,20 @@
 package org.aqaclient
 
+import edu.umro.ScalaUtil.{Logging, PACS}
+
 import java.io.File
-import edu.umro.ScalaUtil.Logging
-import scala.xml.Elem
+import java.text.{ParseException, SimpleDateFormat}
+import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import java.text.SimpleDateFormat
-import java.text.ParseException
-import edu.umro.ScalaUtil.PACS
-import scala.xml.XML
-import scala.xml.Node
-import edu.umro.ScalaUtil.Trace
+import scala.xml.{Elem, Node, XML}
 
 /**
  * Utilities to support configuration.
  *
- * @param configFileName: Name of configuration file
- *
- * @param directoryList: directoryList Search these directories in the order given to find the configuration file.
+ * @param configFileName : Name of configuration file
+ * @param directoryList  : directoryList Search these directories in the order given to find the configuration file.
  */
 class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends Logging {
-
-  private val DEFAULT_RESTART_TIME = "1:30"
 
   /** Root directory name for static directory. */
   protected val staticDirName = "static"
@@ -30,7 +24,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
 
   private def indentList[T](list: Seq[T]): String = {
     val indent1 = "\n                  "
-    val indent2 = indent1 + "    "
     list.mkString(indent1, indent1, "\n")
   }
 
@@ -61,13 +54,12 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
 
   private var configFile: File = null
 
-  protected def getConfigFile = configFile
+  protected def getConfigFile: File = configFile
 
   /**
    * Read the configuration file.
    *
-   * @param dir: Directory from which to read configuration file.
-   *
+   * @param dir : Directory from which to read configuration file.
    * @return DOM of configuration, or nothing on failure
    */
   private def readFile(dir: File, name: String): Option[Elem] = {
@@ -80,10 +72,9 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
         configFile = file
         content
       } catch {
-        case e: Exception => {
+        case e: Exception =>
           logger.info("Failed to use config file " + file.getAbsolutePath + "    file exists: " + file.exists + "    can read file: " + file.canRead + "  Exception: " + e)
           None
-        }
       }
     } else {
       if (!file.exists) logger.info("Config file " + file.getAbsoluteFile + " does not exist")
@@ -96,18 +87,19 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
    * If a fatal error occurs during the reading of the configuration file, then the application
    * is toast, so log an error and exit with a failed status.
    */
-  private def epicFail(name: String) = {
+  private def epicFail(name: String): Unit = {
     val tried = indentList(directoryList.map(d => d.getAbsolutePath))
 
     logger.error("Could not find a usable configuration file.  Using file name " + name + " , tried directories: " + tried + "\nShutting down...")
     System.exit(1)
   }
 
+  @tailrec
   private def getDoc(dirList: Seq[File], name: String): Option[Elem] = {
     if (dirList.length < 1) None
     val elem = readFile(dirList.head, name)
     elem match {
-      case Some(el) => elem
+      case Some(el) => Some(el)
       case _ => getDoc(dirList.tail, name)
     }
   }
@@ -118,10 +110,9 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
       logText(name, "[redacted]")
       value
     } catch {
-      case _: Throwable => {
+      case _: Throwable =>
         logText(name, "[not configured]")
         ""
-      }
     }
   }
 
@@ -132,10 +123,9 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
       list.map(jksf => logText("JavaKeyStoreFile", jksf.getAbsolutePath))
       list
     } catch {
-      case _: Throwable => {
+      case _: Throwable =>
         logText(name, "[not configured]")
         List[File]()
-      }
     }
   }
 
@@ -143,10 +133,9 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     val doc = getDoc(directoryList, configFileName)
     doc match {
       case Some(d) => d
-      case _ => {
+      case _ =>
         epicFail(configFileName)
         null
-      }
     }
 
   }
@@ -158,7 +147,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
 
   protected def logText(name: String, value: String) = valueText += (name + ": " + value)
 
-  private def logTextNotSpecified(name: String) = logText(name, "[not specified]")
 
   protected def getMainText(name: String): String = {
     val list = document \ name
@@ -174,7 +162,7 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
       else
         Some(list.head.text)
     } catch {
-      case t: Throwable => None
+      case _: Throwable => None
     }
   }
 
@@ -200,14 +188,12 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
    */
   protected def logMainText(name: String, default: String): String = {
     getMainTextOption(name) match {
-      case Some(value: String) => {
+      case Some(value: String) =>
         logText(name, value)
         value
-      }
-      case _ => {
+      case _ =>
         logText("using default value for " + name, default)
         default
-      }
     }
   }
 
@@ -217,10 +203,9 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     val millisec = try {
       dateFormat.parse(logMainText(name)).getTime
     } catch {
-      case e: ParseException => {
+      case _: ParseException =>
         logger.warn("Badly formatted HH:MM time in configuration file: " + logMainText(name) + " .  Should be HH:MM, as in 1:23 .  Assuming default of " + default)
         dateFormat.parse(default).getTime
-      }
     }
 
     millisec
@@ -230,16 +215,18 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
    * Create the Data directory.  Try each member on the list until one works.
    */
   def getDataDir: File = {
+    @tailrec
     def mkDir(nameList: Seq[String]): File = {
       if (nameList.isEmpty) throw new RuntimeException("Unable to create Data directory.")
       val f = new File(nameList.head)
       try {
         f.mkdirs
       } catch {
-        case t: Throwable => ;
+        case _: Throwable => ;
       }
       if (f.isDirectory) f else mkDir(nameList.tail)
     }
+
     val nameList = (document \ "DataDirList" \ "DataDir").map(node => node.head.text)
     logger.info("Trying to establish data directory from: " + nameList.mkString("    "))
     val dir = mkDir(nameList)
@@ -250,12 +237,13 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   /**
    * Search for the given directory (which should already exist) in the given list of parent directories..
    */
-  protected def getExistingDir(dirName: String, parentPathList: Seq[String]): File = {
+  protected def getExistingDir(dirName: String = staticDirName, parentPathList: Seq[String]): File = {
     def toDir(parentName: String): File = {
       val parentDir = new File(parentName)
       val dir = new File(parentDir, dirName)
       dir
     }
+
     val dirList = parentPathList.map(parentName => toDir(parentName))
 
     val existingDirList = dirList.filter(dir => dir.isDirectory)
@@ -277,11 +265,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     pacs
   }
 
-  private def requireReadableDirectory(name: String, dir: File) = {
-    if (!dir.canRead) fail("Directory " + name + " is not readable: " + dir)
-    if (!dir.isDirectory) fail("Directory " + name + " is required but is not a directory: " + dir)
-  }
-
   protected def getRtplanTypeList: Seq[RtplanType] = {
 
     def constructRtplanType(node: Node): RtplanType = {
@@ -290,15 +273,17 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
       new RtplanType(planType, list)
     }
 
-    val list = (document \ "RtplanTypeList" \ "RtplanType").map(node => constructRtplanType(node)).toSeq
+    val list = (document \ "RtplanTypeList" \ "RtplanType").map(node => constructRtplanType(node))
     logText("RtplanTypeList", list.mkString("\n        ", "\n        ", ""))
     list
   }
 
   override def toString: String = valueText.foldLeft("Configuration values:")((b, t) => b + "\n    " + t)
 
-  protected def toHtml = {
-    <pre>{ valueText }</pre>
+  protected def toHtml: Elem = {
+    <pre>
+      {valueText}
+    </pre>
   }
 
 }

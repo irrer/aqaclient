@@ -9,7 +9,7 @@ import edu.umro.ScalaUtil.Logging
  */
 object AQAClient extends Logging {
   /** Time at which service was started. */
-  val serviceStartTime = System.currentTimeMillis
+  val serviceStartTime: Long = System.currentTimeMillis
 
   def main(args: Array[String]): Unit = {
 
@@ -32,7 +32,7 @@ object AQAClient extends Logging {
         logger.info("Initialized Results repository")
         Series.init
         logger.info("Initialized Series repository")
-        DicomProcessing.init
+        DicomProcessing.init()
         logger.info("Initialized DicomProcessing")
         Upload.init
         logger.info("Started Upload")
@@ -54,16 +54,14 @@ object AQAClient extends Logging {
       // failed status will tell the service wrapper to restart the service.  The delay is there in the
       // event that this service behaves badly and keeps exiting when started, an keeps the service from
       // using excessive resources.
-      case e: Exception => {
+      case e: Exception =>
         logger.error("Unexpected exception in main: " + fmtEx(e))
         Thread.sleep(30 * 1000)
         System.exit(1)
-      }
-      case t: Throwable => {
+      case t: Throwable =>
         logger.error("Unexpected throwable in main: " + fmtEx(t))
         Thread.sleep(30 * 1000)
         System.exit(2)
-      }
     }
   }
 }

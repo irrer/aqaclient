@@ -1,12 +1,6 @@
 package org.aqaclient
 
-import com.pixelmed.dicom.AttributeList
-import com.pixelmed.dicom.TagFromName
-import com.pixelmed.dicom.AttributeTag
-import com.pixelmed.dicom.AttributeFactory
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.DicomUtil
-import java.io.File
 import edu.umro.util.Utility
 
 /**
@@ -15,25 +9,15 @@ import edu.umro.util.Utility
  */
 object DicomProcessing extends Logging {
 
-  /**
-   * Move the temporary directory to the permanent directory.
-   */
-  private def moveSeriesFiles(fileList: List[File], SeriesInstanceUID: String) = {
-    val newDir = new File(ClientConfig.seriesDir, SeriesInstanceUID)
-    newDir.mkdirs
-    val oldDir = fileList.head.getParentFile
-    oldDir.renameTo(newDir)
-  }
 
   /**
    * Get all files for the given series via C-MOVE.
    */
-  private def getSeries(SeriesInstanceUID: String, description: String): Unit = {
+  private def fetchSeries(SeriesInstanceUID: String, description: String): Unit = {
     DicomMove.get(SeriesInstanceUID, description) match {
-      case Some(series) => {
+      case Some(series) =>
         Series.persist(series)
         if (series.isViable) Upload.scanSeries
-      }
       case _ => ;
     }
   }
@@ -44,19 +28,19 @@ object DicomProcessing extends Logging {
    * that are known by the server.
    */
   private def fetchDicomOfModality(Modality: String, PatientID: String) = {
-    val serUidList = DicomFind.find(Modality, PatientID).map(fal => ClientUtil.getSerUid(fal)).flatten
+    val serUidList = DicomFind.find(Modality, PatientID).flatMap(fal => ClientUtil.getSerUid(fal))
     val newSerUidList = serUidList.
       filterNot(serUid => FailedSeries.contains(serUid)).
       filterNot(serUid => Series.contains(serUid)).
       filterNot(serUid => Results.containsSeries(PatientID, serUid))
-    newSerUidList.map(serUid => getSeries(serUid, PatientID + " : " + Modality))
+    newSerUidList.map(serUid => fetchSeries(serUid, PatientID + " : " + Modality))
   }
 
   /**
    * Look for new files to process.  It is important to process CT series before
    * RTIMAGE because RTIMAGEs are dependent on the data from CTs.
    */
-  def updatePatient(PatientID: String) = updateSync.synchronized {
+  def updatePatient(PatientID: String): Seq[Seq[Unit]] = updateSync.synchronized {
     Seq("RTPLAN", "REG", "CT", "RTIMAGE").map(Modality => fetchDicomOfModality(Modality, PatientID))
   }
 
@@ -79,7 +63,7 @@ object DicomProcessing extends Logging {
       try {
         Utility.deleteFileTree(DicomMove.activeDir)
       } catch {
-        case t: Throwable => ;
+        case _: Throwable => ;
       }
 
     ClientConfig.seriesDir.listFiles.filter(f => f.getName.toLowerCase.endsWith(".tmp")).map(f => f.delete)
@@ -88,30 +72,30 @@ object DicomProcessing extends Logging {
   /**
    * If polling has been configured, then start a thread that updates regularly.
    */
-  private def poll = {
+  private def poll(): Unit = {
     if (ClientConfig.PollInterval_sec > 0) {
       class Poll extends Runnable {
-        def run = {
+        def run(): Unit = {
           while (true) {
             update
             Thread.sleep(ClientConfig.PollInterval_sec * 1000)
           }
         }
       }
-      (new Thread(new Poll)).start
+      new Thread(new Poll).start()
     }
   }
 
-  private def eventListener = {
+  private def eventListener(): Unit = {
     logger.info("Need to write this") // TODO
   }
 
-  def init = {
+  def init(): Unit = {
     logger.info("initializing DicomProcessing")
     cleanup
     //restoreSavedFiles
-    poll
-    eventListener
+    poll()
+    eventListener()
     //    cullSeries
   }
 }

@@ -1,16 +1,14 @@
 package org.aqaclient
 
+import edu.umro.ScalaUtil.{FileUtil, Logging, PrettyXML}
 import org.aqaclient.Upload.UploadSet
-import java.util.Date
-import edu.umro.ScalaUtil.FileUtil
+
 import java.io.File
-import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.PrettyXML
-import scala.concurrent.Future
+import java.util.Date
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.xml.Elem
-import scala.xml.XML
-import edu.umro.ScalaUtil.Trace
+import scala.concurrent.Future
+import scala.xml.{Elem, XML}
 
 /**
  * After a data set is uploaded, keep track of the DICOM series involved in case they
@@ -22,22 +20,26 @@ object ConfirmDicomComplete extends Logging {
 
   private case class ConfirmState(uploadSet: UploadSet, InitialUploadTime: Date = new Date, size: Option[Int] = None) {
 
-    val imageSeriesSize = {
+    val imageSeriesSize: Int = {
       if (size.isDefined) size.get
       else ClientUtil.listFiles(uploadSet.imageSeries.dir).size
     }
 
-    def toXml = {
+    def toXml: Elem = {
       <ConfirmDicomComplete>
-        <InitialUploadTime>{ Series.xmlDateFormat.format(new Date) }</InitialUploadTime>
-        { uploadSet.procedure.node }
-        <ImageSeries size={ imageSeriesSize.toString }>{ uploadSet.imageSeries.SeriesInstanceUID }</ImageSeries>
-        { if (uploadSet.reg.isDefined) <Reg>{ uploadSet.reg.get.SeriesInstanceUID }</Reg> }
-        { if (uploadSet.plan.isDefined) <Plan>{ uploadSet.reg.get.SeriesInstanceUID }</Plan> }
+        <InitialUploadTime>
+          {Series.xmlDateFormat.format(new Date)}
+        </InitialUploadTime>{uploadSet.procedure.node}<ImageSeries size={imageSeriesSize.toString}>
+        {uploadSet.imageSeries.SeriesInstanceUID}
+      </ImageSeries>{if (uploadSet.reg.isDefined) <Reg>
+        {uploadSet.reg.get.SeriesInstanceUID}
+      </Reg>}{if (uploadSet.plan.isDefined) <Plan>
+        {uploadSet.reg.get.SeriesInstanceUID}
+      </Plan>}
       </ConfirmDicomComplete>
     }
 
-    def fileName = {
+    def fileName: String = {
       val text = uploadSet.imageSeries.PatientID + "_" +
         uploadSet.imageSeries.Modality + "_" +
         Series.xmlDateFormat.format(uploadSet.imageSeries.dataDate) + "_" +
@@ -49,7 +51,7 @@ object ConfirmDicomComplete extends Logging {
 
     def file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
 
-    def persist = {
+    def persist(): Unit = {
       val text = PrettyXML.xmlToText(toXml)
       val file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
       FileUtil.writeFile(file, text)
@@ -57,11 +59,11 @@ object ConfirmDicomComplete extends Logging {
 
     val timeout = new Date(ClientConfig.ConfirmDicomCompleteTimeout_ms + InitialUploadTime.getTime)
 
-    def msRemaining = timeout.getTime - System.currentTimeMillis
+    def msRemaining: Long = timeout.getTime - System.currentTimeMillis
 
-    def isActive = msRemaining > 0
+    def isActive: Boolean = msRemaining > 0
 
-    def terminate = {
+    def terminate(): Unit = {
       file.delete
       logger.info("Completed confirmation of DICOM upload and have deleted " + file.getAbsolutePath)
     }
@@ -72,15 +74,13 @@ object ConfirmDicomComplete extends Logging {
    */
   private def redoUpload(confirmState: ConfirmState): Option[UploadSet] = {
     Series.update(confirmState.uploadSet.imageSeries.SeriesInstanceUID) match {
-      case Some(series) => {
+      case Some(series) =>
         val newUploadSet = confirmState.uploadSet.copy(imageSeries = series)
         Upload.upload(newUploadSet)
         Some(newUploadSet)
-      }
-      case _ => {
+      case _ =>
         logger.warn("Unable to update series " + confirmState.uploadSet.imageSeries)
         None
-      }
     }
   }
 
@@ -94,8 +94,10 @@ object ConfirmDicomComplete extends Logging {
    * cover the case where the service was restarted, and even though a lot of time has elapsed, the
    * upload was not monitored during that period and so should be checked.
    */
+  @tailrec
   private def monitor(confirmState: ConfirmState): Unit = {
     def msRemaining = confirmState.timeout.getTime - System.currentTimeMillis
+
     logger.info("Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    ms remaining: " + msRemaining + "/" + confirmState.msRemaining + " for " + confirmState.file.getAbsolutePath)
 
     Thread.sleep(ClientConfig.ConfirmDicomCompleteInterval_ms)
@@ -107,24 +109,22 @@ object ConfirmDicomComplete extends Logging {
       logger.info("Need to redo upload.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + "  ms remaining: " + confirmState.msRemaining + "  for " + confirmState.fileName)
 
       redoUpload(confirmState) match {
-        case Some(newUploadSet) => {
-          val newConfirmState = new ConfirmState(newUploadSet)
-          newConfirmState.persist // overwrite the previous version
+        case Some(newUploadSet) =>
+          val newConfirmState = ConfirmState(newUploadSet)
+          newConfirmState.persist() // overwrite the previous version
           monitor(newConfirmState) // make new ConfirmState with current time
-        }
-        case _ => {
+        case _ =>
           if (confirmState.isActive) {
             monitor(confirmState)
           } else {
-            confirmState.terminate
+            confirmState.terminate()
           }
-        }
       }
     } else {
       if (confirmState.isActive) {
         monitor(confirmState)
       } else {
-        confirmState.terminate
+        confirmState.terminate()
       }
     }
   }
@@ -133,9 +133,11 @@ object ConfirmDicomComplete extends Logging {
    * An initial upload of the given data set has been done. Put it on the list to be monitored for updates.
    */
   def confirmDicomComplete(uploadSet: UploadSet): Unit = {
-    val confirmState = new ConfirmState(uploadSet)
-    confirmState.persist
-    Future { monitor(confirmState) }
+    val confirmState = ConfirmState(uploadSet)
+    confirmState.persist()
+    Future {
+      monitor(confirmState)
+    }
   }
 
   /**
@@ -151,41 +153,40 @@ object ConfirmDicomComplete extends Logging {
        */
       def getOptSeries(tag: String): Option[Series] = {
         try {
-          Series.get((xml \ tag).head.text)
+          Series.get((xml \ tag).head.text.trim)
         } catch {
-          case t: Throwable => None
+          case _: Throwable => None
         }
       }
 
-      val InitialUploadTime = Series.xmlDateFormat.parse((xml \ "InitialUploadTime").head.text)
+      val InitialUploadTime = Series.xmlDateFormat.parse((xml \ "InitialUploadTime").head.text.trim)
       val procedureXml = (xml \ "Run").head
       val Procedure = new Procedure(procedureXml)
-      val imageSeriesUID = (xml \ "ImageSeries").head.text
-      val imageSeriesSize = (xml \ "ImageSeries" \ "@size").head.text.toInt
+      val imageSeriesUID = (xml \ "ImageSeries").head.text.trim
+      val imageSeriesSize = (xml \ "ImageSeries" \ "@size").head.text.trim.toInt
       val imageSeries = Series.get(imageSeriesUID).get
 
       val reg = getOptSeries("Reg")
       val plan = getOptSeries("Plan")
 
-      val uploadSet = new UploadSet(Procedure, imageSeries, reg, plan)
-      val cs = new ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
+      val uploadSet = UploadSet(Procedure, imageSeries, reg, plan)
+      val cs = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
       Some(cs)
     } catch {
-      case t: Throwable => {
+      case t: Throwable =>
         logger.error("Unexpected error reading ConfirmDicomComplete file: " + xmlFile.getAbsolutePath + " : " + fmtEx(t))
         None
-      }
     }
   }
 
   /**
    * Initialize by reading any persisted in-progress <code>ConfirmState</code> and finishing them.
    */
-  def init: Unit = {
-    val confirmList = ClientUtil.listFiles(ClientConfig.confirmDicomCompleteDir).map(fromFile _)
+  def init(): Unit = {
+    val confirmList = ClientUtil.listFiles(ClientConfig.confirmDicomCompleteDir).map(fromFile)
     logger.info("Number of ConfirmDicomComplete files found in " + ClientConfig.confirmDicomCompleteDir.getAbsolutePath + " : " + confirmList.size)
     // confirmList.flatten.map(c => Future { monitor(c) }) // TODO put back
-    confirmList.flatten.map(monitor _) // TODO rm
+    confirmList.flatten.foreach(monitor) // TODO rm
   }
 
 }

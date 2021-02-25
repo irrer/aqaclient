@@ -7,7 +7,7 @@ import java.util.Date
  * be made for each data set regardless of whether is succeeds or fails.  If it succeeds, then it
  * does not need to be sent again.  If it fails, then retrying probably won't help, and this client
  * could get stuck retrying the same bad data set over and over.
- * 
+ *
  * The reason that the Results is not sufficient is the case of an occasional faulty data
  * set that the AQA refuses to process.  When uploaded, the AQA returns a failure status.  The data
  * set never shows up in the Results, so the client tries it over and over to the exclusion
@@ -31,15 +31,15 @@ object Sent {
   /**
    * Add a record to the list.
    */
-  def add(sent: Sent) = SentList.synchronized {
-    SentList += sent
+  def add(sent: Sent): List[Sent] = SentList.synchronized {
+    (SentList += sent).toList
   }
 
   /**
    * Return true if the list contains a series with the given series UID.
    */
   def hasImageSeries(SeriesInstanceUID: String): Boolean = SentList.synchronized {
-    SentList.find(sent => sent.uploadSet.imageSeries.SeriesInstanceUID.equals(SeriesInstanceUID)).isDefined
+    SentList.exists(sent => sent.uploadSet.imageSeries.SeriesInstanceUID.equals(SeriesInstanceUID))
   }
 
 }
