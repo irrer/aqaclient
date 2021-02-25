@@ -185,8 +185,7 @@ object ConfirmDicomComplete extends Logging {
   def init(): Unit = {
     val confirmList = ClientUtil.listFiles(ClientConfig.confirmDicomCompleteDir).map(fromFile)
     logger.info("Number of ConfirmDicomComplete files found in " + ClientConfig.confirmDicomCompleteDir.getAbsolutePath + " : " + confirmList.size)
-    // confirmList.flatten.map(c => Future { monitor(c) }) // TODO put back
-    confirmList.flatten.foreach(monitor) // TODO rm
+    confirmList.flatten.map(c => Future { monitor(c) })
   }
 
 }
