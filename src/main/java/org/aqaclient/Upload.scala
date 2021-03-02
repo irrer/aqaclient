@@ -1,5 +1,6 @@
 package org.aqaclient
 
+import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.FileUtil
@@ -52,6 +53,7 @@ object Upload extends Logging {
 
       val regFiles: Seq[File] = {
         if (reg.isDefined) {
+          // jjjjj
           reg.get.ensureFilesExist()
           val regFileList = ClientUtil.listFiles(reg.get.dir)
           regFileList
@@ -80,16 +82,9 @@ object Upload extends Logging {
       val start = System.currentTimeMillis
       logger.info("Starting upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
       val result = HttpsClient.httpsPostSingleFileAsMulipartForm(
-        procedure.URL,
-        zipFile,
-        MediaType.APPLICATION_ZIP,
-        ClientConfig.AQAUser,
-        ClientConfig.AQAPassword,
-        ChallengeScheme.HTTP_BASIC,
-        trustKnownCertificates = true,
-        ClientConfig.httpsClientParameters,
-        timeout_ms = ClientConfig.HttpsUploadTimeout_ms
-      )
+        procedure.URL, zipFile, MediaType.APPLICATION_ZIP,
+        ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, trustKnownCertificates = true,
+        ClientConfig.httpsClientParameters, timeout_ms = ClientConfig.HttpsUploadTimeout_ms )
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) =>

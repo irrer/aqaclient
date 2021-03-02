@@ -290,6 +290,7 @@ object Series extends Logging {
     * @param FrameOfReferenceUID DICOM frame of reference UID to find
     * @return Series that have that frame of reference.
     */
+  // jjjjj
   def getRegByRegFrameOfReference(FrameOfReferenceUID: String): Seq[Series] = {
     def forMatches(fr: String) = {
       fr.equals(FrameOfReferenceUID) ||

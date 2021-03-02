@@ -25,6 +25,7 @@ object ConfirmDicomComplete extends Logging {
       else ClientUtil.listFiles(uploadSet.imageSeries.dir).size
     }
 
+    // jjjjj
     def toXml: Elem = {
       <ConfirmDicomComplete>
         <InitialUploadTime>
@@ -159,6 +160,7 @@ object ConfirmDicomComplete extends Logging {
         }
       }
 
+      // jjjjj
       val InitialUploadTime = Series.xmlDateFormat.parse((xml \ "InitialUploadTime").head.text.trim)
       val procedureXml = (xml \ "Run").head
       val Procedure = new Procedure(procedureXml)
