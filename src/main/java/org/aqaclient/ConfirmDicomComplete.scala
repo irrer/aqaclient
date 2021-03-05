@@ -29,59 +29,43 @@ object ConfirmDicomComplete extends Logging {
       else ClientUtil.listFiles(uploadSet.imageSeries.dir).size
     }
 
-    Trace.trace()
-    // jjjjj
+    // @formatter:off
     def toXml: Elem = {
-      Trace.trace()
       <ConfirmDicomComplete>
-        <InitialUploadTime>
-          {Series.xmlDateFormat.format(new Date)}
-        </InitialUploadTime>{uploadSet.procedure.node}<ImageSeries size={imageSeriesSize.toString}>
-        {uploadSet.imageSeries.SeriesInstanceUID}
-      </ImageSeries>{
-        if (uploadSet.reg.isDefined) <Reg>
-        {uploadSet.reg.get.SeriesInstanceUID}
-      </Reg>
-      }{
-        if (uploadSet.plan.isDefined) <Plan>
-        {uploadSet.reg.get.SeriesInstanceUID}
-      </Plan>
-      }
+        <InitialUploadTime>{ Series.xmlDateFormat.format(new Date) }</InitialUploadTime>
+        { uploadSet.procedure.node }
+        <ImageSeries size={ imageSeriesSize.toString }>{ uploadSet.imageSeries.SeriesInstanceUID }</ImageSeries>
+        { if (uploadSet.reg.isDefined) <Reg>{ uploadSet.reg.get.SeriesInstanceUID }</Reg> }
+        { if (uploadSet.plan.isDefined) <Plan>{ uploadSet.reg.get.SeriesInstanceUID }</Plan> }
       </ConfirmDicomComplete>
     }
+    // @formatter:on
 
     def fileName: String = {
-      Trace.trace()
       val text = uploadSet.imageSeries.PatientID + "_" +
         uploadSet.imageSeries.Modality + "_" +
         Series.xmlDateFormat.format(uploadSet.imageSeries.dataDate) + "_" +
         uploadSet.procedure + "_" +
         uploadSet.imageSeries.SeriesInstanceUID + ".xml"
 
-      Trace.trace()
       FileUtil.replaceInvalidFileNameCharacters(text.replace(' ', '_'), '_').replaceAll("___*", "_")
     }
 
     def file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
 
     def persist(): Unit = {
-      Trace.trace()
       val text = PrettyXML.xmlToText(toXml)
       val file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
       FileUtil.writeFile(file, text)
-      Trace.trace()
     }
 
     val timeout = new Date(ClientConfig.ConfirmDicomCompleteTimeout_ms + InitialUploadTime.getTime)
-    Trace.trace()
 
     def msRemaining: Long = timeout.getTime - System.currentTimeMillis
-    Trace.trace()
 
     def isActive: Boolean = msRemaining > 0
 
     def terminate(): Unit = {
-      Trace.trace()
       file.delete
       logger.info("Completed confirmation of DICOM upload and have deleted " + file.getAbsolutePath)
     }
@@ -91,16 +75,13 @@ object ConfirmDicomComplete extends Logging {
     * Redo the given upload.
     */
   private def redoUpload(confirmState: ConfirmState): Option[UploadSet] = {
-    Trace.trace()
     Series.update(confirmState.uploadSet.imageSeries.SeriesInstanceUID) match {
       case Some(series) =>
         val newUploadSet = confirmState.uploadSet.copy(imageSeries = series)
         Upload.upload(newUploadSet)
-        Trace.trace()
         Some(newUploadSet)
       case _ =>
         logger.warn("Unable to update series " + confirmState.uploadSet.imageSeries)
-        Trace.trace()
         None
     }
   }
@@ -117,7 +98,6 @@ object ConfirmDicomComplete extends Logging {
     */
   @tailrec
   private def monitor(confirmState: ConfirmState): Unit = {
-    Trace.trace()
     def msRemaining = confirmState.timeout.getTime - System.currentTimeMillis
 
     logger.info(
@@ -130,7 +110,6 @@ object ConfirmDicomComplete extends Logging {
 
     // if the number of slices changed, then redo upload.
     if (newSize != confirmState.imageSeriesSize) {
-      Trace.trace()
       logger.info("Need to redo upload.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + "  ms remaining: " + confirmState.msRemaining + "  for " + confirmState.fileName)
 
       redoUpload(confirmState) match {
@@ -146,7 +125,6 @@ object ConfirmDicomComplete extends Logging {
           }
       }
     } else {
-      Trace.trace()
       if (confirmState.isActive) {
         monitor(confirmState)
       } else {
@@ -159,7 +137,6 @@ object ConfirmDicomComplete extends Logging {
     * An initial upload of the given data set has been done. Put it on the list to be monitored for updates.
     */
   def confirmDicomComplete(uploadSet: UploadSet): Unit = {
-    Trace.trace()
     val confirmState = ConfirmState(uploadSet)
     confirmState.persist()
     Future {
@@ -173,7 +150,6 @@ object ConfirmDicomComplete extends Logging {
     */
   private def fromFile(xmlFile: File): Option[ConfirmState] = {
     try {
-      Trace.trace()
       val xml = XML.loadFile(xmlFile)
 
       /**
@@ -209,7 +185,6 @@ object ConfirmDicomComplete extends Logging {
 
       val uploadSet = UploadSet(Procedure, imageSeries, reg, plan)
       val cs = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
-      Trace.trace()
       Some(cs)
     } catch {
       case t: Throwable =>
@@ -222,12 +197,9 @@ object ConfirmDicomComplete extends Logging {
     * Initialize by reading any persisted in-progress <code>ConfirmState</code> and finishing them.
     */
   def init(): Unit = {
-    Trace.trace()
     val confirmList = ClientUtil.listFiles(ClientConfig.confirmDicomCompleteDir).map(fromFile)
     logger.info("Number of ConfirmDicomComplete files found in " + ClientConfig.confirmDicomCompleteDir.getAbsolutePath + " : " + confirmList.size)
-    Trace.trace()
     confirmList.flatten.map(c => Future { monitor(c) })
-    Trace.trace()
   }
 
 }

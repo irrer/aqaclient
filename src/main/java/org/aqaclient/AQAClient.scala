@@ -20,27 +20,27 @@ object AQAClient extends Logging {
       //Util.showJarFile(this)
 
       if (ClientConfig.validate) {
-        HttpsInit.init
+        HttpsInit.init()
         logger.info("Initialized HTTPS")
-        Procedure.init
+        Procedure.init()
         logger.info("Acquired list of procedures")
         DicomMove.init
         logger.info("Initialized DICOM interface")
-        PatientIDList.init
+        PatientIDList.init()
         logger.info("Retrieved PatientID list")
-        Results.init
+        Results.init()
         logger.info("Initialized Results repository")
-        Series.init
+        Series.init()
         logger.info("Initialized Series repository")
         DicomProcessing.init()
         logger.info("Initialized DicomProcessing")
-        Upload.init
+        Upload.init()
         logger.info("Started Upload")
-        EventReceiver.init
+        EventReceiver.init()
         logger.info("Initialized EventReceiver")
         new ClientWebServer
         logger.info("Initialized ClientWebServer")
-        ConfirmDicomComplete.init        
+        ConfirmDicomComplete.init()
         logger.info("Initialized ConfirmDicomComplete")
         new PeriodicRestart(ClientConfig.RestartTime)
         logger.info("Initialized PeriodicRestart")
