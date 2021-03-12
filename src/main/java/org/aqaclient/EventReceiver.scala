@@ -59,7 +59,7 @@ object EventReceiver extends Logging {
       } else
         logger.info("EventNet is disabled")
     } else
-      logger.info("EventNet is disabled until the Scala interface can be fixed")
+      logger.info("EventNet is disabled until the Scala interface can be fixed.")
   }
 
 }
