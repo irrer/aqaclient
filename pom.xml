@@ -37,7 +37,7 @@
         <dependency> <groupId>org.slf4j</groupId>                <artifactId>log4j-over-slf4j</artifactId>           <version>1.7.25</version>                        </dependency>
         <dependency> <groupId>org.slf4j</groupId>                <artifactId>slf4j-api</artifactId>                  <version>1.7.25</version>                        </dependency>
         <dependency> <groupId>pixelmed</groupId>                 <artifactId>pixelmed</artifactId>                   <version>20201205</version>                      </dependency>
-        <dependency> <groupId>edu.umro</groupId>                 <artifactId>EventNetClient_2.12</artifactId>        <version>0.0.4</version>                         </dependency>
+        <dependency> <groupId>edu.umro</groupId>                 <artifactId>EventNetClient_2.12</artifactId>        <version>0.0.5</version>                         </dependency>
         <!--
         -->
         <dependency> <groupId>edu.umro</groupId>                 <artifactId>DicomDict</artifactId>                  <version>1.0</version>                           </dependency>
