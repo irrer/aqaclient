@@ -214,18 +214,17 @@ object DicomMove extends Logging {
 
           logger.info("Number of slices received for " + description + " " + SeriesInstanceUID + " : " + sopCMoveList.size)
           val diff = sopCFindList.size - sopCMoveList.size
-          if (diff == 0) {
-            logger.info("Successfully got " + sopCMoveList.size + " slices on try " + retry)
+          if (diff <= 0) {
+            if (diff == 0) {
+              logger.info("Successfully got " + sopCMoveList.size + " slices on try " + retry)
+            } else {
+              logger.warn(description + "C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.  Proceeding anyway.")
+            }
             moveActiveDirToSeriesDir
           } else {
-            if (diff < 0) {
-              logger.warn(description + "C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.  Retrying C-MOVE.")
-            } else {
-              logger.warn(description + " C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
-
-              logger.info(description + " DicomMove.get Retry " + (1 + ClientConfig.DICOMRetryCount - retry) + " of C-MOVE for series " + SeriesInstanceUID)
-              Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
-            }
+            logger.warn(description + " C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
+            logger.info(description + " DicomMove.get Retry " + (1 + ClientConfig.DICOMRetryCount - retry) + " of C-MOVE for series " + SeriesInstanceUID)
+            Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
             getAll(retry + 1)
           }
         } else {
