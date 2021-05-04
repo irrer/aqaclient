@@ -22,12 +22,10 @@ object AQAClient extends Logging {
       if (ClientConfig.validate) {
         HttpsInit.init()
         logger.info("Initialized HTTPS")
-        Procedure.init()
-        logger.info("Acquired list of procedures")
         DicomMove.init
-        logger.info("Initialized DICOM interface")
-        PatientIDList.init()
         logger.info("Retrieved PatientID list")
+        PatientProcedure.init()
+        logger.info("Initialized PatientProcedure list")
         Results.init()
         logger.info("Initialized Results repository")
         Series.init()

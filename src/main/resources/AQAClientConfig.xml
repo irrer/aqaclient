@@ -142,4 +142,9 @@
     have been received by the PACS. -->
     <ConfirmDicomCompleteTimeout_sec>30.0</ConfirmDicomCompleteTimeout_sec>
 
+    <!-- Amount of time as a floating point number in seconds that limits how old the PatientProcedure
+    list may get before it is refreshed from the server.   In other words, if there is a change in the
+    PatientProcedure list on the server, it may take this long before the client reads it. -->
+    <PatientProcedureAgeLimit_sec>60.0</PatientProcedureAgeLimit_sec>
+
 </AQAClientConfig>

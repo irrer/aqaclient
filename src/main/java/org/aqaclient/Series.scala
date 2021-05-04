@@ -516,7 +516,7 @@ object Series extends Logging {
         throw new RuntimeException(
           "Error: series from more than one patient can not be in XML file."
         )
-      val patIdList = PatientIDList.getPatientIDList.toSet
+      val patIdList = PatientProcedure.patientIdList.toSet
       val updated = list
         .groupBy(s => s.SeriesInstanceUID)
         .map(g => g._2.head)
@@ -618,7 +618,7 @@ object Series extends Logging {
     * Remove series (and their files) of patients that are no longer active.
     */
   private def removeObsoletePatientSeries() = {
-    val patSet = PatientIDList.getPatientIDList.toSet
+    val patSet = PatientProcedure.patientIdList.toSet
     getAllSeries
       .filterNot(series => patSet.contains(series.PatientID))
       .map(series => remove(series))

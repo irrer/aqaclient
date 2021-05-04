@@ -10,7 +10,9 @@ package org.aqaclient
 object FailedSeries {
   private val failedSeries = scala.collection.mutable.HashSet[String]()
 
-  def put(SeriesInstanceUID: String): Unit = failedSeries.synchronized(failedSeries += SeriesInstanceUID)
+  def put(SeriesInstanceUID: String): Unit =
+    failedSeries.synchronized(failedSeries += SeriesInstanceUID)
 
-  def contains(SeriesInstanceUID: String): Boolean = failedSeries.synchronized(failedSeries.contains(SeriesInstanceUID))
+  def contains(SeriesInstanceUID: String): Boolean =
+    failedSeries.synchronized(failedSeries.contains(SeriesInstanceUID))
 }

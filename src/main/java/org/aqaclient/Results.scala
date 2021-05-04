@@ -1,19 +1,14 @@
 package org.aqaclient
 
-import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
-import org.restlet.data.ChallengeScheme
 
-import java.io.ByteArrayOutputStream
 import java.io.File
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.xml.Elem
-import scala.xml.Node
-import scala.xml.PrettyPrinter
 import scala.xml.XML
 
 /**
@@ -24,8 +19,6 @@ import scala.xml.XML
   * Each set is the list of results for that patient.
   */
 object Results extends Logging {
-
-  private val prettyPrinter = new PrettyPrinter(1024, 2)
 
   private def resultsDir = new File(ClientConfig.DataDir, "Results")
 
@@ -56,33 +49,13 @@ object Results extends Logging {
   private def updatePatient(patientId: String): Elem = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
     logger.info("Getting list of series for PatientID " + patientId)
-    HttpsClient.httpsGet(
-      url,
-      ClientConfig.AQAUser,
-      ClientConfig.AQAPassword,
-      ChallengeScheme.HTTP_BASIC,
-      trustKnownCertificates = true,
-      ClientConfig.httpsClientParameters,
-      timeout_ms = ClientConfig.HttpsGetTimeout_ms
-    ) match {
-      case Left(exception) =>
-        logger.warn("Unable to fetch list of series for PatientID " + patientId + " .  Will retry in " + ClientConfig.HttpsGetTimeout_sec + " seconds.  Exception: " + fmtEx(exception))
-        Thread.sleep(ClientConfig.HttpsGetTimeout_ms.get)
-        updatePatient(patientId)
-      case Right(representation) =>
+
+    ClientUtil.httpsGet(url) match {
+      case Some(text) =>
         logger.info("Retrieved list of series for PatientID " + patientId)
         try {
-          val outStream = new ByteArrayOutputStream
-          // representation.write intermittently gets the error:
-          //     javax.net.ssl.SSLProtocolException: Data received in non-data state: 6
-          // So this code needs to be wrapped with a 'try'.
-          representation.write(outStream)
-          val e = XML.loadString(outStream.toString)
-          logger.info("Retrieved " + (e \ "Series").size + " results for patient " + patientId)
-          //logger.info("\n\nSeries list:\n" + (new scala.xml.PrettyPrinter(1024, 2)).format(e) + "\n\n")
-          resultList.synchronized {
-            resultList.put(patientId, e)
-          }
+          val e = XML.loadString(text)
+          resultList.synchronized { resultList.put(patientId, e) }
           logger.info("patientId: " + patientId + "     number of series: " + (e \ "Series" \ "SeriesInstanceUID").size)
           persist(patientId, e)
           e
@@ -92,6 +65,10 @@ object Results extends Logging {
             Thread.sleep(ClientConfig.HttpsGetTimeout_ms.get)
             updatePatient(patientId)
         }
+      case _ =>
+        logger.warn("Unable to fetch list of series for PatientID " + patientId + " .  Will retry in " + ClientConfig.HttpsGetTimeout_sec + " seconds.")
+        Thread.sleep(ClientConfig.HttpsGetTimeout_ms.get)
+        updatePatient(patientId)
     }
   }
 
@@ -117,43 +94,6 @@ object Results extends Logging {
     }
     Future {
       getPatientResultList(patientId)
-    }
-  }
-
-  /**
-    * Given a patient and series UID, get the procedure that was used to process the series.
-    *
-    * @return Right(Some) : success, got the procedure<br/>
-    *         Right(None) : no processing has been done for that procedure<br/>
-    *         Left(String) : error, either unable to connect to server or the procedure given by the server could not be identified.
-    */
-  def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Option[Procedure] = {
-
-    def extractProcedure(seriesNode: Node): Option[Procedure] = {
-      (seriesNode \ "Procedure").headOption match {
-        case Some(proc) =>
-          val serverProcName = proc.text.trim
-          val procOpt = Procedure.getProcedure(serverProcName)
-          if (procOpt.isDefined) procOpt
-          else {
-            logger.error(
-              "Could not identify procedure for patient " + patientId +
-                " with series UID " +
-                serverProcName +
-                " that server describes as: " +
-                serverProcName +
-                " Series node: " + prettyPrinter.format(seriesNode)
-            )
-            None
-          }
-        case _ => None
-      }
-    }
-
-    (getPatientResultList(patientId) \ "Series" \ "SeriesInstanceUID").find(n => n.head.text.trim.equals(SeriesInstanceUID)) match {
-      case Some(seriesNode) => extractProcedure(seriesNode)
-      case _                => None
-
     }
   }
 
@@ -185,7 +125,7 @@ object Results extends Logging {
   def init(): Unit = {
     resultsDir.mkdirs
     logger.info("initializing PatientIDList")
-    val count = PatientIDList.getPatientIDList.map(patId => updatePatient(patId)).size
-    logger.info("Retrieved series lists for " + count + " patients from the AQA server.")
+    PatientProcedure.patientIdList.foreach(updatePatient)
+    logger.info("Number of patients: " + PatientProcedure.patientIdList.size)
   }
 }

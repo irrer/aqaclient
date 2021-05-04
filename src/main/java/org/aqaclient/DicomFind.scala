@@ -1,10 +1,10 @@
 package org.aqaclient
 
-import edu.umro.ScalaUtil.DicomCFind
-import com.pixelmed.dicom.AttributeList
-import com.pixelmed.dicom.TagFromName
-import com.pixelmed.dicom.AttributeTag
 import com.pixelmed.dicom.AttributeFactory
+import com.pixelmed.dicom.AttributeList
+import com.pixelmed.dicom.AttributeTag
+import com.pixelmed.dicom.TagFromName
+import edu.umro.ScalaUtil.DicomCFind
 import edu.umro.ScalaUtil.Logging
 
 object DicomFind extends Logging {
@@ -32,14 +32,15 @@ object DicomFind extends Logging {
   }
 
   /**
-   * Perform a C-FIND query that gets a list of series of the given modality for the given patient.
-   */
+    * Perform a C-FIND query that gets a list of series of the given modality for the given patient.
+    */
   def find(modality: String, patientID: String): Seq[AttributeList] = {
 
     val tagSeq = Seq(TagFromName.SeriesInstanceUID)
     val tagValueSeq = Seq(
       (TagFromName.Modality, modality),
-      (TagFromName.PatientID, patientID))
+      (TagFromName.PatientID, patientID)
+    )
 
     val query = new Query(tagSeq, tagValueSeq).query
 
@@ -50,7 +51,8 @@ object DicomFind extends Logging {
         attributeList = query,
         queryLevel = DicomCFind.QueryRetrieveLevel.SERIES,
         limit = None,
-        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot)
+        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
+      )
 
       val msg = "C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size
       logger.info(msg)
@@ -59,8 +61,8 @@ object DicomFind extends Logging {
   }
 
   /**
-   * Get the list of SOPInstanceUID's for the given series.
-   */
+    * Get the list of SOPInstanceUID's for the given series.
+    */
   def getSliceUIDsInSeries(SeriesInstanceUID: String): Seq[String] = {
 
     val tagSeq = Seq(TagFromName.SOPInstanceUID)
@@ -75,7 +77,8 @@ object DicomFind extends Logging {
         attributeList = query,
         queryLevel = DicomCFind.QueryRetrieveLevel.IMAGE,
         limit = None,
-        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot)
+        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
+      )
 
       val seq = resultList.map(r => r.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
       val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size

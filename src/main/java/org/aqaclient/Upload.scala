@@ -1,6 +1,5 @@
 package org.aqaclient
 
-import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.FileUtil
@@ -82,9 +81,16 @@ object Upload extends Logging {
       val start = System.currentTimeMillis
       logger.info("Starting upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
       val result = HttpsClient.httpsPostSingleFileAsMulipartForm(
-        procedure.URL, zipFile, MediaType.APPLICATION_ZIP,
-        ClientConfig.AQAUser, ClientConfig.AQAPassword, ChallengeScheme.HTTP_BASIC, trustKnownCertificates = true,
-        ClientConfig.httpsClientParameters, timeout_ms = ClientConfig.HttpsUploadTimeout_ms )
+        procedure.URL,
+        zipFile,
+        MediaType.APPLICATION_ZIP,
+        ClientConfig.AQAUser,
+        ClientConfig.AQAPassword,
+        ChallengeScheme.HTTP_BASIC,
+        trustKnownCertificates = true,
+        ClientConfig.httpsClientParameters,
+        timeout_ms = ClientConfig.HttpsUploadTimeout_ms
+      )
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) =>
@@ -137,10 +143,12 @@ object Upload extends Logging {
       val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get)
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
+      val procedureOfSeries = PatientProcedure.getProcedureOfSeries(ct)
+
       (localPlan, remotePlan) match {
-        case (Some(rtplan), _) if Procedure.BBbyCBCT.isDefined => Some(UploadSet(Procedure.BBbyCBCT.get, ct, Some(rtplan))) // upload CT and RTPLAN
-        case (_, true) if Procedure.BBbyCBCT.isDefined         => Some(UploadSet(Procedure.BBbyCBCT.get, ct)) // upload just the CT.  The RTPLAN has already been uploaded
-        case _                                                 => None // no plan available that has the same frame of reference as this CT
+        case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(UploadSet(procedureOfSeries.get, ct, Some(rtplan))) // upload CT and RTPLAN
+        case (_, true) if procedureOfSeries.isDefined         => Some(UploadSet(procedureOfSeries.get, ct)) // upload just the CT.  The RTPLAN has already been uploaded
+        case _                                                => None // no plan available that has the same frame of reference as this CT
       }
     } else
       None
@@ -155,15 +163,17 @@ object Upload extends Logging {
       // Get the REG file that has the same frame of reference as the image file and references the image series.
       val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get).headOption //  .filter(regRefsImage).headOption
 
+      val procedureOfSeries = PatientProcedure.getProcedureOfSeries(ct)
+
       if (regOpt.isDefined) {
         val reg = regOpt.get
         val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
         val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
 
         (localPlan, remotePlan) match {
-          case (Some(rtplan), _) if Procedure.BBbyCBCT.isDefined => Some(UploadSet(Procedure.BBbyCBCT.get, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
-          case (_, true) if Procedure.BBbyCBCT.isDefined         => Some(UploadSet(Procedure.BBbyCBCT.get, ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
-          case _                                                 => None
+          case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(UploadSet(procedureOfSeries.get, ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
+          case (_, true) if procedureOfSeries.isDefined         => Some(UploadSet(procedureOfSeries.get, ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
+          case _                                                => None
         }
       } else
         None
@@ -175,7 +185,7 @@ object Upload extends Logging {
     * Determine if the given series is a Phase2 data set based on the the content.  It must have
     * a minimum number of files (currently 16), and each file must reference a different beam.
     */
-  private def isPhase2(rtimage: Series): Boolean = {
+  private def isPhase2X(rtimage: Series): Boolean = {
 
     /** The data set must have at least this many files to be a Phase 2 data set. */
     val minNumberOfFiles = 16
@@ -194,36 +204,11 @@ object Upload extends Logging {
   }
 
   /**
-    * Get the procedure that this series should be processed with.  First try by looking at the plan it references to see what that
-    * was processed with.  If that fails, then just look at the number of slices in the series and make an assumption.
-    */
-  private def getRtimageProcedure(rtimage: Series): Option[Procedure] = {
-    val procByResult: Option[Procedure] = {
-      if (rtimage.ReferencedRtplanUID.isDefined) {
-        val proc = Results.getProcedureOfSeries(rtimage.PatientID, rtimage.ReferencedRtplanUID.get)
-        // if DailyQACT, then it is DailyQARTIMAGE
-        if (proc.isDefined && proc.get.isBBbyEPID)
-          Procedure.BBbyEPID
-        else
-          proc
-      } else
-        None
-    }
-
-    if (procByResult.isDefined)
-      procByResult
-    else {
-      rtimage.ensureFilesExist()
-      if (isPhase2(rtimage)) Procedure.Phase2 else Procedure.BBbyEPID
-    }
-  }
-
-  /**
     * Make UploadSet from RTIMAGE series.
     */
   private def uploadableRtimage(rtimage: Series): Option[UploadSet] = {
     if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
-      val procedure = getRtimageProcedure(rtimage)
+      val procedure = PatientProcedure.getProcedureOfSeries(rtimage)
       if (procedure.isDefined) Some(UploadSet(procedure.get, rtimage)) else None
     } else
       None

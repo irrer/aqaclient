@@ -4,31 +4,33 @@ import edu.umro.ScalaUtil.Logging
 import edu.umro.util.Utility
 
 /**
- * Orchestrate all C-FIND and C-MOVE operations to obtain the relevant DICOM.  It is
- * sent via FIFO queue to another thread that groups it into sets for testing.
- */
+  * Orchestrate all C-FIND and C-MOVE operations to obtain the relevant DICOM.  It is
+  * sent via FIFO queue to another thread that groups it into sets for testing.
+  */
 object DicomProcessing extends Logging {
 
-
   /**
-   * Get all files for the given series via C-MOVE.
-   */
+    * Get all files for the given series via C-MOVE.
+    */
   private def fetchSeries(SeriesInstanceUID: String, description: String): Unit = {
     DicomMove.get(SeriesInstanceUID, description) match {
       case Some(series) =>
         Series.persist(series)
-        if (series.isViable) Upload.scanSeries
+        if (series.isViable) Upload.scanSeries()
       case _ => ;
     }
   }
 
   /**
-   * Get all the series for the given modality and patient and send the new series to the
-   * uploader.  Ignore series that are marked as failed or have already been gotten or those
-   * that are known by the server.
-   */
-  private def fetchDicomOfModality(Modality: String, PatientID: String) = {
+    * Get all the series for the given modality and patient and send the new series to the
+    * uploader.  Ignore series that are marked as failed or have already been gotten or those
+    * that are known by the server.
+    */
+  private def fetchDicomOfModality(Modality: String, PatientID: String): Unit = {
     val serUidList = DicomFind.find(Modality, PatientID).flatMap(fal => ClientUtil.getSerUid(fal))
+    val j0 = serUidList.filterNot(serUid => FailedSeries.contains(serUid))
+    val j1 = serUidList.filterNot(serUid => Series.contains(serUid))
+    val j2 = serUidList.filterNot(serUid => Results.containsSeries(PatientID, serUid))
     val newSerUidList = serUidList.
       filterNot(serUid => FailedSeries.contains(serUid)).
       filterNot(serUid => Series.contains(serUid)).
@@ -37,27 +39,27 @@ object DicomProcessing extends Logging {
   }
 
   /**
-   * Look for new files to process.  It is important to process CT series before
-   * RTIMAGE because RTIMAGEs are dependent on the data from CTs.
-   */
-  def updatePatient(PatientID: String): Seq[Seq[Unit]] = updateSync.synchronized {
-    Seq("RTPLAN", "REG", "CT", "RTIMAGE").map(Modality => fetchDicomOfModality(Modality, PatientID))
-  }
+    * Look for new files to process.  It is important to process CT series before
+    * RTIMAGE because each RTIMAGE is dependent on the data from CTs.
+    */
+  def updatePatient(PatientID: String): Unit =
+    updateSync.synchronized {
+      logger.info("Updating patient ID: " + PatientID)
+      Seq("RTPLAN", "REG", "CT", "RTIMAGE").map(Modality => fetchDicomOfModality(Modality, PatientID))
+    }
 
   /**
-   * Use this as a semaphore to only permit one update to be executed at a time.
-   */
+    * Use this as a semaphore to only permit one update to be executed at a time.
+    */
   private val updateSync = 0
 
-  private def update = {
-    logger.info("Getting updated list of DICOM files for patients IDs:    " +
-      PatientIDList.getPatientIDList.mkString("    "))
-    PatientIDList.getPatientIDList.map(patientID => updatePatient(patientID))
+  private def update : Unit= {
+    PatientProcedure.patientIdList.foreach(updatePatient)
   }
 
   /**
-   * Remove temporary files if there are any.
-   */
+    * Remove temporary files if there are any.
+    */
   private def cleanup = {
     if (DicomMove.activeDir.exists)
       try {
@@ -70,8 +72,8 @@ object DicomProcessing extends Logging {
   }
 
   /**
-   * If polling has been configured, then start a thread that updates regularly.
-   */
+    * If polling has been configured, then start a thread that updates regularly.
+    */
   private def poll(): Unit = {
     if (ClientConfig.PollInterval_sec > 0) {
       class Poll extends Runnable {

@@ -5,18 +5,20 @@ import edu.umro.ScalaUtil.PACS
 import java.io.File
 
 /**
- * This class extracts configuration information from the configuration file.  Refer
- * to <code>ClientConfig.xml</code> for details indicating what the different
- * configuration values are used for.
- */
-object ClientConfig extends ClientConfigUtil(
-  "AQAClientConfig.xml",
-  Seq(
-    ClientUtil.thisJarFile.getParentFile, // same directory as jar
-    new File(System.getProperty("user.dir")), // current directory
-    new File(ClientUtil.thisJarFile.getParentFile.getParentFile, """src\main\resources"""), // for development
-    new File("""src\main\resources""") // for development
-  )) {
+  * This class extracts configuration information from the configuration file.  Refer
+  * to <code>ClientConfig.xml</code> for details indicating what the different
+  * configuration values are used for.
+  */
+object ClientConfig
+    extends ClientConfigUtil(
+      "AQAClientConfig.xml",
+      Seq(
+        ClientUtil.thisJarFile.getParentFile, // same directory as jar
+        new File(System.getProperty("user.dir")), // current directory
+        new File(ClientUtil.thisJarFile.getParentFile.getParentFile, """src\main\resources"""), // for development
+        new File("""src\main\resources""") // for development
+      )
+    ) {
 
   val JavaKeyStorePassword: String = getPassword("JavaKeyStorePassword")
   val JavaKeyStoreFileList: List[File] = getJavaKeyStoreFileList
@@ -81,6 +83,9 @@ object ClientConfig extends ClientConfigUtil(
   val ConfirmDicomCompleteTimeout_sec: Double = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
   val ConfirmDicomCompleteTimeout_ms: Long = (ConfirmDicomCompleteTimeout_sec * 1000).round
 
+  val PatientProcedureAgeLimit_sec: Double = logMainText("PatientProcedureAgeLimit_sec", "60.0").toDouble
+  val PatientProcedureAgeLimit_ms: Long = (PatientProcedureAgeLimit_sec * 1000).round
+
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true
 
@@ -89,4 +94,3 @@ object ClientConfig extends ClientConfigUtil(
   logger.info("Configuration has been validated.")
   logger.info(toString)
 }
-
