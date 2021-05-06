@@ -7,7 +7,10 @@ import scala.xml.Node
 class Procedure(val node: Node) extends Logging {
   val Version: String = (node \ "Version").head.text.trim
   val Name: String = (node \ "Name").head.text.trim
-  val URL: String = (node \ "URL").head.text.trim + "?Run=Run&AutoUpload=true&Await=true"
+  val URL: String = {
+    val fullUrl = ClientConfig.AQAURL + (node \ "URL").head.text.trim + "?Run=Run&AutoUpload=true&Await=true"
+    fullUrl
+  }
 
   final val isBBbyCBCT = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("cbct")
   final val isBBbyEPID = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("epid")
@@ -29,5 +32,5 @@ class Procedure(val node: Node) extends Logging {
       "    isLOCBaseline: " + isLOCBaseline.toString.head +
       "    URL: " + URL
   )
-  */
+   */
 }
