@@ -19,6 +19,7 @@ class Procedure(val node: Node) extends Logging {
     Name + ":" + Version
   }
 
+  /*
   logger.info(
     "Constructed procedure " + toString +
       "    isBBbyCBCT: " + isBBbyCBCT.toString.head +
@@ -28,4 +29,5 @@ class Procedure(val node: Node) extends Logging {
       "    isLOCBaseline: " + isLOCBaseline.toString.head +
       "    URL: " + URL
   )
+  */
 }

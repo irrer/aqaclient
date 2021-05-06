@@ -182,28 +182,6 @@ object Upload extends Logging {
   }
 
   /**
-    * Determine if the given series is a Phase2 data set based on the the content.  It must have
-    * a minimum number of files (currently 16), and each file must reference a different beam.
-    */
-  private def isPhase2X(rtimage: Series): Boolean = {
-
-    /** The data set must have at least this many files to be a Phase 2 data set. */
-    val minNumberOfFiles = 16
-
-    val fileList = FileUtil.listFiles(rtimage.dir)
-
-    def beamReferencesAreAllUnique: Boolean = {
-      val alList = fileList.map(file => ClientUtil.readDicomFile(file)).filter(_.isRight).map(_.right.get)
-      val beamList = alList.map(al => al.get(TagByName.ReferencedBeamNumber).getIntegerValues()(0)).distinct
-      val isP2 = alList.size == beamList.size
-      logger.info("Number of attribute lists: " + alList.size + "    Number of unique beams: " + beamList.size + "    isPhase2 data set: " + isP2)
-      isP2
-    }
-
-    (fileList.size >= minNumberOfFiles) && beamReferencesAreAllUnique
-  }
-
-  /**
     * Make UploadSet from RTIMAGE series.
     */
   private def uploadableRtimage(rtimage: Series): Option[UploadSet] = {

@@ -54,8 +54,9 @@ object DicomFind extends Logging {
         queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
       )
 
-      val msg = "C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size
-      logger.info(msg)
+      // commented out because it was too verbose
+      // val msg = "C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size
+      // logger.info(msg)
       resultList
     })
   }

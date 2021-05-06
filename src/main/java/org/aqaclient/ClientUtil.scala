@@ -111,7 +111,7 @@ object ClientUtil extends Logging {
         val outStream = new ByteArrayOutputStream
         representation.write(outStream)
         val text = outStream.toString
-        logger.info("Retrieved text from server:\n" + text)
+        // logger.info("Retrieved text from server:\n" + text)
         Some(text)
     }
   }
