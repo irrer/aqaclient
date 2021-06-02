@@ -20,6 +20,8 @@ object ClientUtil extends Logging {
 
   val defaultDateTime = new Date(24 * 60 * 60 * 1000)
 
+  val timeAsFileNameFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss-SSS")
+
   /**
     * Get the jar file that contains this class.
     */

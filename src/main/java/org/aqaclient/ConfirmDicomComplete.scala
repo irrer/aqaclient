@@ -29,26 +29,30 @@ object ConfirmDicomComplete extends Logging {
       else ClientUtil.listFiles(uploadSet.imageSeries.dir).size
     }
 
+    /**
+      * Format the upload as XML.  Some fields are not used programmatically, but are
+      * added for debugging and diagnosing problems.
+      *
+      * @return Upload as XML
+      */
     // @formatter:off
     def toXml: Elem = {
       <ConfirmDicomComplete>
-        <InitialUploadTime>{ Series.xmlDateFormat.format(new Date) }</InitialUploadTime>
+        <InitialUploadTime>{ Series.xmlDateFormat.format(InitialUploadTime) }</InitialUploadTime>
         { uploadSet.procedure.node }
         <ImageSeries size={ imageSeriesSize.toString }>{ uploadSet.imageSeries.SeriesInstanceUID }</ImageSeries>
+        <PatientID>{uploadSet.imageSeries.PatientID}</PatientID>
+        <Modality>{uploadSet.imageSeries.Modality}</Modality>
+        <dataDate>{Series.xmlDateFormat.format(uploadSet.imageSeries.dataDate)}</dataDate>
         { if (uploadSet.reg.isDefined) <Reg>{ uploadSet.reg.get.SeriesInstanceUID }</Reg> }
         { if (uploadSet.plan.isDefined) <Plan>{ uploadSet.reg.get.SeriesInstanceUID }</Plan> }
       </ConfirmDicomComplete>
     }
     // @formatter:on
 
-    def fileName: String = {
-      val text = uploadSet.imageSeries.PatientID + "_" +
-        uploadSet.imageSeries.Modality + "_" +
-        Series.xmlDateFormat.format(uploadSet.imageSeries.dataDate) + "_" +
-        uploadSet.procedure + "_" +
-        uploadSet.imageSeries.SeriesInstanceUID + ".xml"
-
-      FileUtil.replaceInvalidFileNameCharacters(text.replace(' ', '_'), '_').replaceAll("___*", "_")
+    val fileName: String = {
+      val text = ClientUtil.timeAsFileNameFormat.format(InitialUploadTime) + ".xml"
+      text
     }
 
     def file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
@@ -98,24 +102,25 @@ object ConfirmDicomComplete extends Logging {
     */
   @tailrec
   private def monitor(confirmState: ConfirmState): Unit = {
-    def msRemaining = confirmState.timeout.getTime - System.currentTimeMillis
+    def timeRemaining = edu.umro.ScalaUtil.Util.intervalTimeUserFriendly(confirmState.msRemaining)
 
     logger.info(
-      "Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    ms remaining: " + msRemaining + "/" + confirmState.msRemaining + " for " + confirmState.file.getAbsolutePath
+      "Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    time remaining: " + timeRemaining + " for " + confirmState.file.getAbsolutePath
     )
 
     Thread.sleep(ClientConfig.ConfirmDicomCompleteInterval_ms)
-    logger.info("After sleep. Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    ms remaining: " + confirmState.msRemaining + " for " + confirmState.file.getAbsolutePath)
+    logger.info("After sleep. Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    time remaining: " + timeRemaining + " for " + confirmState.file.getAbsolutePath)
     val newSize = DicomFind.getSliceUIDsInSeries(confirmState.uploadSet.imageSeries.SeriesInstanceUID).size
 
     // if the number of slices changed, then redo upload.
     if (newSize != confirmState.imageSeriesSize) {
-      logger.info("Need to redo upload.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + "  ms remaining: " + confirmState.msRemaining + "  for " + confirmState.fileName)
+      logger.info("Need to redo upload.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + "  time remaining: " + timeRemaining + "  for " + confirmState.fileName)
 
       redoUpload(confirmState) match {
         case Some(newUploadSet) =>
           val newConfirmState = ConfirmState(newUploadSet)
-          newConfirmState.persist() // overwrite the previous version
+          newConfirmState.persist()
+          confirmState.file.delete() // remove old ConfirmState file
           monitor(newConfirmState) // make new ConfirmState with current time
         case _ =>
           if (confirmState.isActive) {
@@ -150,6 +155,8 @@ object ConfirmDicomComplete extends Logging {
     */
   private def fromFile(xmlFile: File): Option[ConfirmState] = {
     try {
+      logger.info("Reading confirm file " + xmlFile.getAbsolutePath)
+      logger.info("Confirm file contents:\n" + FileUtil.readTextFile(xmlFile).right.get)
       val xml = XML.loadFile(xmlFile)
 
       /**
@@ -163,12 +170,14 @@ object ConfirmDicomComplete extends Logging {
         }
       }
 
-      // jjjjj
       val InitialUploadTime = Series.xmlDateFormat.parse((xml \ "InitialUploadTime").head.text.trim)
-      val procedureXml = (xml \ "Run").head
+      val procedureXml = (xml \ "Procedure").head
+
       val Procedure = new Procedure(procedureXml)
       val imageSeriesUID = (xml \ "ImageSeries").head.text.trim
       val imageSeriesSize = (xml \ "ImageSeries" \ "@size").head.text.trim.toInt
+      if (Series.get(imageSeriesUID).isEmpty)
+        logger.warn("Could not find series: " + imageSeriesUID)
       val imageSeries = Series.get(imageSeriesUID).get
 
       Trace.trace()
@@ -200,6 +209,15 @@ object ConfirmDicomComplete extends Logging {
     val confirmList = ClientUtil.listFiles(ClientConfig.confirmDicomCompleteDir).map(fromFile)
     logger.info("Number of ConfirmDicomComplete files found in " + ClientConfig.confirmDicomCompleteDir.getAbsolutePath + " : " + confirmList.size)
     confirmList.flatten.map(c => Future { monitor(c) })
+  }
+
+  def main(args: Array[String]): Unit = {
+    ClientConfig.validate
+    val file = new File(
+      """\\hitspr\e$\Program Files\UMRO\AQAClient\data\ConfirmDicomComplete_02\_TB1_OBI_2020Q4_RTIMAGE_2021-01-15T06-53-58.000_BB_by_EPID_0.1_1.2.246.352.62.2.5229743215016869714.9802715499277461632.xml""".stripMargin
+    )
+    println(fromFile(file))
+    println("done")
   }
 
 }

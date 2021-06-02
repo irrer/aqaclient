@@ -5,12 +5,19 @@ import edu.umro.ScalaUtil.Logging
 import scala.xml.Node
 
 class Procedure(val node: Node) extends Logging {
-  val Version: String = (node \ "Version").head.text.trim
-  val Name: String = (node \ "Name").head.text.trim
+  val Version: String = textOf(tag = "Version")
+  val Name: String = textOf(tag = "Name")
   val URL: String = {
-    val fullUrl = ClientConfig.AQAURL + (node \ "URL").head.text.trim + "?Run=Run&AutoUpload=true&Await=true"
+    val fullUrl = ClientConfig.AQAURL + textOf(tag = "URL") + "?Run=Run&AutoUpload=true&Await=true"
     fullUrl
   }
+
+  /**
+   * Get the text of an attribute or element by the same name.
+   * @param tag Tag name.
+   * @return Text value.
+   */
+  private def textOf(tag: String) = ((node \ tag) ++ (node \ ("@" + tag))).head.text.trim
 
   final val isBBbyCBCT = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("cbct")
   final val isBBbyEPID = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("epid")
@@ -19,7 +26,7 @@ class Procedure(val node: Node) extends Logging {
   final val isLOCBaseline = Name.toLowerCase.contains("loc") && Name.toLowerCase.contains("base")
 
   override def toString: String = {
-    Name + ":" + Version
+    Name + " : " + Version + " :: " + URL
   }
 
   /*
