@@ -1,6 +1,5 @@
 package org.aqaclient
 
-import edu.umro.DicomDict.TagByName
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
@@ -52,7 +51,6 @@ object Upload extends Logging {
 
       val regFiles: Seq[File] = {
         if (reg.isDefined) {
-          // jjjjj
           reg.get.ensureFilesExist()
           val regFileList = ClientUtil.listFiles(reg.get.dir)
           regFileList
@@ -125,7 +123,7 @@ object Upload extends Logging {
       else {
         logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
       }
-      Results.markAsStale(uploadSet.imageSeries.PatientID)
+      Results.refreshPatient(uploadSet.imageSeries.PatientID)
 
       Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
       Series.removeObsoleteZipFiles() // clean up any zip files

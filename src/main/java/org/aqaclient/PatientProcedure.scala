@@ -2,6 +2,7 @@ package org.aqaclient
 
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import scala.collection.immutable
@@ -29,13 +30,15 @@ object PatientProcedure extends Logging {
 
   private val patientProcedureList = ArrayBuffer[PatientProcedure]()
 
+  private def patientProcedureFile() = new File(ClientConfig.getDataDir, "PatientProcedureList.xml")
+
   /**
     * Write the content to a text file if it has changed.  This is for diagnosing problems and debugging.
     *
     * @param text Latest version of list.
     */
   private def persistList(text: String): Unit = {
-    val file = new File(ClientConfig.getDataDir, "PatientProcedureList.xml")
+    val file = patientProcedureFile()
     val currentContent = {
       FileUtil.readTextFile(file) match {
         case Right(oldText) => oldText
@@ -46,21 +49,48 @@ object PatientProcedure extends Logging {
     if (!text.equals(currentContent)) FileUtil.writeFile(file, text)
   }
 
+  private def readFromFile(): String = {
+    val txt = FileUtil.readTextFile(patientProcedureFile())
+    if (txt.isRight) txt.right.get
+    else "<PatientProcedureList></PatientProcedureList>"
+  }
+
+  private def populateFromText(text: String): Unit = {
+    val node = XML.loadString(text)
+    Trace.trace("populateFromText:\n" + text)
+    val list = (node \ "PatientProcedure").map(n => new PatientProcedure(n))
+    patientProcedureList.synchronized {
+      patientProcedureList.clear()
+      patientProcedureList.appendAll(list)
+    }
+  }
+
   /**
     * Get the latest content.
     */
   private def refreshList(): Unit = {
-    lastUpdateTime_ms = System.currentTimeMillis()
-    ClientUtil.httpsGet(url) match {
-      case Some(text) =>
-        persistList(text)
-        val node = XML.loadString(text)
-        val list = (node \ "PatientProcedure").map(n => new PatientProcedure(n))
-        patientProcedureList.synchronized {
-          patientProcedureList.clear()
-          patientProcedureList.appendAll(list)
-        }
-      case _ => logger.warn("Could not get PatientProcedure content from " + url)
+    try {
+      lastUpdateTime_ms = System.currentTimeMillis()
+      ClientUtil.httpsGet(url) match {
+        case Some(text) =>
+          val previousText = readFromFile()
+          persistList(text)
+          populateFromText(text)
+          // If the list changed, then fetch a new set of Results from the server.
+          if (!text.equals(previousText)) {
+            logger.info("PatientProcedure list has changed.  Refreshing Results list from server.")
+            Results.refreshAll
+          }
+        case _ =>
+          logger.warn("Have to get PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url)
+          if (patientProcedureList.isEmpty)
+            populateFromText(readFromFile())
+      }
+    } catch { // in case HTTP GET call throws an exception
+      case t: Throwable =>
+        logger.warn("Error.  Getting PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url + " HTTP Exception: " + fmtEx(t))
+        if (patientProcedureList.isEmpty)
+          populateFromText(readFromFile())
     }
   }
 
@@ -100,10 +130,11 @@ object PatientProcedure extends Logging {
   def init(): Unit = {
     class UpdateLoop extends Runnable {
       override def run(): Unit = {
-        refreshList()
         Thread.sleep(ClientConfig.PatientProcedureAgeLimit_ms)
+        refreshList()
       }
     }
+    refreshList()
     new Thread(new UpdateLoop).start()
   }
 

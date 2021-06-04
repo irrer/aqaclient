@@ -80,8 +80,12 @@ object ClientConfig
 
   val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
   val ConfirmDicomCompleteInterval_ms: Long = (ConfirmDicomCompleteInterval_sec * 1000).round
+
   val ConfirmDicomCompleteTimeout_sec: Double = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
   val ConfirmDicomCompleteTimeout_ms: Long = (ConfirmDicomCompleteTimeout_sec * 1000).round
+
+  val ResultsRefreshInterval_min: Double = logMainText("ResultsRefreshInterval_min", "60.0").toDouble
+  val ResultsRefreshInterval_ms: Long = (ResultsRefreshInterval_min * 60 * 1000).round
 
   val PatientProcedureAgeLimit_sec: Double = logMainText("PatientProcedureAgeLimit_sec", "60.0").toDouble
   val PatientProcedureAgeLimit_ms: Long = (PatientProcedureAgeLimit_sec * 1000).round

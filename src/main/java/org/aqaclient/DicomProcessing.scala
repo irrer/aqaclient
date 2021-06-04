@@ -28,14 +28,11 @@ object DicomProcessing extends Logging {
     */
   private def fetchDicomOfModality(Modality: String, PatientID: String): Unit = {
     val serUidList = DicomFind.find(Modality, PatientID).flatMap(fal => ClientUtil.getSerUid(fal))
-    val j0 = serUidList.filterNot(serUid => FailedSeries.contains(serUid))
-    val j1 = serUidList.filterNot(serUid => Series.contains(serUid))
-    val j2 = serUidList.filterNot(serUid => Results.containsSeries(PatientID, serUid))
     val newSerUidList = serUidList.
       filterNot(serUid => FailedSeries.contains(serUid)).
       filterNot(serUid => Series.contains(serUid)).
       filterNot(serUid => Results.containsSeries(PatientID, serUid))
-    newSerUidList.map(serUid => fetchSeries(serUid, PatientID + " : " + Modality))
+    newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID + " : " + Modality))
   }
 
   /**
@@ -53,7 +50,7 @@ object DicomProcessing extends Logging {
     */
   private val updateSync = 0
 
-  private def update : Unit= {
+  private def update() : Unit= {
     PatientProcedure.patientIdList.foreach(updatePatient)
   }
 
@@ -79,7 +76,7 @@ object DicomProcessing extends Logging {
       class Poll extends Runnable {
         def run(): Unit = {
           while (true) {
-            update
+            update()
             Thread.sleep(ClientConfig.PollInterval_sec * 1000)
           }
         }
