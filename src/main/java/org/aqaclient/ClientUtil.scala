@@ -90,32 +90,36 @@ object ClientUtil extends Logging {
     }
   }
 
+  // for synchronizing HTTP calls
+  private val sync = "sync"
+
   /**
     * Get text via HTTPS from the server.
     *
     * @param url Full URL.
     * @return Text on success, nothing on failure.
     */
-  def httpsGet(url: String): Option[String] = {
-    HttpsClient.httpsGet(
-      url,
-      ClientConfig.AQAUser,
-      ClientConfig.AQAPassword,
-      ChallengeScheme.HTTP_BASIC,
-      trustKnownCertificates = true,
-      ClientConfig.httpsClientParameters,
-      timeout_ms = ClientConfig.HttpsGetTimeout_ms
-    ) match {
-      case Left(exception) =>
-        logger.warn("Unable to fetch from url: " + url + " : " + fmtEx(exception))
-        None
-      case Right(representation) =>
-        val outStream = new ByteArrayOutputStream
-        representation.write(outStream)
-        val text = outStream.toString
-        // logger.info("Retrieved text from server:\n" + text)
-        Some(text)
+  def httpsGet(url: String): Option[String] =
+    sync.synchronized {
+      HttpsClient.httpsGet(
+        url,
+        ClientConfig.AQAUser,
+        ClientConfig.AQAPassword,
+        ChallengeScheme.HTTP_BASIC,
+        trustKnownCertificates = true,
+        ClientConfig.httpsClientParameters,
+        timeout_ms = ClientConfig.HttpsGetTimeout_ms
+      ) match {
+        case Left(exception) =>
+          logger.warn("Unable to fetch from url: " + url + " : " + fmtEx(exception))
+          None
+        case Right(representation) =>
+          val outStream = new ByteArrayOutputStream
+          representation.write(outStream)
+          val text = outStream.toString
+          // logger.info("Retrieved text from server:\n" + text)
+          Some(text)
+      }
     }
-  }
 
 }
