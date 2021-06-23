@@ -5,6 +5,7 @@ import com.pixelmed.dicom.TagFromName
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 import org.restlet.data.ChallengeScheme
 
 import java.io.ByteArrayOutputStream
@@ -117,7 +118,15 @@ object ClientUtil extends Logging {
           val outStream = new ByteArrayOutputStream
           representation.write(outStream)
           val text = outStream.toString
-          // logger.info("Retrieved text from server:\n" + text)
+          representation.exhaust()
+
+          val stream = representation.getStream
+          Trace.trace("representation.getStream: " + stream)
+          if (stream != null) {
+            Trace.trace("Closing representation stream")
+            stream.close()
+            Trace.trace("Closed representation stream")
+          }
           Some(text)
       }
     }
