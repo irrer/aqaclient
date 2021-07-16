@@ -92,7 +92,7 @@ object ClientUtil extends Logging {
   }
 
   // for synchronizing HTTP calls
-  private val sync = "sync"
+  val sync = "sync"
 
   /**
     * Get text via HTTPS from the server.

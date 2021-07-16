@@ -9,6 +9,7 @@ import org.restlet.data.MediaType
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Date
+import scala.annotation.tailrec
 
 /**
   * Group series into sets of data that can be processed and upload to the AQA platform.
@@ -106,31 +107,46 @@ object Upload extends Logging {
     }
   }
 
+  /** Maximum number of times to attempt an upload before giving up. */
+  private val maxUploadRetryCount = 4
+
   /**
     * Upload a set of DICOM files for processing.
     */
-  def upload(uploadSet: UploadSet): Unit = {
+  @tailrec
+  def upload(uploadSet: UploadSet, retryCount: Int = maxUploadRetryCount): Boolean = {
     logger.info("Processing upload " + uploadSet)
-    try {
-      val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
-      val zipFile = makeZipFile(allDicomFiles)
-      logger.info("Beginning upload of " + uploadSet)
-      val msg = uploadToAQA(uploadSet.procedure, uploadSet.imageSeries, zipFile)
-      logger.info("Finished upload of " + uploadSet)
-      Sent.add(new Sent(uploadSet, msg))
-      if (msg.isEmpty)
-        logger.info("Successfully uploaded " + uploadSet)
-      else {
-        logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
-      }
-      Results.refreshPatient(uploadSet.imageSeries.PatientID)
+    val success: Boolean =
+      try {
+        val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
+        val zipFile = makeZipFile(allDicomFiles)
+        logger.info("Beginning upload of " + uploadSet)
+        val msg = uploadToAQA(uploadSet.procedure, uploadSet.imageSeries, zipFile)
+        logger.info("Finished upload of " + uploadSet)
+        Sent.add(new Sent(uploadSet, msg))
+        if (msg.isEmpty)
+          logger.info("Successfully uploaded " + uploadSet)
+        else {
+          logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
+        }
+        val ok = msg.isEmpty
+        Results.refreshPatient(uploadSet.imageSeries.PatientID)
 
-      Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
-      Series.removeObsoleteZipFiles() // clean up any zip files
-    } catch {
-      case t: Throwable =>
-        logger.warn("Unexpected exception during upload: " + fmtEx(t))
+        Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
+        Series.removeObsoleteZipFiles() // clean up any zip files
+        ok
+      } catch {
+        case t: Throwable =>
+          logger.warn("Unexpected exception during upload: " + fmtEx(t))
+          false
+      }
+
+    if ((!success) && (retryCount > 0)) {
+      Thread.sleep(5 * 1000)
+      logger.warn("Retrying upload.  Retry count: " + retryCount + "    uploadSet: " + uploadSet)
+      upload(uploadSet, retryCount - 1)
     }
+    else success
   }
 
   /**
