@@ -19,6 +19,7 @@ package org.aqaclient
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 import org.restlet.data.ChallengeScheme
 import org.restlet.data.MediaType
 
@@ -95,17 +96,22 @@ object Upload extends Logging {
     try {
       val start = System.currentTimeMillis
       logger.info("Starting upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
-      val result = HttpsClient.httpsPostSingleFileAsMulipartForm(
-        procedure.URL,
-        zipFile,
-        MediaType.APPLICATION_ZIP,
-        ClientConfig.AQAUser,
-        ClientConfig.AQAPassword,
-        ChallengeScheme.HTTP_BASIC,
-        trustKnownCertificates = true,
-        ClientConfig.httpsClientParameters,
-        timeout_ms = ClientConfig.HttpsUploadTimeout_ms
-      )
+
+      // upload the files and wait for the processing to finish.  Do this in a synchronized so that no
+      // other HTTP activity from this service is being attempted while it waits.
+      val result = ClientUtil.sync.synchronized {
+        HttpsClient.httpsPostSingleFileAsMulipartForm(
+          procedure.URL,
+          zipFile,
+          MediaType.APPLICATION_ZIP,
+          ClientConfig.AQAUser,
+          ClientConfig.AQAPassword,
+          ChallengeScheme.HTTP_BASIC,
+          trustKnownCertificates = true,
+          ClientConfig.httpsClientParameters,
+          timeout_ms = ClientConfig.HttpsUploadTimeout_ms
+        )
+      }
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) =>
@@ -161,8 +167,7 @@ object Upload extends Logging {
       Thread.sleep(5 * 1000)
       logger.warn("Retrying upload.  Retry count: " + retryCount + "    uploadSet: " + uploadSet)
       upload(uploadSet, retryCount - 1)
-    }
-    else success
+    } else success
   }
 
   /**
