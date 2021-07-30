@@ -16,12 +16,8 @@
 
 package org.aqaclient
 
-import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
-import org.restlet.data.ChallengeScheme
-import org.restlet.data.MediaType
 
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -99,19 +95,8 @@ object Upload extends Logging {
 
       // upload the files and wait for the processing to finish.  Do this in a synchronized so that no
       // other HTTP activity from this service is being attempted while it waits.
-      val result = ClientUtil.sync.synchronized {
-        HttpsClient.httpsPostSingleFileAsMulipartForm(
-          procedure.URL,
-          zipFile,
-          MediaType.APPLICATION_ZIP,
-          ClientConfig.AQAUser,
-          ClientConfig.AQAPassword,
-          ChallengeScheme.HTTP_BASIC,
-          trustKnownCertificates = true,
-          ClientConfig.httpsClientParameters,
-          timeout_ms = ClientConfig.HttpsUploadTimeout_ms
-        )
-      }
+      val result = ClientUtil.httpsPost(procedure.URL, zipFile)
+
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) =>
