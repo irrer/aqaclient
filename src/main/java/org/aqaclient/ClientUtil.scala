@@ -163,6 +163,7 @@ object ClientUtil extends Logging {
   /**
     * Upload the files.  Do this in a synchronized so that no other HTTP
     * activity from this service is being attempted while it waits.
+    *
     * @param url Where to send the data.
     * @param zipFile Data to upload
     * @return Either an error (left) or success (right).
