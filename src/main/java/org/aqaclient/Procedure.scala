@@ -24,7 +24,7 @@ class Procedure(val node: Node) extends Logging {
   val Version: String = textOf(tag = "Version")
   val Name: String = textOf(tag = "Name")
   val URL: String = {
-    val fullUrl = ClientConfig.AQAURL + textOf(tag = "URL") + "?Run=Run&AutoUpload=true&Await=true"
+    val fullUrl = ClientConfig.AQAURL + textOf(tag = "URL") + "?Run=Run&AutoUpload=true"
     fullUrl
   }
 
