@@ -67,7 +67,7 @@ object ClientConfig
   val HttpsGetTimeout_sec: Double = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
   val HttpsGetTimeout_ms: Some[Long] = Some((HttpsGetTimeout_sec * 1000).round)
 
-  val HttpsUploadTimeout_sec: Double = logMainText("HttpsUploadTimeout_sec", "300.0").toDouble
+  val HttpsUploadTimeout_sec: Double = logMainText("HttpsUploadTimeout_sec", "30.0").toDouble
   val HttpsUploadTimeout_ms: Some[Long] = Some((HttpsUploadTimeout_sec * 1000).round)
 
   private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round

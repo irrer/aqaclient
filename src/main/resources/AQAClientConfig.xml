@@ -25,7 +25,7 @@
     <HttpsGetTimeout_sec>60.0</HttpsGetTimeout_sec>
 
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
-    <HttpsUploadTimeout_sec>300.0</HttpsUploadTimeout_sec>
+    <HttpsUploadTimeout_sec>30.0</HttpsUploadTimeout_sec>
     
     <!-- Port number for the HTTPS service.   Port 443 is the default for HTTPS.
     If this is missing then the server will use port 443.  The reason to use a non-standard
@@ -108,19 +108,19 @@
     <!-- Maximum data age to be considered relevant.  Maximum age of data as a floating point number in
     days for it to be uploaded to  the server.  If the data is older than this many days, it will not be
     uploaded.  If this values is not specified then all data will be uploaded, regardless of how old it is.  -->
-    <MaximumDataAge_day>10000.0</MaximumDataAge_day>
+    <MaximumDataAge_day>36600.0</MaximumDataAge_day>
     
     <!-- Maximum data age to keep DICOM files stored locally in a file cache.  The term 'data age' refers to the time
     since the DICOM was captured.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days. -->
-    <MaximumDICOMCacheDataAge_day>10000.0</MaximumDICOMCacheDataAge_day>
+    <MaximumDICOMCacheDataAge_day>36600.0</MaximumDICOMCacheDataAge_day>
     
     <!-- Maximum file age to keep DICOM files stored locally in a file cache.  The term 'file age' refers to the time
     stamp of the DICOM file, regardless of when the DICOM was first created.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days.  -->
-    <MaximumDICOMCacheFileAge_day>10000.0</MaximumDICOMCacheFileAge_day>
+    <MaximumDICOMCacheFileAge_day>36600.0</MaximumDICOMCacheFileAge_day>
     
     <!-- Time of day as hours and minutes (HH:MM) that program will restart
     itself. This is done to avoid errors that build up over time.  The time is
