@@ -24,10 +24,10 @@
         <dependency> <groupId>edu.umro</groupId>                 <artifactId>util</artifactId>                       <version>1.3.17</version>                        </dependency>
         <dependency> <groupId>edu.umro</groupId>                 <artifactId>ImageUtil_2.12</artifactId>             <version>0.0.2</version>                         </dependency>
         <dependency> <groupId>javax.servlet</groupId>            <artifactId>javax.servlet-api</artifactId>          <version>3.1.0</version>                         </dependency>
-        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-api</artifactId>                  <version>2.10.0</version>                        </dependency>
-        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-core</artifactId>                 <version>2.10.0</version>                        </dependency>
-        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-jul</artifactId>                  <version>2.10.0</version> <scope>runtime</scope> </dependency>
-        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-slf4j-impl</artifactId>           <version>2.10.0</version>                        </dependency>
+        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-api</artifactId>                  <version>2.15.0</version>                        </dependency>
+        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-core</artifactId>                 <version>2.15.0</version>                        </dependency>
+        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-jul</artifactId>                  <version>2.15.0</version> <scope>runtime</scope> </dependency>
+        <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-slf4j-impl</artifactId>           <version>2.15.0</version>                        </dependency>
         <dependency> <groupId>org.restlet.jee</groupId>          <artifactId>org.restlet.ext.fileupload</artifactId> <version>2.3.4</version>                         </dependency>
         <dependency> <groupId>org.restlet.jse</groupId>          <artifactId>org.restlet.ext.crypto</artifactId>     <version>2.3.5</version>                         </dependency>
         <dependency> <groupId>org.restlet.jse</groupId>          <artifactId>org.restlet.ext.httpclient</artifactId> <version>2.3.5</version>                         </dependency>
