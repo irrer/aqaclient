@@ -73,10 +73,10 @@
     <orderEntry type="library" name="Maven: edu.umro:ImageUtil_2.12:0.0.2" level="project" />
     <orderEntry type="library" name="Maven: javax.vecmath:vecmath:1.5.2" level="project" />
     <orderEntry type="library" name="Maven: javax.servlet:javax.servlet-api:3.1.0" level="project" />
-    <orderEntry type="library" name="Maven: org.apache.logging.log4j:log4j-api:2.15.0" level="project" />
-    <orderEntry type="library" name="Maven: org.apache.logging.log4j:log4j-core:2.15.0" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.apache.logging.log4j:log4j-jul:2.15.0" level="project" />
-    <orderEntry type="library" name="Maven: org.apache.logging.log4j:log4j-slf4j-impl:2.15.0" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.logging.log4j:log4j-api:2.16.0" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.logging.log4j:log4j-core:2.16.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.apache.logging.log4j:log4j-jul:2.16.0" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.logging.log4j:log4j-slf4j-impl:2.16.0" level="project" />
     <orderEntry type="library" name="Maven: org.restlet.jee:org.restlet.ext.fileupload:2.3.4" level="project" />
     <orderEntry type="library" name="Maven: org.restlet.jee:org.restlet:2.3.4" level="project" />
     <orderEntry type="library" name="Maven: org.restlet.jee:org.restlet.ext.servlet:2.3.4" level="project" />
