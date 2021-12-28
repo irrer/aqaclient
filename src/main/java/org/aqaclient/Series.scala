@@ -627,7 +627,7 @@ object Series extends Logging {
     removeOldDicom()
 
     // tell the uploader to check for series that needs to be uploaded
-    Upload.scanSeries()
+    DicomAssembleUpload.scanSeries()
   }
 
   /**

@@ -32,7 +32,7 @@ object DicomProcessing extends Logging {
     DicomMove.get(SeriesInstanceUID, description) match {
       case Some(series) =>
         Series.persist(series)
-        if (series.isViable) Upload.scanSeries()
+        if (series.isViable) DicomAssembleUpload.scanSeries()
       case _ => ;
     }
   }
