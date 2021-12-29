@@ -30,14 +30,14 @@ import scala.annotation.tailrec
 
 object Upload extends Logging {
 
-  /**
+  /**  // TODO rm
     * A complete set of DICOM series that can be uploaded.  A set of series may consist of any of these:
     *
     *     - A CT series                 (with or without an RTPLAN)
     *     - A CT series and REG series  (with or without an RTPLAN)
     *     - An RTIMAGE series           (with or without an RTPLAN)
     */
-  case class UploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) {
+  case class XUploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) {  // TODO rm
     override def toString: String = {
       val r = {
         if (procedure.isBBbyCBCT) {
@@ -68,15 +68,6 @@ object Upload extends Logging {
 
       filesOf(Some(imageSeries)) ++ regFiles ++ filesOf(plan)
     }
-  }
-
-  private def makeZipFile(fileList: Seq[File]): File = {
-    val out = new ByteArrayOutputStream
-    FileUtil.readFileTreeToZipStream(fileList, Seq[String](), Seq[File](), out)
-    val zipFileName = FileUtil.replaceInvalidFileNameCharacters(edu.umro.ScalaUtil.Util.dateToText(new Date) + ".zip", '_')
-    val zipFile = new File(ClientConfig.zipDir, zipFileName)
-    FileUtil.writeBinaryFile(zipFile, out.toByteArray)
-    zipFile
   }
 
   /**
@@ -120,17 +111,19 @@ object Upload extends Logging {
     logger.info("Processing upload " + uploadSet)
     val success: Boolean =
       try {
-        val allDicomFiles = uploadSet.getAllDicomFiles // gather DICOM files from all series
-        val zipFile = makeZipFile(allDicomFiles)
         logger.info("Beginning upload of " + uploadSet)
-        val msg = uploadToAQA(uploadSet.procedure, uploadSet.imageSeries, zipFile)
-        logger.info("Finished upload of " + uploadSet)
+        val msg = uploadToAQA(uploadSet)
         Sent.add(new Sent(uploadSet, msg))
         if (msg.isEmpty)
           logger.info("Successfully uploaded " + uploadSet)
         else {
           logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
         }
+
+        logger.info("Executing post-processing...")
+        uploadSet.postProcess(msg.isEmpty)
+        logger.info("Finished executing post-processing.")
+
         val ok = msg.isEmpty
         Results.refreshPatient(uploadSet.imageSeries.PatientID)
 

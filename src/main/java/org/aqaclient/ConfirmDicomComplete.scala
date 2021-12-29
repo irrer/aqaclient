@@ -20,7 +20,6 @@ import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
 import edu.umro.ScalaUtil.Trace
-import org.aqaclient.Upload.UploadSet
 
 import java.io.File
 import java.util.Date
@@ -38,7 +37,7 @@ import scala.xml.XML
   */
 object ConfirmDicomComplete extends Logging {
 
-  private case class ConfirmState(uploadSet: UploadSet, InitialUploadTime: Date = new Date, size: Option[Int] = None) {
+  private case class ConfirmState(uploadSet: DicomAssembleUpload.UploadSetDicomCMove, InitialUploadTime: Date = new Date, size: Option[Int] = None) {
 
     val imageSeriesSize: Int = {
       if (size.isDefined) size.get
@@ -94,7 +93,7 @@ object ConfirmDicomComplete extends Logging {
   /**
     * Redo the given upload.
     */
-  private def redoUpload(confirmState: ConfirmState): Option[UploadSet] = {
+  private def redoUpload(confirmState: ConfirmState): Option[DicomAssembleUpload.UploadSetDicomCMove] = {
     Series.update(confirmState.uploadSet.imageSeries.SeriesInstanceUID) match {
       case Some(series) =>
         val newUploadSet = confirmState.uploadSet.copy(imageSeries = series)
@@ -157,7 +156,7 @@ object ConfirmDicomComplete extends Logging {
   /**
     * An initial upload of the given data set has been done. Put it on the list to be monitored for updates.
     */
-  def confirmDicomComplete(uploadSet: UploadSet): Unit = {
+  def confirmDicomComplete(uploadSet: DicomAssembleUpload.UploadSetDicomCMove): Unit = {
     val confirmState = ConfirmState(uploadSet)
     confirmState.persist()
     Future {
@@ -208,7 +207,9 @@ object ConfirmDicomComplete extends Logging {
       val reg = getOptSeries("Reg")
       val plan = getOptSeries("Plan")
 
-      val uploadSet = UploadSet(Procedure, imageSeries, reg, plan)
+      val zipFile = ClientUtil.makeZipFile(Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)))
+
+      val uploadSet = DicomAssembleUpload.UploadSetDicomCMove(Procedure, "redo DICOM CMove upload", imageSeries, reg, plan)
       val cs = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
       Some(cs)
     } catch {

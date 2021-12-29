@@ -33,7 +33,7 @@ import java.util.Date
  * will be re-sent.  There might also be a web interface in the future for re-sending a data set.
  */
 
-case class Sent(uploadSet: Upload.UploadSet, msg: Option[String]) {
+case class Sent(uploadSet: DicomAssembleUpload.UploadSetDicomCMove, msg: Option[String]) {
   val date = new Date
 }
 

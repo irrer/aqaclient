@@ -20,6 +20,7 @@ import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.TagFromName
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.DicomUtil
+import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
 import org.restlet.data.ChallengeScheme
@@ -185,4 +186,19 @@ object ClientUtil extends Logging {
     }
     result
   }
+
+  /**
+   * Make a temporary zipped file out of a list of files.
+   * @param fileList Files to zip.
+   * @return Zipped file containing the fileList.
+   */
+  def makeZipFile(fileList: Seq[File]): File = {
+    val out = new ByteArrayOutputStream
+    FileUtil.readFileTreeToZipStream(fileList, Seq[String](), Seq[File](), out)
+    val zipFileName = FileUtil.replaceInvalidFileNameCharacters(edu.umro.ScalaUtil.Util.dateToText(new Date) + ".zip", '_')
+    val zipFile = new File(ClientConfig.zipDir, zipFileName)
+    FileUtil.writeBinaryFile(zipFile, out.toByteArray)
+    zipFile
+  }
+
 }
