@@ -19,6 +19,7 @@ package org.aqaclient
 import java.util.Date
 import edu.umro.ScalaUtil.PeriodicRestart
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 
 /**
  * Main entry point for client service.
@@ -41,6 +42,7 @@ object AQAClient extends Logging {
       //Util.showJarFile(this)
 
       if (ClientConfig.validate) {
+        logger.info("Validated configuration")
         HttpsInit.init()
         logger.info("Initialized HTTPS")
         DicomMove.init

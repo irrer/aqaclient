@@ -44,10 +44,7 @@ object DicomProcessing extends Logging {
     */
   private def fetchDicomOfModality(Modality: String, PatientID: String): Unit = {
     val serUidList = DicomFind.find(Modality, PatientID).flatMap(fal => ClientUtil.getSerUid(fal))
-    val newSerUidList = serUidList.
-      filterNot(serUid => FailedSeries.contains(serUid)).
-      filterNot(serUid => Series.contains(serUid)).
-      filterNot(serUid => Results.containsSeries(PatientID, serUid))
+    val newSerUidList = serUidList.filterNot(serUid => FailedSeries.contains(serUid)).filterNot(serUid => Series.contains(serUid)).filterNot(serUid => Results.containsSeries(PatientID, serUid))
     newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID + " : " + Modality))
   }
 
@@ -55,19 +52,25 @@ object DicomProcessing extends Logging {
     * Look for new files to process.  It is important to process CT series before
     * RTIMAGE because each RTIMAGE is dependent on the data from CTs.
     */
-  def updatePatient(PatientID: String): Unit =
+  def updatePatient(patientProcedure: PatientProcedure): Unit = {
+
+    // List of all modalities that should be fetched for this patient.  Sorted only so that
+    // they will be used in a consistent way.
+    val modalityList = patientProcedure.procedureList.flatMap(_.modalityList).distinct.sorted
     updateSync.synchronized {
-      logger.info("Updating patient ID: " + PatientID)
-      Seq("RTPLAN", "REG", "CT", "RTIMAGE").map(Modality => fetchDicomOfModality(Modality, PatientID))
+      logger.info("Updating patient ID: " + patientProcedure.patientId)
+      modalityList.map(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
     }
+  }
 
   /**
     * Use this as a semaphore to only permit one update to be executed at a time.
     */
   private val updateSync = 0
 
-  private def update() : Unit= {
-    PatientProcedure.patientIdList.foreach(updatePatient)
+  private def update(): Unit = {
+    logger.info("Updating DICOM for " + PatientProcedure.patientIdList.size + " patient IDs.")
+    PatientProcedure.getPatientProcedureList.foreach(updatePatient)
   }
 
   /**

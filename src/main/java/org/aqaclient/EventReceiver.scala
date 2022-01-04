@@ -46,9 +46,10 @@ object EventReceiver extends Logging {
     val document = XML.loadString(new String(data))
     val PatientId = (document \ "PatientId").head.text
     logger.info("Received event " + document.label + " for PatientId: " + PatientId)
-    if (PatientProcedure.patientIdList.exists(p => p.trim.equalsIgnoreCase(PatientId.trim))) {
+    val patientProcedure = PatientProcedure.getPatientProcedureList.find(pp => pp.patientId.trim.equalsIgnoreCase(PatientId.trim))
+    if (patientProcedure.isDefined) {
       logger.info("Retrieving updated list of DICOM series for PatientId: " + PatientId)
-      DicomProcessing.updatePatient(PatientId)
+      DicomProcessing.updatePatient(patientProcedure.get)
     } else
       logger.info("PatientId " + PatientId + " is not in the patient list. Ignoring event.")
   }

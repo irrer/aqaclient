@@ -171,24 +171,26 @@ object DicomMove extends Logging {
   /**
     * Perform a C-FIND multiple times and require the maximum slice count multiple times before it
     * is considered credible.
+    *
+    * @param SeriesInstanceUID Get slice list for this series.
+    * @param history List of slice lists gotten on previous attempts, in chronological order.
+    * @return List of slices that seems to be final (no more coming).
     */
   @tailrec
   private def getCredibleSliceList(SeriesInstanceUID: String, history: Seq[Seq[String]] = Seq()): Seq[String] = {
     // At least this many C-FINDS must return the same result before we believe it.
     val minCredibleSize = 3
 
-    // Wait this many ms between C-FINDs to avoid overloading the server
-    val cFindWaitInterval_ms = 250
+    // Wait this many ms between C-FINDs to allow time for more slices to arrive.  Also avoids overloading the server.
+    val cFindWaitInterval_ms = 500
 
-    // the maximum number of slices found with multiple attempts
-    val maxSliceCount = if (history.isEmpty) 0 else history.maxBy(h => h.size).size
+    val latest =  history.takeRight(minCredibleSize).map(_.size)
+    // of the last tries, there must be a minimum number of tries that are all the same size.
+    val isCredible = (latest.size == minCredibleSize) && (latest.distinct.size == 1)
 
-    // list of attempts that have the max number of slices
-    val hasMaxSliceCount = history.filter(h => h.size == maxSliceCount)
-
-    if (hasMaxSliceCount.size >= minCredibleSize) {
-      logger.info("getCredibleSliceList: C-FIND was executed " + history.size + " times to get a consistent list of " + hasMaxSliceCount.head.size + " slices   " + hasMaxSliceCount.size + " times.")
-      hasMaxSliceCount.head
+    if (isCredible) {
+      logger.info("getCredibleSliceList: C-FIND was executed " + history.size + " times to get a consistent list of " + history.last.size + " slices   " + history.size + " times.")
+      history.last
     } else {
       if (history.nonEmpty) Thread.sleep(cFindWaitInterval_ms)
       val sliceList = getSliceList(SeriesInstanceUID)

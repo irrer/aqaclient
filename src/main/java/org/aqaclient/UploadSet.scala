@@ -25,28 +25,22 @@ import java.io.File
   * @param description This is used for logging only.
   * @param zipFile File containing zipped data to upload.
   */
-class UploadSet(procedure: Procedure, description: String, zipFile: File) {
+class UploadSet(val procedure: Procedure, val description: String, val zipFile: File) {
 
   def this(procedure: Procedure, description: String, fileList: Seq[File]) {
     this(procedure = procedure, description = description, zipFile = ClientUtil.makeZipFile(fileList))
-  }
-
-  def this(procedure: Procedure, seriesList: Seq[org.aqaclient.Series], description: String) {
-    this(procedure, description, ClientUtil.makeZipFile(seriesList.flatMap(s => ClientUtil.listFiles(s.dir))))
   }
 
   override def toString: String = {
     procedure.toString + " :: " + description + " zip file: " + zipFile.getAbsolutePath + "   zip file size: " + zipFile.length()
   }
 
-  def j0(a: Seq[Int]) = "hey"
-  def j0(a: Seq[String]) = "ho"
-
   /**
     * Execute this function after the upload has completed.
     *
-    * @param pass True if upload was successful.  This is independent o the execution of the procedure, which
-    *             may subsequently pass, fail, crash, timeout, or whatever.
+    * @param msg Empty if upload was successful.  This is independent o the execution of the procedure, which
+    *            may subsequently pass, fail, crash, timeout, or whatever.  If nonEmpty, then the message
+   *             describes the error.
     */
-  def postProcess(pass: Boolean): Unit = {}
+  def postProcess(msg: Option[String]): Unit = {}
 }

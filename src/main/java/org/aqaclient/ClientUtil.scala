@@ -111,7 +111,7 @@ object ClientUtil extends Logging {
   }
 
   // for synchronizing HTTP calls
-  private val sync = "sync"
+  private val sync = "syncAQAClientHTTP"
 
   /**
     * Get text via HTTPS from the server.
@@ -121,6 +121,7 @@ object ClientUtil extends Logging {
     */
   def httpsGet(url: String): Option[String] = {
     try {
+      logger.info("Performing GET from " + url)
       val start = System.currentTimeMillis()
       val result = sync.synchronized {
         HttpsClient.httpsGet(
@@ -133,7 +134,7 @@ object ClientUtil extends Logging {
           timeout_ms = ClientConfig.HttpsGetTimeout_ms
         ) match {
           case Left(exception) =>
-            logger.warn("Unable to fetch from: " + url + " : " + fmtEx(exception))
+            logger.warn("Unable to GET from: " + url + " : " + fmtEx(exception))
             None
           case Right(representation) =>
             val outStream = new ByteArrayOutputStream
@@ -149,7 +150,7 @@ object ClientUtil extends Logging {
               Trace.trace("Closed representation stream")
             }
             val elapsed = System.currentTimeMillis() - start
-            logger.info("Successfully completed HTTPS get of " + text.length + " bytes from " + url + " in " + elapsed + " ms.  text: " + text.take(200))
+            logger.info("Successfully completed HTTPS GET of " + text.length + " bytes from " + url + " in " + elapsed + " ms.  text: " + text.take(200))
             Some(text)
         }
       }
@@ -171,6 +172,8 @@ object ClientUtil extends Logging {
     */
   def httpsPost(url: String, zipFile: File): Either[Throwable, Representation] = {
 
+    logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
+    val start = System.currentTimeMillis()
     val result = ClientUtil.sync.synchronized {
       HttpsClient.httpsPostSingleFileAsMulipartForm(
         url,
@@ -184,20 +187,30 @@ object ClientUtil extends Logging {
         timeout_ms = ClientConfig.HttpsUploadTimeout_ms
       )
     }
+    val elapsed = System.currentTimeMillis() - start
+    logger.info("Performed POST to " + url + " with zip file of size " + zipFile.length() + "    elapsed ms: " + elapsed)
     result
   }
 
   /**
-   * Make a temporary zipped file out of a list of files.
-   * @param fileList Files to zip.
-   * @return Zipped file containing the fileList.
-   */
+    * Make a temporary zipped file out of a list of files.
+    * @param fileList Files to zip.
+    * @return Zipped file containing the fileList.
+    */
   def makeZipFile(fileList: Seq[File]): File = {
+    Trace.trace("fileList.size: " + fileList.size + " : " + fileList.map(_.getAbsolutePath).mkString("    "))
     val out = new ByteArrayOutputStream
-    FileUtil.readFileTreeToZipStream(fileList, Seq[String](), Seq[File](), out)
+    Trace.trace()
+    FileUtil.readFileTreeToZipStream(fileList.sortBy(_.getName), Seq[String](), Seq[File](), out)
+    Trace.trace()
     val zipFileName = FileUtil.replaceInvalidFileNameCharacters(edu.umro.ScalaUtil.Util.dateToText(new Date) + ".zip", '_')
+    Trace.trace()
     val zipFile = new File(ClientConfig.zipDir, zipFileName)
-    FileUtil.writeBinaryFile(zipFile, out.toByteArray)
+    Trace.trace()
+    val bytes = out.toByteArray
+    Trace.trace("writing.  size: " + bytes.length)
+    FileUtil.writeBinaryFile(zipFile, bytes)
+    Trace.trace()
     zipFile
   }
 

@@ -16,12 +16,9 @@
 
 package org.aqaclient
 
-import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.Date
 import scala.annotation.tailrec
 
 /**
@@ -37,7 +34,7 @@ object Upload extends Logging {
     *     - A CT series and REG series  (with or without an RTPLAN)
     *     - An RTIMAGE series           (with or without an RTPLAN)
     */
-  case class XUploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) {  // TODO rm
+  case class XUploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) { // TODO rm
     override def toString: String = {
       val r = {
         if (procedure.isBBbyCBCT) {
@@ -74,23 +71,23 @@ object Upload extends Logging {
     * Send the zip file to the AQA server. Return true on success.  There may later be a failure on
     * the server side, but this success just indicates that the upload was successful.
     */
-  private def uploadToAQA(procedure: Procedure, series: Series, zipFile: File): Option[String] = {
+  private def uploadToAQA(uploadSet: UploadSet): Option[String] = {
     try {
       val start = System.currentTimeMillis
-      logger.info("Starting upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
+      logger.info("Starting upload of data set to AQA for procedure " + uploadSet.procedure + " " + uploadSet.description)
 
       // upload the files and wait for the processing to finish.  Do this in a synchronized so that no
       // other HTTP activity from this service is being attempted while it waits.
-      val result = ClientUtil.httpsPost(procedure.URL, zipFile)
+      val result = ClientUtil.httpsPost(uploadSet.procedure.URL, uploadSet.zipFile)
 
       val elapsed = System.currentTimeMillis - start
       result match {
         case Right(good) =>
-          logger.info("Elapsed time in ms of upload: " + elapsed + "  Successful upload of data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID)
+          logger.info("Elapsed time in ms of upload: " + elapsed + "  Successful upload of data set to AQA for " + uploadSet)
           println(good)
           None
         case Left(failure) =>
-          logger.warn("Elapsed time in ms of upload: " + elapsed + "  Failed to upload data set to AQA for procedure " + procedure.Name + "    PatientID: " + series.PatientID + " : " + fmtEx(failure))
+          logger.warn("Elapsed time in ms of upload: " + elapsed + "  Failed to upload data set to AQA for " + uploadSet + " : " + fmtEx(failure))
           Some("Elapsed time in ms of upload: " + elapsed + "  failed to upload data set to AQA: " + failure.getMessage)
       }
     } catch {
@@ -113,20 +110,18 @@ object Upload extends Logging {
       try {
         logger.info("Beginning upload of " + uploadSet)
         val msg = uploadToAQA(uploadSet)
-        Sent.add(new Sent(uploadSet, msg))
-        if (msg.isEmpty)
+        val ok = msg.isEmpty
+        if (ok)
           logger.info("Successfully uploaded " + uploadSet)
         else {
           logger.warn("Failure while uploading " + uploadSet + " : " + msg.get)
         }
 
         logger.info("Executing post-processing...")
-        uploadSet.postProcess(msg.isEmpty)
+        uploadSet.postProcess(msg)
         logger.info("Finished executing post-processing.")
-
-        val ok = msg.isEmpty
-        Results.refreshPatient(uploadSet.imageSeries.PatientID)
-
+        try { uploadSet.zipFile.delete() }
+        catch { case _: Throwable => }
         Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
         Series.removeObsoleteZipFiles() // clean up any zip files
         ok

@@ -96,7 +96,10 @@ object ConfirmDicomComplete extends Logging {
   private def redoUpload(confirmState: ConfirmState): Option[DicomAssembleUpload.UploadSetDicomCMove] = {
     Series.update(confirmState.uploadSet.imageSeries.SeriesInstanceUID) match {
       case Some(series) =>
-        val newUploadSet = confirmState.uploadSet.copy(imageSeries = series)
+        val newUploadSet = {
+          val us = confirmState.uploadSet
+          new DicomAssembleUpload.UploadSetDicomCMove(us.procedure, us.description, series, us.reg, us.plan)
+        }
         Upload.upload(newUploadSet)
         Some(newUploadSet)
       case _ =>
@@ -207,9 +210,7 @@ object ConfirmDicomComplete extends Logging {
       val reg = getOptSeries("Reg")
       val plan = getOptSeries("Plan")
 
-      val zipFile = ClientUtil.makeZipFile(Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)))
-
-      val uploadSet = DicomAssembleUpload.UploadSetDicomCMove(Procedure, "redo DICOM CMove upload", imageSeries, reg, plan)
+      val uploadSet = new DicomAssembleUpload.UploadSetDicomCMove(Procedure, "redo DICOM CMove upload", imageSeries, reg, plan)
       val cs = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
       Some(cs)
     } catch {

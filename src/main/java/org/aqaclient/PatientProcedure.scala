@@ -113,7 +113,7 @@ object PatientProcedure extends Logging {
   /**
     * Get a read-only list of patient IDs.  If they are 'old', then get the latest copy form the server.
     */
-  private def getPatientProcedureList: List[PatientProcedure] = {
+  def getPatientProcedureList: List[PatientProcedure] = {
     val age_ms = System.currentTimeMillis() - lastUpdateTime_ms // age of data in ms
     if (age_ms > ClientConfig.PatientProcedureAgeLimit_ms) refreshList()
     patientProcedureList.toList

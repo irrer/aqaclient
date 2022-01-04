@@ -79,6 +79,10 @@ object DicomFind extends Logging {
 
   /**
     * Get the list of SOPInstanceUID's for the given series.
+    *
+    * @param SeriesInstanceUID For this series.
+    *
+    * @return List of instance (slice) UIDs
     */
   def getSliceUIDsInSeries(SeriesInstanceUID: String): Seq[String] = {
 

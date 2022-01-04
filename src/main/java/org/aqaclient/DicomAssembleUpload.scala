@@ -25,14 +25,31 @@ import edu.umro.ScalaUtil.Logging
 object DicomAssembleUpload extends Logging {
 
   // @formatter:off
-  case class UploadSetDicomCMove(
-    procedure: Procedure,
-    description: String,
-    imageSeries: Series,
-    reg: Option[Series] = None,
-    plan: Option[Series] = None)
+  class UploadSetDicomCMove(
+    override val procedure: Procedure,
+    override val description: String,
+    val imageSeries: Series,
+    val reg: Option[Series] = None,
+    val plan: Option[Series] = None)
+      extends
+        UploadSet(procedure,
+          description + " image series: " + imageSeries,
+          ClientUtil.makeZipFile(Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)))) // convert all defined series into a zip file
   // @formatter:on
-      extends UploadSet(procedure, description, ClientUtil.makeZipFile(Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)))) {}
+  {
+
+    /**
+      * Mark the series as sent, and get the latest list of processed series for the given patient.
+      *
+      * @param msg Empty if upload was successful.  This is independent o the execution of the procedure, which
+      *            may subsequently pass, fail, crash, timeout, or whatever.  If nonEmpty, then the message
+      *             describes the error.
+      */
+    override def postProcess(msg: Option[String]): Unit = {
+      Sent.add(new Sent(this, msg))
+      Results.refreshPatient(this.imageSeries.PatientID)
+    }
+  }
 
   /**
     * If the given CT's frame of reference matches an RTPLAN, then upload it.
@@ -46,10 +63,10 @@ object DicomAssembleUpload extends Logging {
 
       (localPlan, remotePlan) match {
         // upload CT and RTPLAN
-        case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(UploadSetDicomCMove(procedureOfSeries.get, "CT and RTPLAN", ct, reg = None, Some(rtplan)))
+        case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT and RTPLAN", ct, reg = None, Some(rtplan)))
 
         // upload just the CT.  The RTPLAN has already been uploaded
-        case (_, true) if procedureOfSeries.isDefined => Some(UploadSetDicomCMove(procedureOfSeries.get, "CT only", ct))
+        case (_, true) if procedureOfSeries.isDefined => Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT only", ct))
 
         case _ => None // no plan available that has the same frame of reference as this CT
       }
@@ -74,9 +91,10 @@ object DicomAssembleUpload extends Logging {
         val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
 
         (localPlan, remotePlan) match {
-          case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(UploadSetDicomCMove(procedureOfSeries.get, "CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
+          case (Some(rtplan), _) if procedureOfSeries.isDefined =>
+            Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
           case (_, true) if procedureOfSeries.isDefined =>
-            Some(UploadSetDicomCMove(procedureOfSeries.get, "CT and REG, no RTPLAN", ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
+            Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT and REG, no RTPLAN", ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
           case _ => None
         }
       } else
@@ -91,7 +109,7 @@ object DicomAssembleUpload extends Logging {
   private def uploadableRtimage(rtimage: Series): Option[UploadSetDicomCMove] = {
     if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
       val procedure = PatientProcedure.getProcedureOfSeries(rtimage)
-      if (procedure.isDefined) Some(UploadSetDicomCMove(procedure.get, "RTIMAGE only", rtimage)) else None
+      if (procedure.isDefined) Some(new UploadSetDicomCMove(procedure.get, "RTIMAGE only", rtimage)) else None
     } else
       None
   }
@@ -107,11 +125,14 @@ object DicomAssembleUpload extends Logging {
     */
   private def seriesToUploadSet(series: Series): Option[UploadSetDicomCMove] = {
     val uploadSet = connectWithPlanByFrameOfRef(series) match {
-      case Some(uploadSet) => Some(uploadSet)
+      case Some(uploadSet) =>
+        Some(uploadSet)
       case _ =>
         connectWithPlanViaReg(series) match {
-          case Some(uploadSet) => Some(uploadSet)
-          case _               => uploadableRtimage(series)
+          case Some(uploadSet) =>
+            Some(uploadSet)
+          case _ =>
+            uploadableRtimage(series)
         }
     }
     uploadSet

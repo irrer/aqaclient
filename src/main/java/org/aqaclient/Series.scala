@@ -86,7 +86,7 @@ case class Series(
     */
   def isViable: Boolean = isRtplan || isRecent
 
-  def ensureFilesExist() {
+  def ensureFilesExist(): Unit = {
     if (!(dir.isDirectory && ClientUtil.listFiles(dir).nonEmpty)) {
       DicomMove.get(SeriesInstanceUID, toString)
     }
@@ -306,7 +306,6 @@ object Series extends Logging {
     * @param FrameOfReferenceUID DICOM frame of reference UID to find
     * @return Series that have that frame of reference.
     */
-  // jjjjj
   def getRegByRegFrameOfReference(FrameOfReferenceUID: String): Seq[Series] = {
     def forMatches(fr: String) = {
       fr.equals(FrameOfReferenceUID) ||
@@ -345,12 +344,7 @@ object Series extends Logging {
       val text = "\n" + PrettyXML.xmlToText(series.toXml) + "\n"
       val xmlFile = new File(series.dir.getParentFile, xmlFileName)
       val t = FileUtil.appendFile(xmlFile, text.getBytes)
-      if (t.isDefined)
-        logger.warn(
-          "Unexpected error appending file " + xmlFile.getAbsolutePath + " : " + fmtEx(
-            t.get
-          )
-        )
+      if (t.isDefined) logger.warn("Unexpected error appending file " + xmlFile.getAbsolutePath + " : " + fmtEx(t.get))
 
       logger.info("Persisted series to XML: " + series)
     }
@@ -382,10 +376,7 @@ object Series extends Logging {
       case Some(oldSeries) =>
         remove(oldSeries)
       case _ =>
-        logger.warn(
-          "Could not find old series with SeriesInstanceUID " + SeriesInstanceUID
-        )
-        None
+        logger.warn("Could not find old series with SeriesInstanceUID " + SeriesInstanceUID)
     }
 
     DicomMove.get(SeriesInstanceUID, SeriesInstanceUID) match {
@@ -401,12 +392,17 @@ object Series extends Logging {
 
   /**
     * Remove zip files that may remain from the previous instantiation of this server.
+    *
+    * @param maxAge_ms Maximum age in ms that files must be before they are deleted.
     */
-  def removeObsoleteZipFiles(): Unit = {
+  def removeObsoleteZipFiles(maxAge_ms: Long = 60 * 60 * 1000): Unit = {
     def del(f: File): Unit = {
       try {
-        f.delete
-        logger.info("Deleted zip file " + f.getAbsolutePath)
+        val age = System.currentTimeMillis() - f.lastModified()
+        if (age > maxAge_ms) {
+          f.delete
+          logger.info("Deleted zip file " + f.getAbsolutePath)
+        }
       } catch {
         case t: Throwable =>
           logger.warn(
@@ -455,11 +451,7 @@ object Series extends Logging {
         None
     } catch {
       case t: Throwable =>
-        logger.warn(
-          "Unexpected error while reading previously saved series from " + seriesDir.getAbsolutePath + " : " + fmtEx(
-            t
-          )
-        )
+        logger.warn("Unexpected error while reading previously saved series from " + seriesDir.getAbsolutePath + " : " + fmtEx(t))
         None
     }
   }
@@ -592,11 +584,12 @@ object Series extends Logging {
       }
     }
 
-    logger.info(
-      "Removing (culling) old copies of DICOM files to save disk space."
-    )
+    logger.info("Removing (culling) old copies of DICOM files to save disk space.")
+    val removeList = getAllSeries.filterNot(s => keep(s))
+    logger.info("Found " + removeList.size + " old copies of DICOM series to remove.")
 
-    getAllSeries.filterNot(s => keep(s)).foreach(s => removeDicom(s))
+    removeList.foreach(s => removeDicom(s))
+    logger.info("Removed old DICOM series.")
   }
 
   /**
@@ -645,7 +638,7 @@ object Series extends Logging {
     */
   def init(): Unit = {
     logger.info("initializing Series")
-    removeObsoleteZipFiles()
+    removeObsoleteZipFiles(0)
     reinstatePreviouslyFetchedSeries()
     removeObsoletePatientSeries()
     logger.info(

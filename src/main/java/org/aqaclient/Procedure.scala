@@ -29,10 +29,10 @@ class Procedure(val node: Node) extends Logging {
   }
 
   /**
-   * Get the text of an attribute or element by the same name.
-   * @param tag Tag name.
-   * @return Text value.
-   */
+    * Get the text of an attribute or element by the same name.
+    * @param tag Tag name.
+    * @return Text value.
+    */
   private def textOf(tag: String) = ((node \ tag) ++ (node \ ("@" + tag))).head.text.trim
 
   final val isBBbyCBCT = Name.toLowerCase.contains("bb") && Name.toLowerCase.contains("cbct")
@@ -43,6 +43,19 @@ class Procedure(val node: Node) extends Logging {
 
   override def toString: String = {
     Name + " : " + Version + " :: " + URL
+  }
+
+  /**
+    * Return the list of modalities for this procedure.
+    *
+    * Note that by necessity this is 'hard coded' in that the list is derived
+    * from knowing the list of modalities that each procedure uses.
+    */
+  val modalityList: Seq[String] = {
+    if (isBBbyCBCT)
+      Seq("CT", "REG", "RTPLAN")
+    else
+      Seq("RTIMAGE", "RTPLAN")
   }
 
   /*
