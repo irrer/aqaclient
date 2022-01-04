@@ -88,7 +88,7 @@ case class Series(
 
   def ensureFilesExist(): Unit = {
     if (!(dir.isDirectory && ClientUtil.listFiles(dir).nonEmpty)) {
-      DicomMove.get(SeriesInstanceUID, toString)
+      DicomMove.get(SeriesInstanceUID, PatientID, Modality.toString)
     }
   }
 
@@ -371,7 +371,7 @@ object Series extends Logging {
   /**
     * Update a series, including the internal pool, the XML index file, and the DICOM directory.
     */
-  def update(SeriesInstanceUID: String): Option[Series] = {
+  def update(SeriesInstanceUID: String, PatientID: String, Modality: String): Option[Series] = {
     get(SeriesInstanceUID) match {
       case Some(oldSeries) =>
         remove(oldSeries)
@@ -379,7 +379,7 @@ object Series extends Logging {
         logger.warn("Could not find old series with SeriesInstanceUID " + SeriesInstanceUID)
     }
 
-    DicomMove.get(SeriesInstanceUID, SeriesInstanceUID) match {
+    DicomMove.get(SeriesInstanceUID, PatientID: String, Modality: String) match {
       case Some(newSeries) =>
         Some(newSeries)
       case _ =>

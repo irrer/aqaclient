@@ -31,7 +31,7 @@ class TestDicomGet extends FlatSpec with Matchers {
 
     case class TestData(seriesInstanceUID: String, valid: Boolean) {
       def get = {
-        val series = DicomMove.get(seriesInstanceUID, "expected to succeed: " + valid)
+        val series = DicomMove.get(seriesInstanceUID, "expected to succeed: " + valid, "modality")
 
         ((series.isDefined && valid) || (series.isEmpty && (!valid))) should be(true)
       }

@@ -94,7 +94,8 @@ object ConfirmDicomComplete extends Logging {
     * Redo the given upload.
     */
   private def redoUpload(confirmState: ConfirmState): Option[DicomAssembleUpload.UploadSetDicomCMove] = {
-    Series.update(confirmState.uploadSet.imageSeries.SeriesInstanceUID) match {
+    val series = confirmState.uploadSet.imageSeries
+    Series.update(series.SeriesInstanceUID, series.PatientID, series.Modality.toString) match {
       case Some(series) =>
         val newUploadSet = {
           val us = confirmState.uploadSet

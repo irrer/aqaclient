@@ -17,7 +17,6 @@
 package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
-import edu.umro.util.Utility
 
 /**
   * Orchestrate all C-FIND and C-MOVE operations to obtain the relevant DICOM.  It is
@@ -28,8 +27,8 @@ object DicomProcessing extends Logging {
   /**
     * Get all files for the given series via C-MOVE.
     */
-  private def fetchSeries(SeriesInstanceUID: String, description: String): Unit = {
-    DicomMove.get(SeriesInstanceUID, description) match {
+  private def fetchSeries(SeriesInstanceUID: String, PatientID: String, Modality: String): Unit = {
+    DicomMove.get(SeriesInstanceUID, PatientID, Modality) match {
       case Some(series) =>
         Series.persist(series)
         if (series.isViable) DicomAssembleUpload.scanSeries()
@@ -45,7 +44,7 @@ object DicomProcessing extends Logging {
   private def fetchDicomOfModality(Modality: String, PatientID: String): Unit = {
     val serUidList = DicomFind.find(Modality, PatientID).flatMap(fal => ClientUtil.getSerUid(fal))
     val newSerUidList = serUidList.filterNot(serUid => FailedSeries.contains(serUid)).filterNot(serUid => Series.contains(serUid)).filterNot(serUid => Results.containsSeries(PatientID, serUid))
-    newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID + " : " + Modality))
+    newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID, Modality))
   }
 
   /**
@@ -74,20 +73,6 @@ object DicomProcessing extends Logging {
   }
 
   /**
-    * Remove temporary files if there are any.
-    */
-  private def cleanup = {
-    if (DicomMove.activeDir.exists)
-      try {
-        Utility.deleteFileTree(DicomMove.activeDir)
-      } catch {
-        case _: Throwable => ;
-      }
-
-    ClientConfig.seriesDir.listFiles.filter(f => f.getName.toLowerCase.endsWith(".tmp")).map(f => f.delete)
-  }
-
-  /**
     * If polling has been configured, then start a thread that updates regularly.
     */
   private def poll(): Unit = {
@@ -110,7 +95,6 @@ object DicomProcessing extends Logging {
 
   def init(): Unit = {
     logger.info("initializing DicomProcessing")
-    cleanup
     //restoreSavedFiles
     poll()
     eventListener()
