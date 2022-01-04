@@ -111,7 +111,7 @@ object ClientUtil extends Logging {
   }
 
   // for synchronizing HTTP calls
-  private val sync = "syncAQAClientHTTP"
+  private val syncAQAClientHTTP = "syncAQAClientHTTP"
 
   /**
     * Get text via HTTPS from the server.
@@ -123,7 +123,7 @@ object ClientUtil extends Logging {
     try {
       logger.info("Performing GET from " + url)
       val start = System.currentTimeMillis()
-      val result = sync.synchronized {
+      val result = syncAQAClientHTTP.synchronized {
         HttpsClient.httpsGet(
           url,
           ClientConfig.AQAUser,
@@ -174,7 +174,7 @@ object ClientUtil extends Logging {
 
     logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
     val start = System.currentTimeMillis()
-    val result = ClientUtil.sync.synchronized {
+    val result = ClientUtil.syncAQAClientHTTP.synchronized {
       HttpsClient.httpsPostSingleFileAsMulipartForm(
         url,
         zipFile,
