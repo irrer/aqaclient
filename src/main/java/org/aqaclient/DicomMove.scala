@@ -29,12 +29,16 @@ import edu.umro.ScalaUtil.FileUtil
 
 import java.io.File
 import java.util.Date
+import java.util.concurrent.Semaphore
 import scala.annotation.tailrec
 
 /**
   * Utility for getting DICOM via C-MOVE and caching them in the local disk.
   */
 object DicomMove extends Logging {
+
+  /** Used to limit use of DICOM C-MOVEs and C-FINDs to one. */
+  val dicomSemaphore = new Semaphore(1)
 
   /** Name of parent dir that contains subdirectories used for DICOM C-MOVEs. */
   private val transferParentDirName = "transferDicomMove"
@@ -83,7 +87,7 @@ object DicomMove extends Logging {
     dr
   }
 
-  private def moveActiveDirToSeriesDir(transferDir: File): Option[Series] = {
+  private def moveTransferDirToSeriesDir(transferDir: File): Option[Series] = {
     val transferList = ClientUtil.listFiles(transferDir)
     if (transferList.isEmpty) None
     else
@@ -97,7 +101,7 @@ object DicomMove extends Logging {
         Some(series)
       } catch {
         case t: Throwable =>
-          logger.warn("Unexpected error while moving files in active directory: " + fmtEx(t))
+          logger.warn("Unexpected error while moving files in transfer directory: " + fmtEx(t))
           None
       }
   }
@@ -158,7 +162,7 @@ object DicomMove extends Logging {
   }
 
   /**
-    * Get the list of all SOPInstanceUID in the active directory.
+    * Get the list of all SOPInstanceUID in the transfer directory.
     */
   private def getSopList(transferDir: File): Seq[String] = ClientUtil.listFiles(transferDir).flatMap(f => fileToSopInstanceUID(f))
 
@@ -180,9 +184,21 @@ object DicomMove extends Logging {
     addAttr(TagFromName.QueryRetrieveLevel, "SERIES")
     addAttr(TagFromName.SeriesInstanceUID, SeriesInstanceUID)
 
-    ClientUtil.listFiles(transferDir).map(f => f.delete) // delete all files in active directory
+    ClientUtil.listFiles(transferDir).map(f => f.delete) // delete all files in transfer directory
     Utility.deleteFileTree(dicomReceiver.setSubDir(transferDir.getName))
-    ClientConfig.DICOMClient.synchronized(dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient))
+
+    val didAcquire = dicomSemaphore.tryAcquire(ClientConfig.DicomTimeout_ms, java.util.concurrent.TimeUnit.MILLISECONDS)
+    if (!didAcquire)
+      logger.error("Could not acquire DICOM semaphore.  Proceeding with C-MOVE anyway.")
+    try {
+      dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
+      logger.info("Successfully copied DICOM files.")
+    } catch {
+      case t: Throwable => logger.error("Unexpected exception during DICOM C-MOVE: " + fmtEx(t))
+    } finally {
+      dicomSemaphore.release()
+    }
+
     getSopList(transferDir)
   }
 
@@ -259,7 +275,7 @@ object DicomMove extends Logging {
           } else {
             logger.warn(description + "C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.  Proceeding anyway.")
           }
-          moveActiveDirToSeriesDir(transferDir)
+          moveTransferDirToSeriesDir(transferDir)
         } else {
           logger.warn(description + " C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
           logger.info(description + " DicomMove.get Retry " + (1 + ClientConfig.DICOMRetryCount - retry) + " of C-MOVE for series " + SeriesInstanceUID)
@@ -279,7 +295,7 @@ object DicomMove extends Logging {
     } else {
       val result = getAll(1)
 
-      // the active directory should be deleted if it still exists
+      // the transfer directory should be deleted if it still exists
       if (transferDir.exists) Utility.deleteFileTree(transferDir)
 
       result
@@ -304,7 +320,7 @@ object DicomMove extends Logging {
   /**
     * Initialize by starting the DICOM receiver, but do not fetch any data.
     */
-  def init: Unit = {
+  def init(): Unit = {
     logger.info("initializing DicomMove")
     cleanup
     transferParentDir.mkdirs

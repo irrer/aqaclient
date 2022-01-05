@@ -93,6 +93,8 @@ object ClientConfig
 
   val DICOMRetryCount: Int = logMainText("DICOMRetryCount", "3").toInt
   val DICOMRetryWait_sec: Double = logMainText("DICOMRetryWait_sec", "1.0").toDouble
+  val DicomTimeout_sec: Double =  logMainText("DicomTimeout_sec", "120.0").toDouble
+  val DicomTimeout_ms: Long = (DicomTimeout_sec * 1000).round
 
   val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
   val ConfirmDicomCompleteInterval_ms: Long = (ConfirmDicomCompleteInterval_sec * 1000).round

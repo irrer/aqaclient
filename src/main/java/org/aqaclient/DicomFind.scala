@@ -48,6 +48,42 @@ object DicomFind extends Logging {
   }
 
   /**
+    * General wrapper to handle properly acquiring access to the service and possible exceptions.
+    *
+    * @param queryAttributes List of attributes specifying which data to get.
+    * @param queryLevel DICOM query level.
+    * @return List of attributes found.  Empty list on failure.
+    */
+  private def genericFind(queryAttributes: AttributeList, queryLevel: DicomCFind.QueryRetrieveLevel.Value): Seq[AttributeList] = {
+
+    val didAcquire = DicomMove.dicomSemaphore.tryAcquire(ClientConfig.DicomTimeout_ms, java.util.concurrent.TimeUnit.MILLISECONDS)
+    if (!didAcquire)
+      logger.error("Could not acquire DICOM semaphore.  Proceeding with C-MOVE anyway.")
+    val resultList: Seq[AttributeList] =
+      try {
+
+        val list = DicomCFind.cfind(
+          callingAETitle = ClientConfig.DICOMClient.aeTitle,
+          calledPacs = ClientConfig.DICOMSource,
+          attributeList = queryAttributes,
+          queryLevel = queryLevel,
+          limit = None,
+          queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
+        )
+
+        logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size)
+        list
+      } catch {
+        case t: Throwable =>
+          logger.error("Unexpected exception during DICOM C-MOVE: " + fmtEx(t))
+          Seq()
+      } finally {
+        DicomMove.dicomSemaphore.release()
+      }
+    resultList
+  }
+
+  /**
     * Perform a C-FIND query that gets a list of series of the given modality for the given patient.
     */
   def find(modality: String, patientID: String): Seq[AttributeList] = {
@@ -58,23 +94,10 @@ object DicomFind extends Logging {
       (TagFromName.PatientID, patientID)
     )
 
-    val query = new Query(tagSeq, tagValueSeq).query
+    val queryAttributes = new Query(tagSeq, tagValueSeq).query
 
-    ClientConfig.DICOMClient.synchronized({
-      val resultList = DicomCFind.cfind(
-        callingAETitle = ClientConfig.DICOMClient.aeTitle,
-        calledPacs = ClientConfig.DICOMSource,
-        attributeList = query,
-        queryLevel = DicomCFind.QueryRetrieveLevel.SERIES,
-        limit = None,
-        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
-      )
-
-      // commented out because it was too verbose
-      // val msg = "C-FIND query PatientID: " + patientID + "    Modality: " + modality + "    number of results: " + resultList.size
-      // logger.info(msg)
-      resultList
-    })
+    val list = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.SERIES)
+    list
   }
 
   /**
@@ -89,22 +112,14 @@ object DicomFind extends Logging {
     val tagSeq = Seq(TagFromName.SOPInstanceUID)
     val tagValueSeq = Seq((TagFromName.SeriesInstanceUID, SeriesInstanceUID))
 
-    val query = new Query(tagSeq, tagValueSeq).query
+    val queryAttributes = new Query(tagSeq, tagValueSeq).query
 
-    ClientConfig.DICOMClient.synchronized({
-      val resultList = DicomCFind.cfind(
-        callingAETitle = ClientConfig.DICOMClient.aeTitle,
-        calledPacs = ClientConfig.DICOMSource,
-        attributeList = query,
-        queryLevel = DicomCFind.QueryRetrieveLevel.IMAGE,
-        limit = None,
-        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
-      )
+    val resultList = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.IMAGE)
 
-      val seq = resultList.map(r => r.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
-      val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size
-      logger.info(msg)
-      seq
-    })
+    val seq = resultList.map(r => r.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
+    val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size
+    logger.info(msg)
+    seq
+
   }
 }
