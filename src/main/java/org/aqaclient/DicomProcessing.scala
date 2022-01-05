@@ -57,7 +57,7 @@ object DicomProcessing extends Logging {
     // they will be used in a consistent way.
     val modalityList = patientProcedure.procedureList.flatMap(_.modalityList).distinct.sorted
     logger.info("Updating patient ID: " + patientProcedure.patientId)
-    modalityList.map(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
+    modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
   }
 
   private def update(): Unit = {
