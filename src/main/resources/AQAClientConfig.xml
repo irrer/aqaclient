@@ -106,7 +106,7 @@
     <DICOMRetryWait_sec>1.0</DICOMRetryWait_sec>
 
     <!-- For DICOM C-MOVEs or C-FINDs, do not wait any longer than this to acquire the semaphore to use the connection.-->
-    <DICOMRetryWait_sec>120.0</DICOMRetryWait_sec>
+    <DicomTimeout_sec>60.0</DicomTimeout_sec>
 
     <!-- Maximum data age to be considered relevant.  Maximum age of data as a floating point number in
     days for it to be uploaded to  the server.  If the data is older than this many days, it will not be
@@ -143,7 +143,7 @@
     
     <!-- Amount of time as a floating point number in seconds to wait before assuming that all DICOM slices
     have been received by the PACS. -->
-    <ConfirmDicomCompleteTimeout_sec>300.0</ConfirmDicomCompleteTimeout_sec>
+    <ConfirmDicomCompleteTimeout_sec>20.0</ConfirmDicomCompleteTimeout_sec>
 
     <!-- Interval in floating point minutes that dictates how frequently the list of Procedure Results should
     be updated.  Defaults to 60.0 . -->

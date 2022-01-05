@@ -62,6 +62,7 @@ object DicomFind extends Logging {
     val resultList: Seq[AttributeList] =
       try {
 
+        val start = System.currentTimeMillis()
         val list = DicomCFind.cfind(
           callingAETitle = ClientConfig.DICOMClient.aeTitle,
           calledPacs = ClientConfig.DICOMSource,
@@ -70,8 +71,9 @@ object DicomFind extends Logging {
           limit = None,
           queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
         )
+        val elapsed = System.currentTimeMillis() - start
 
-        logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size)
+        logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)
         list
       } catch {
         case t: Throwable =>

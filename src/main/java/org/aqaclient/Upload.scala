@@ -145,9 +145,8 @@ object Upload extends Logging {
       def run(): Unit = {
         while (true) {
           val uploadSet = queue.take
-          logger.info("Processing new upload.  queue size: " + queue.size)
+          logger.info("Processing new upload " + uploadSet)
           upload(uploadSet)
-          queue.take
         }
       }
     }

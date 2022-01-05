@@ -191,8 +191,15 @@ object DicomMove extends Logging {
     if (!didAcquire)
       logger.error("Could not acquire DICOM semaphore.  Proceeding with C-MOVE anyway.")
     try {
+      val start = System.currentTimeMillis()
       dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
       logger.info("Successfully copied DICOM files.")
+      val elapsed = System.currentTimeMillis() - start
+
+      val size = ClientUtil.listFiles(transferDir).size
+      val msPerFile = (elapsed.toDouble / size).formatted("%10.3f").trim
+
+      logger.info("Successfully performed DICOM C-MOVE to transfer dir " + transferDir.getName + "  Number of files: " + size + "    ms per file: " + msPerFile + "    Elapsed ms: " + elapsed)
     } catch {
       case t: Throwable => logger.error("Unexpected exception during DICOM C-MOVE: " + fmtEx(t))
     } finally {
