@@ -141,13 +141,13 @@ object DicomAssembleUpload extends Logging {
   /**
     * Semaphore for maintaining atomicity of update function.
     */
-  private val updateSync = ""
+  private val updateSyncDicomAssembleUpload = "updateSyncDicomAssembleUpload"
 
   /**
     * Look for sets of DICOM series that can be uploaded, and then upload them.
     */
   private def update(): Unit =
-    updateSync.synchronized {
+    updateSyncDicomAssembleUpload.synchronized {
       // ignore image series that are too old
       val recent = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
 

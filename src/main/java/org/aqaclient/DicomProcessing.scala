@@ -56,16 +56,9 @@ object DicomProcessing extends Logging {
     // List of all modalities that should be fetched for this patient.  Sorted only so that
     // they will be used in a consistent way.
     val modalityList = patientProcedure.procedureList.flatMap(_.modalityList).distinct.sorted
-    updateSync.synchronized {
-      logger.info("Updating patient ID: " + patientProcedure.patientId)
-      modalityList.map(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
-    }
+    logger.info("Updating patient ID: " + patientProcedure.patientId)
+    modalityList.map(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
   }
-
-  /**
-    * Use this as a semaphore to only permit one update to be executed at a time.
-    */
-  private val updateSync = 0
 
   private def update(): Unit = {
     logger.info("Updating DICOM for " + PatientProcedure.patientIdList.size + " patient IDs.")
