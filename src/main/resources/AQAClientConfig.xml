@@ -154,4 +154,15 @@
     PatientProcedure list on the server, it may take this long before the client reads it. -->
     <PatientProcedureAgeLimit_sec>60.0</PatientProcedureAgeLimit_sec>
 
+    <!-- Polling interval for checking for new machine log files. Floating point in minutes. Default is 60 minutes. -->
+    <MachineLogPollingInterval_min>0.5</MachineLogPollingInterval_min>
+
+    <!-- List of directories to scan for machine log files. -->
+    <MachineLogDirList>
+      <MachineLogDir>D:\tmp\aqa\MachineLogs\test</MachineLogDir>
+    </MachineLogDirList>
+
+
+
+
 </AQAClientConfig>

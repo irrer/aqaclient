@@ -20,6 +20,32 @@ import edu.umro.ScalaUtil.Logging
 
 import scala.xml.Node
 
+object Procedure {
+  /** Maintain a cache of procedures defined on the server. */
+  private val procedureCache = scala.collection.mutable.Set[Procedure]()
+
+  /**
+    * Get the list of procedures.
+    *
+    * @return List of procedures.
+    */
+  def fetchList(): Seq[Procedure] =
+    procedureCache.synchronized {
+      procedureCache.toSeq
+    }
+
+  /**
+    * Replace the cache contents with the given list.
+    *
+    * @param newList New list of procedures.
+    */
+  def setList(newList: Seq[Procedure]): Unit =
+    procedureCache.synchronized {
+      procedureCache.clear()
+      newList.foreach(p => procedureCache.add(p))
+    }
+}
+
 class Procedure(val node: Node) extends Logging {
   val Version: String = textOf(tag = "Version")
   val Name: String = textOf(tag = "Name")
@@ -40,6 +66,7 @@ class Procedure(val node: Node) extends Logging {
   final val isPhase2 = Name.toLowerCase.matches(".*phase *2.*")
   final val isLOC = (Name.toLowerCase.contains("loc") || Name.toLowerCase.contains("leaf offset")) && (!Name.toLowerCase.contains("base"))
   final val isLOCBaseline = Name.toLowerCase.contains("loc") && Name.toLowerCase.contains("base")
+  final val isMachineLog = Name.toLowerCase.contains("mach") && Name.toLowerCase.contains("log")
 
   override def toString: String = {
     Name + " : " + Version + " :: " + URL

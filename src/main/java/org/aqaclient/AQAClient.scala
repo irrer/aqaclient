@@ -16,23 +16,24 @@
 
 package org.aqaclient
 
-import java.util.Date
-import edu.umro.ScalaUtil.PeriodicRestart
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
+import edu.umro.ScalaUtil.PeriodicRestart
+
+import java.util.Date
 
 /**
- * Main entry point for client service.
- */
+  * Main entry point for client service.
+  */
 object AQAClient extends Logging {
+
   /** Time at which service was started. */
   val serviceStartTime: Long = System.currentTimeMillis
 
   /**
-   * Main entry point for service.
-   *
-   * @param args Ignored
-   */
+    * Main entry point for service.
+    *
+    * @param args Ignored
+    */
   def main(args: Array[String]): Unit = {
 
     try {
@@ -45,7 +46,7 @@ object AQAClient extends Logging {
         logger.info("Validated configuration")
         HttpsInit.init()
         logger.info("Initialized HTTPS")
-        DicomMove.init
+        DicomMove.init()
         logger.info("Retrieved PatientID list")
         PatientProcedure.init()
         logger.info("Initialized PatientProcedure list")
@@ -63,6 +64,8 @@ object AQAClient extends Logging {
         logger.info("Initialized ClientWebServer")
         ConfirmDicomComplete.init()
         logger.info("Initialized ConfirmDicomComplete")
+        MachineLog.init()
+        logger.info("Initialized MachineLog")
         new PeriodicRestart(ClientConfig.RestartTime)
         logger.info("Initialized PeriodicRestart")
         logger.info("AQAClient fully initialized")

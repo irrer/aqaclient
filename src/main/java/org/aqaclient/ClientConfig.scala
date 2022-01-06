@@ -93,7 +93,7 @@ object ClientConfig
 
   val DICOMRetryCount: Int = logMainText("DICOMRetryCount", "3").toInt
   val DICOMRetryWait_sec: Double = logMainText("DICOMRetryWait_sec", "1.0").toDouble
-  val DicomTimeout_sec: Double =  logMainText("DicomTimeout_sec", "120.0").toDouble
+  val DicomTimeout_sec: Double = logMainText("DicomTimeout_sec", "120.0").toDouble
   val DicomTimeout_ms: Long = (DicomTimeout_sec * 1000).round
 
   val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
@@ -107,6 +107,17 @@ object ClientConfig
 
   val PatientProcedureAgeLimit_sec: Double = logMainText("PatientProcedureAgeLimit_sec", "60.0").toDouble
   val PatientProcedureAgeLimit_ms: Long = (PatientProcedureAgeLimit_sec * 1000).round
+
+  val MachineLogPollingInterval_min: Double = logMainText("MachineLogPollingInterval_min", "60.0").toDouble
+  val MachineLogPollingInterval_ms: Long = (MachineLogPollingInterval_min * 60 * 1000).round
+
+  val MachineLogDirList: Seq[File] = {
+    val fileList = (document \ "MachineLogDirList" \ "MachineLogDir").map(n => new File(n.text))
+    fileList.filterNot(_.isDirectory).foreach(f => logger.error("Machine log dir is not a directory and is being ignored: " + f.getAbsolutePath))
+    val list = fileList.filter(_.isDirectory)
+    logText("MachineLogDirList \\ MachineLogDir", list.map(d => d.getAbsolutePath).mkString("\n        ", "\n        ", "\n        "))
+    list
+  }
 
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true

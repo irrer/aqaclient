@@ -71,6 +71,18 @@ object PatientProcedure extends Logging {
     else "<PatientProcedureList></PatientProcedureList>"
   }
 
+  /**
+    * Get the list of procedures that the server sent and use them to
+    * define the list of all procedures.
+    *
+    * @param doc Top level node sent by server.
+    */
+  private def populateProcedureList(doc: Node): Unit = {
+    val procList = doc \ "ProcedureList" \ "Procedure"
+    val newList = procList.map(p => new Procedure(p))
+    Procedure.setList(newList)
+  }
+
   private def populateFromText(text: String): Unit = {
     val node = XML.loadString(text)
     Trace.trace("populateFromText:\n" + text)
@@ -79,6 +91,7 @@ object PatientProcedure extends Logging {
       patientProcedureList.clear()
       patientProcedureList.appendAll(list)
     }
+    populateProcedureList(node)
   }
 
   /**
@@ -95,7 +108,7 @@ object PatientProcedure extends Logging {
           // If the list changed, then fetch a new set of Results from the server.
           if (!text.equals(previousText)) {
             logger.info("PatientProcedure list has changed.  Refreshing Results list from server.")
-            Results.refreshAll
+            Results.refreshAll()
           }
         case _ =>
           logger.warn("Have to get PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url)
