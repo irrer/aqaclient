@@ -54,6 +54,8 @@ object AQAClient extends Logging {
         logger.info("Initialized Results repository")
         Series.init()
         logger.info("Initialized Series repository")
+        ConfirmDicomComplete.init()
+        logger.info("Initialized ConfirmDicomComplete")
         DicomProcessing.init()
         logger.info("Initialized DicomProcessing")
         Upload.init()
@@ -62,8 +64,6 @@ object AQAClient extends Logging {
         logger.info("Initialized EventReceiver")
         new ClientWebServer
         logger.info("Initialized ClientWebServer")
-        ConfirmDicomComplete.init()
-        logger.info("Initialized ConfirmDicomComplete")
         MachineLog.init()
         logger.info("Initialized MachineLog")
         new PeriodicRestart(ClientConfig.RestartTime)

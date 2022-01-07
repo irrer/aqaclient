@@ -17,6 +17,7 @@
 package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 
 /**
   * Group series into sets of data that can be processed and upload to the AQA platform.
@@ -34,7 +35,10 @@ object DicomAssembleUpload extends Logging {
       extends
         UploadSet(procedure,
           description + " image series: " + imageSeries,
-          ClientUtil.makeZipFile(Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)))) // convert all defined series into a zip file
+          ClientUtil.makeZipFile(
+            fileList    = Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)),
+            description = procedure.Name + "-" + procedure.Version + "_" + imageSeries.PatientID + "_" + imageSeries.Modality
+          )) // convert all defined series into a zip file
   // @formatter:on
   {
 
@@ -63,10 +67,10 @@ object DicomAssembleUpload extends Logging {
 
       (localPlan, remotePlan) match {
         // upload CT and RTPLAN
-        case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT and RTPLAN", ct, reg = None, Some(rtplan)))
+        case (Some(rtplan), _) if procedureOfSeries.isDefined => Some(new UploadSetDicomCMove(procedureOfSeries.get, ct.PatientID + " CT and RTPLAN", ct, reg = None, Some(rtplan)))
 
         // upload just the CT.  The RTPLAN has already been uploaded
-        case (_, true) if procedureOfSeries.isDefined => Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT only", ct))
+        case (_, true) if procedureOfSeries.isDefined => Some(new UploadSetDicomCMove(procedureOfSeries.get, ct.PatientID + " CT only", ct))
 
         case _ => None // no plan available that has the same frame of reference as this CT
       }
@@ -92,9 +96,9 @@ object DicomAssembleUpload extends Logging {
 
         (localPlan, remotePlan) match {
           case (Some(rtplan), _) if procedureOfSeries.isDefined =>
-            Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
+            Some(new UploadSetDicomCMove(procedureOfSeries.get, ct.PatientID + " CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
           case (_, true) if procedureOfSeries.isDefined =>
-            Some(new UploadSetDicomCMove(procedureOfSeries.get, "CT and REG, no RTPLAN", ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
+            Some(new UploadSetDicomCMove(procedureOfSeries.get, ct.PatientID + " CT and REG, no RTPLAN", ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
           case _ => None
         }
       } else
@@ -109,7 +113,7 @@ object DicomAssembleUpload extends Logging {
   private def uploadableRtimage(rtimage: Series): Option[UploadSetDicomCMove] = {
     if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
       val procedure = PatientProcedure.getProcedureOfSeries(rtimage)
-      if (procedure.isDefined) Some(new UploadSetDicomCMove(procedure.get, "RTIMAGE only", rtimage)) else None
+      if (procedure.isDefined) Some(new UploadSetDicomCMove(procedure.get, rtimage.PatientID + " RTIMAGE only", rtimage)) else None
     } else
       None
   }
@@ -160,25 +164,12 @@ object DicomAssembleUpload extends Logging {
         .filter(_.dataDate.getTime > recent)
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
+      Trace.trace()
       todoList.foreach(uploadSet => Upload.put(uploadSet))
-      todoList.map(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
+      Trace.trace("before confirm dir size: " + ClientConfig.confirmDicomCompleteDir.list().length)
+      todoList.foreach(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
+      Trace.trace("after  confirm dir size: " + ClientConfig.confirmDicomCompleteDir.list().length)
     }
-
-  private val queue = new java.util.concurrent.LinkedBlockingQueue[Boolean]
-
-  private def startUpdateThread(): Unit = {
-    class Updater extends Runnable {
-      def run(): Unit = {
-        while (true) {
-          logger.info("Processing new DICOM files.  queue size: " + queue.size)
-          update()
-          queue.take
-        }
-      }
-    }
-
-    new Thread(new Updater).start()
-  }
 
   /**
     * Indicate that new data is available for processing.  There may or may not be a set that can be
@@ -190,7 +181,7 @@ object DicomAssembleUpload extends Logging {
 
   def init(): Unit = {
     logger.info("initializing Upload")
-    startUpdateThread()
+    // startUpdateThread()
     logger.info("Upload has been initialized")
   }
 

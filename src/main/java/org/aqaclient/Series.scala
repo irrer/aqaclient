@@ -395,7 +395,7 @@ object Series extends Logging {
     *
     * @param maxAge_ms Maximum age in ms that files must be before they are deleted.
     */
-  def removeObsoleteZipFiles(maxAge_ms: Long = 60 * 60 * 1000): Unit = {
+  private def removeObsoleteZipFiles(maxAge_ms: Long = 60 * 60 * 1000): Unit = {
     def del(f: File): Unit = {
       try {
         val age = System.currentTimeMillis() - f.lastModified()

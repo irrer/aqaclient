@@ -69,7 +69,7 @@ class Procedure(val node: Node) extends Logging {
   final val isMachineLog = Name.toLowerCase.contains("mach") && Name.toLowerCase.contains("log")
 
   override def toString: String = {
-    Name + " : " + Version + " :: " + URL
+    Name + " : " + Version
   }
 
   /**

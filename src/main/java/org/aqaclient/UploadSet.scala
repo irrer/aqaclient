@@ -28,11 +28,11 @@ import java.io.File
 class UploadSet(val procedure: Procedure, val description: String, val zipFile: File) {
 
   def this(procedure: Procedure, description: String, fileList: Seq[File]) {
-    this(procedure = procedure, description = description, zipFile = ClientUtil.makeZipFile(fileList))
+    this(procedure = procedure, description = description, zipFile = ClientUtil.makeZipFile(fileList, description))
   }
 
   override def toString: String = {
-    procedure.toString + " :: " + description + " zip file: " + zipFile.getAbsolutePath + "   zip file size: " + zipFile.length()
+    procedure.toString + " :: " + description + " zip file: " + zipFile.getName + "   zip file size: " + zipFile.length()
   }
 
   /**
@@ -40,7 +40,7 @@ class UploadSet(val procedure: Procedure, val description: String, val zipFile: 
     *
     * @param msg Empty if upload was successful.  This is independent o the execution of the procedure, which
     *            may subsequently pass, fail, crash, timeout, or whatever.  If nonEmpty, then the message
-   *             describes the error.
+    *             describes the error.
     */
   def postProcess(msg: Option[String]): Unit = {}
 }

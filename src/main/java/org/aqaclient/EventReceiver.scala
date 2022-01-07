@@ -69,7 +69,7 @@ object EventReceiver extends Logging {
     */
   def init(): Unit = {
 
-    if (false) { // TODO put back in when the EventNet interface is fixed.
+    if (false) { // put back in when the EventNet interface is fixed.
       if (eventNetClient.isDefined) {
         logger.info("Starting EventNet interface.")
         queueNameList.foreach(queueName => eventNetClient.get.consumeNonDurable("gbtopic", queueName, updatePatient))

@@ -23,6 +23,7 @@ import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
+import org.aqaclient.Upload.fmtEx
 import org.restlet.data.ChallengeScheme
 import org.restlet.data.MediaType
 import org.restlet.representation.Representation
@@ -192,25 +193,36 @@ object ClientUtil extends Logging {
     result
   }
 
+  private def makeUniqueZipFile(description: String): File = {
+    val file = {
+      val name = timeAsFileNameFormat.format(new Date) + "_" + description + ".zip"
+      val fileName = FileUtil.replaceInvalidFileNameCharacters(name replace(' ', '_'), '_')
+      new File(ClientConfig.zipDir, fileName)
+    }
+    if (file.isFile) {
+      Thread.sleep(1000)
+      makeUniqueZipFile(description)
+    } else
+      file
+  }
+
   /**
     * Make a temporary zipped file out of a list of files.
     * @param fileList Files to zip.
     * @return Zipped file containing the fileList.
     */
-  def makeZipFile(fileList: Seq[File]): File = {
-    Trace.trace("fileList.size: " + fileList.size + " : " + fileList.map(_.getAbsolutePath).mkString("    "))
+  def makeZipFile(fileList: Seq[File], description: String): File = {
+
+    logger.info("fileList.size: " + fileList.size + " : " + fileList.map(_.getAbsolutePath).mkString("    "))
+
     val out = new ByteArrayOutputStream
-    Trace.trace()
     FileUtil.readFileTreeToZipStream(fileList.sortBy(_.getName), Seq[String](), Seq[File](), out)
-    Trace.trace()
-    val zipFileName = FileUtil.replaceInvalidFileNameCharacters(edu.umro.ScalaUtil.Util.dateToText(new Date) + ".zip", '_')
-    Trace.trace()
-    val zipFile = new File(ClientConfig.zipDir, zipFileName)
-    Trace.trace()
+
+    val zipFile = makeUniqueZipFile("size_" + out.size() + "_" + description)
+
     val bytes = out.toByteArray
-    Trace.trace("writing.  size: " + bytes.length)
     FileUtil.writeBinaryFile(zipFile, bytes)
-    Trace.trace()
+    logger.info("wrote zip file " + zipFile.getName + "    size: " + bytes.length)
     zipFile
   }
 

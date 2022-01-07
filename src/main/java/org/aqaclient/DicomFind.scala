@@ -73,7 +73,7 @@ object DicomFind extends Logging {
         )
         val elapsed = System.currentTimeMillis() - start
 
-        logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)
+        // logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)  // message makes too much noise
         list
       } catch {
         case t: Throwable =>

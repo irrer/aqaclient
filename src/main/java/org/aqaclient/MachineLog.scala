@@ -2,7 +2,6 @@ package org.aqaclient
 
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import java.text.SimpleDateFormat
@@ -41,17 +40,22 @@ object MachineLog extends Logging {
     * @return A machine log entry, or None.
     */
   private def makeMachineLogFile(file: File, dsnDateSet: Set[DsnDate]): Option[MachineLogFile] = {
-    try {
-      val machLog = MachineLogFile(file)
-      if (dsnDateSet.contains(DsnDate(machLog.DeviceSerialNumber, machLog.date)))
-        None // if this is already on the server, then it is irrelevant
-      else
-        Some(machLog)
-    } catch {
-      case t: Throwable =>
-        logger.warn("Unexpected exception. Unable to read machine log file " + file.getAbsolutePath + " : " + fmtEx(t))
-        None
+    val result = {
+      try {
+        val machLog = MachineLogFile(file)
+        if (dsnDateSet.contains(DsnDate(machLog.DeviceSerialNumber, machLog.date))) { // if this is already on the server, then it is irrelevant
+          logger.info("File " + file.getName + " is not new to the server and is being ignored.")
+          None
+        } else
+          Some(machLog)
+      } catch {
+        case t: Throwable =>
+          logger.warn("Unexpected exception. Unable to read machine log file " + file.getAbsolutePath + " : " + fmtEx(t))
+          None
+      }
     }
+    logger.info("Making machine log from file " + file.getName + "    Success: " + result.isDefined)
+    result
   }
 
   /**
@@ -100,11 +104,11 @@ object MachineLog extends Logging {
       val first = machineLogFileList.head
       val dirName = first.file.getParentFile.getAbsolutePath
       logger.info("Uploading " + machineLogFileList.size + " machine log entries from dir " + dirName)
-      val zipFile = ClientUtil.makeZipFile(machineLogFileList.map(_.file))
+      val zipFile = ClientUtil.makeZipFile(machineLogFileList.map(_.file), description = "MachineLog_DSN_" + first.DeviceSerialNumber)
       val description = "DeviceSerialNumber: " + first.DeviceSerialNumber + "    Number of new machine log entries: " + machineLogFileList.size + "    directory: " + dirName
       val procedure = Procedure.fetchList().find(_.isMachineLog).get
       val uploadSet = new UploadSet(procedure, description, zipFile)
-      Upload.upload(uploadSet)
+      Upload.put(uploadSet)
     }
   }
 
@@ -130,8 +134,11 @@ object MachineLog extends Logging {
   private class Poll extends Runnable {
     override def run(): Unit = {
       while (true) {
-        logger.info("Updating Machine Log files.")
-        updateMachineLog()
+        if (Procedure.fetchList().nonEmpty) {
+          logger.info("Updating Machine Log files.")
+          updateMachineLog()
+        } else
+          logger.warn("No procedures.  It will be assumed that the server is down and no machine log processing will be performed.")
         Thread.sleep(ClientConfig.MachineLogPollingInterval_ms)
       }
     }

@@ -17,8 +17,8 @@
 package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 
-import java.io.File
 import scala.annotation.tailrec
 
 /**
@@ -26,46 +26,6 @@ import scala.annotation.tailrec
   */
 
 object Upload extends Logging {
-
-  /**  // TODO rm
-    * A complete set of DICOM series that can be uploaded.  A set of series may consist of any of these:
-    *
-    *     - A CT series                 (with or without an RTPLAN)
-    *     - A CT series and REG series  (with or without an RTPLAN)
-    *     - An RTIMAGE series           (with or without an RTPLAN)
-    */
-  case class XUploadSet(procedure: Procedure, imageSeries: Series, reg: Option[Series] = None, plan: Option[Series] = None) { // TODO rm
-    override def toString: String = {
-      val r = {
-        if (procedure.isBBbyCBCT) {
-          if (reg.isDefined) "    with reg" else "    no reg"
-        } else ""
-      }
-      val p = if (plan.isDefined) "with plan" else "no plan"
-      procedure.toString + "  " + imageSeries.toString + "    PatientID: " + imageSeries.PatientID + r + "    " + p
-    }
-
-    /**
-      * Get a list of all files in this upload set.
-      */
-    def getAllDicomFiles: Seq[File] = {
-      def filesOf(series: Option[Series]): Seq[File] =
-        if (series.isDefined) {
-          series.get.ensureFilesExist()
-          ClientUtil.listFiles(series.get.dir)
-        } else Seq[File]()
-
-      val regFiles: Seq[File] = {
-        if (reg.isDefined) {
-          reg.get.ensureFilesExist()
-          val regFileList = ClientUtil.listFiles(reg.get.dir)
-          regFileList
-        } else Seq[File]()
-      }
-
-      filesOf(Some(imageSeries)) ++ regFiles ++ filesOf(plan)
-    }
-  }
 
   /**
     * Send the zip file to the AQA server. Return true on success.  There may later be a failure on
@@ -104,7 +64,7 @@ object Upload extends Logging {
     * Upload a set of DICOM files for processing.
     */
   @tailrec
-  def upload(uploadSet: UploadSet, retryCount: Int = maxUploadRetryCount): Boolean = {
+  private def upload(uploadSet: UploadSet, retryCount: Int = maxUploadRetryCount): Boolean = {
     logger.info("Processing upload " + uploadSet)
     val success: Boolean =
       try {
@@ -120,10 +80,10 @@ object Upload extends Logging {
         logger.info("Executing post-processing...")
         uploadSet.postProcess(msg)
         logger.info("Finished executing post-processing.")
-        try { uploadSet.zipFile.delete() }
-        catch { case _: Throwable => }
+        // try { uploadSet.zipFile.delete() }
+        // catch { case _: Throwable => }
         Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
-        Series.removeObsoleteZipFiles() // clean up any zip files
+        // Series.removeObsoleteZipFiles() // clean up any zip files
         ok
       } catch {
         case t: Throwable =>
@@ -161,6 +121,7 @@ object Upload extends Logging {
     */
   def put(uploadSet: UploadSet): Unit = {
     queue.put(uploadSet)
+    logger.info("Upload " + uploadSet + " queued.  Size of queue: " + queue.size())
   }
 
   def init(): Unit = {

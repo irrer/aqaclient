@@ -101,7 +101,7 @@ object ConfirmDicomComplete extends Logging {
           val us = confirmState.uploadSet
           new DicomAssembleUpload.UploadSetDicomCMove(us.procedure, us.description, series, us.reg, us.plan)
         }
-        Upload.upload(newUploadSet)
+        Upload.put(newUploadSet)
         Some(newUploadSet)
       case _ =>
         logger.warn("Unable to update series " + confirmState.uploadSet.imageSeries)

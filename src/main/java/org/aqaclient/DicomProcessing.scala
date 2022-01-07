@@ -83,7 +83,7 @@ object DicomProcessing extends Logging {
   }
 
   private def eventListener(): Unit = {
-    logger.info("Need to write this") // TODO
+    logger.info("Need to write this")
   }
 
   def init(): Unit = {
