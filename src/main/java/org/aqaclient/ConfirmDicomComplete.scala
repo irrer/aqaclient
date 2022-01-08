@@ -180,11 +180,6 @@ object ConfirmDicomComplete extends Logging {
     Trace.trace("creating confirm")
     val confirmState = ConfirmState(uploadSet)
     confirmState.persist()
-    /*
-    Future {
-      monitor(confirmState)
-    }
-     */
 
     class Later extends Runnable {
       override def run(): Unit = {
@@ -192,7 +187,7 @@ object ConfirmDicomComplete extends Logging {
         monitor(confirmState)
         Trace.trace()
       }
-      (new Thread(this)).start
+      new Thread(this).start()
     }
 
     new Later
