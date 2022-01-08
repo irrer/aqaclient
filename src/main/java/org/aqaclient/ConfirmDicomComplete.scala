@@ -123,11 +123,22 @@ object ConfirmDicomComplete extends Logging {
   private def monitor(confirmState: ConfirmState): Unit = {
     def timeRemaining = edu.umro.ScalaUtil.Util.intervalTimeUserFriendly(confirmState.msRemaining)
 
+    val waitTime_ms = {
+      val elapsed = System.currentTimeMillis() - confirmState.InitialUploadTime.getTime
+      Trace.trace("elapsed ms: " + elapsed)
+      Math.max(elapsed, ClientConfig.ConfirmDicomCompleteInterval_ms)
+    }
     logger.info(
-      "Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    time remaining: " + timeRemaining + " for " + confirmState.file.getAbsolutePath
+      "Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout +
+        "    time remaining: " + timeRemaining +
+        " for " + confirmState.file.getAbsolutePath +
+        "    wait time ms: " + waitTime_ms
     )
 
-    Thread.sleep(ClientConfig.ConfirmDicomCompleteInterval_ms)
+    Trace.trace("waitTime_ms: " + waitTime_ms + "    " + fmtEx(new RuntimeException("stack trace")))
+    Thread.sleep(waitTime_ms)
+    Trace.trace("after sleep")
+
     logger.info("After sleep. Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    time remaining: " + timeRemaining + " for " + confirmState.file.getAbsolutePath)
     val newSize = DicomFind.getSliceUIDsInSeries(confirmState.uploadSet.imageSeries.SeriesInstanceUID).size
 
@@ -140,18 +151,23 @@ object ConfirmDicomComplete extends Logging {
           val newConfirmState = ConfirmState(newUploadSet)
           newConfirmState.persist()
           confirmState.file.delete() // remove old ConfirmState file
+          Trace.trace("calling monitor")
           monitor(newConfirmState) // make new ConfirmState with current time
         case _ =>
           if (confirmState.isActive) {
+            Trace.trace("calling monitor")
             monitor(confirmState)
           } else {
+            Trace.trace("calling monitor")
             confirmState.terminate()
           }
       }
     } else {
       if (confirmState.isActive) {
+        Trace.trace("calling monitor")
         monitor(confirmState)
       } else {
+        Trace.trace("calling monitor")
         confirmState.terminate()
       }
     }
@@ -161,11 +177,25 @@ object ConfirmDicomComplete extends Logging {
     * An initial upload of the given data set has been done. Put it on the list to be monitored for updates.
     */
   def confirmDicomComplete(uploadSet: DicomAssembleUpload.UploadSetDicomCMove): Unit = {
+    Trace.trace("creating confirm")
     val confirmState = ConfirmState(uploadSet)
     confirmState.persist()
+    /*
     Future {
       monitor(confirmState)
     }
+     */
+
+    class Later extends Runnable {
+      override def run(): Unit = {
+        Trace.trace()
+        monitor(confirmState)
+        Trace.trace()
+      }
+      (new Thread(this)).start
+    }
+
+    new Later
   }
 
   /**
