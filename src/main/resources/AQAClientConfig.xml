@@ -143,7 +143,7 @@
     
     <!-- Amount of time as a floating point number in seconds to wait before assuming that all DICOM slices
     have been received by the PACS. -->
-    <ConfirmDicomCompleteTimeout_sec>30.0</ConfirmDicomCompleteTimeout_sec>
+    <ConfirmDicomCompleteTimeout_sec>3600.0</ConfirmDicomCompleteTimeout_sec>
 
     <!-- Interval in floating point minutes that dictates how frequently the list of Procedure Results should
     be updated.  Defaults to 60.0 . -->

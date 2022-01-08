@@ -19,7 +19,6 @@ package org.aqaclient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
-import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import java.util.Date
@@ -125,19 +124,16 @@ object ConfirmDicomComplete extends Logging {
 
     val waitTime_ms = {
       val elapsed = System.currentTimeMillis() - confirmState.InitialUploadTime.getTime
-      Trace.trace("elapsed ms: " + elapsed)
-      Math.max(elapsed, ClientConfig.ConfirmDicomCompleteInterval_ms)
+      Math.max(elapsed * 0.2, ClientConfig.ConfirmDicomCompleteInterval_ms).round
     }
     logger.info(
       "Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout +
         "    time remaining: " + timeRemaining +
         " for " + confirmState.file.getAbsolutePath +
-        "    wait time ms: " + waitTime_ms
+        "    wait time ms: " + edu.umro.ScalaUtil.Util.intervalTimeUserFriendly(waitTime_ms)
     )
 
-    Trace.trace("waitTime_ms: " + waitTime_ms + "    " + fmtEx(new RuntimeException("stack trace")))
     Thread.sleep(waitTime_ms)
-    Trace.trace("after sleep")
 
     logger.info("After sleep. Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    time remaining: " + timeRemaining + " for " + confirmState.file.getAbsolutePath)
     val newSize = DicomFind.getSliceUIDsInSeries(confirmState.uploadSet.imageSeries.SeriesInstanceUID).size
@@ -151,23 +147,18 @@ object ConfirmDicomComplete extends Logging {
           val newConfirmState = ConfirmState(newUploadSet)
           newConfirmState.persist()
           confirmState.file.delete() // remove old ConfirmState file
-          Trace.trace("calling monitor")
           monitor(newConfirmState) // make new ConfirmState with current time
         case _ =>
           if (confirmState.isActive) {
-            Trace.trace("calling monitor")
             monitor(confirmState)
           } else {
-            Trace.trace("calling monitor")
             confirmState.terminate()
           }
       }
     } else {
       if (confirmState.isActive) {
-        Trace.trace("calling monitor")
         monitor(confirmState)
       } else {
-        Trace.trace("calling monitor")
         confirmState.terminate()
       }
     }
@@ -177,15 +168,12 @@ object ConfirmDicomComplete extends Logging {
     * An initial upload of the given data set has been done. Put it on the list to be monitored for updates.
     */
   def confirmDicomComplete(uploadSet: DicomAssembleUpload.UploadSetDicomCMove): Unit = {
-    Trace.trace("creating confirm")
     val confirmState = ConfirmState(uploadSet)
     confirmState.persist()
 
     class Later extends Runnable {
       override def run(): Unit = {
-        Trace.trace()
         monitor(confirmState)
-        Trace.trace()
       }
       new Thread(this).start()
     }
@@ -224,6 +212,7 @@ object ConfirmDicomComplete extends Logging {
         logger.warn("Could not find series: " + imageSeriesUID)
       val imageSeries = Series.get(imageSeriesUID).get
 
+      /*
       Trace.trace()
       Trace.trace("InitialUploadTime: " + InitialUploadTime)
       Trace.trace("procedureXml: " + procedureXml)
@@ -232,6 +221,7 @@ object ConfirmDicomComplete extends Logging {
       Trace.trace("imageSeriesSize: " + imageSeriesSize)
       Trace.trace("imageSeries: " + imageSeries)
       Trace.trace()
+       */
 
       val reg = getOptSeries("Reg")
       val plan = getOptSeries("Plan")
@@ -256,11 +246,25 @@ object ConfirmDicomComplete extends Logging {
   }
 
   def main(args: Array[String]): Unit = {
+    /*
     ClientConfig.validate
     val file = new File(
       """\\hitspr\e$\Program Files\UMRO\AQAClient\data\ConfirmDicomComplete_02\_TB1_OBI_2020Q4_RTIMAGE_2021-01-15T06-53-58.000_BB_by_EPID_0.1_1.2.246.352.62.2.5229743215016869714.9802715499277461632.xml""".stripMargin
     )
     println(fromFile(file))
+     */
+
+    val min: Long = 5000
+    var e: Long = 5000
+    (0 to 50).foreach { i =>
+      {
+        if (e > (60 * 60 * 1000)) System.exit(0)
+        val w = Math.max(e * 0.2, min).round
+        println(i + " : " + edu.umro.ScalaUtil.Util.intervalTimeUserFriendly(w) + " -- " + edu.umro.ScalaUtil.Util.intervalTimeUserFriendly(e))
+        e = e + w
+      }
+    }
+
     println("done")
   }
 
