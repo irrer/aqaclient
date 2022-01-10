@@ -16,6 +16,7 @@
 
 package org.aqaclient
 
+import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
 
@@ -37,7 +38,7 @@ object DicomAssembleUpload extends Logging {
           description + " image series: " + imageSeries,
           ClientUtil.makeZipFile(
             fileList    = Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)),
-            description = procedure.Name + "-" + procedure.Version + "_" + imageSeries.PatientID + "_" + imageSeries.Modality
+            description = procedure.Name + "-" + procedure.Version + "_" + imageSeries.PatientID + "_" + imageSeries.Modality + "_" +  FileUtil.listFiles(imageSeries.dir).size
           )) // convert all defined series into a zip file
   // @formatter:on
   {
@@ -50,7 +51,8 @@ object DicomAssembleUpload extends Logging {
       *             describes the error.
       */
     override def postProcess(msg: Option[String]): Unit = {
-      Sent.add(new Sent(this, msg))
+      logger.info("performing post-processing: " + msg)
+      Trace.trace("performing post-processing: " + msg)
       Results.refreshPatient(this.imageSeries.PatientID)
     }
   }
@@ -165,7 +167,11 @@ object DicomAssembleUpload extends Logging {
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
       Trace.trace()
-      todoList.foreach(uploadSet => Upload.put(uploadSet))
+      todoList.foreach(uploadSet => {
+        Trace.trace("Uploading " + uploadSet)
+        Sent.add(new Sent(uploadSet, Some(uploadSet.toString)))
+        Upload.put(uploadSet)
+      })
       Trace.trace("before confirm dir size: " + ClientConfig.confirmDicomCompleteDir.list().length)
       todoList.foreach(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
       Trace.trace("after  confirm dir size: " + ClientConfig.confirmDicomCompleteDir.list().length)
