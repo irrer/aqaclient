@@ -638,7 +638,7 @@ object Series extends Logging {
     */
   def init(): Unit = {
     logger.info("initializing Series")
-    removeObsoleteZipFiles(0)
+    if (false) // TODO rm keep until debugged rm removeObsoleteZipFiles(0)
     reinstatePreviouslyFetchedSeries()
     removeObsoletePatientSeries()
     logger.info(
