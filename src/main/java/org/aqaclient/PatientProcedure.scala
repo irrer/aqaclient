@@ -85,7 +85,7 @@ object PatientProcedure extends Logging {
 
   private def populateFromText(text: String): Unit = {
     val node = XML.loadString(text)
-    Trace.trace("populateFromText:\n" + text)
+    // Trace.trace("populateFromText:\n" + text)
     val list = (node \ "PatientProcedure").map(n => new PatientProcedure(n))
     patientProcedureList.synchronized {
       patientProcedureList.clear()
