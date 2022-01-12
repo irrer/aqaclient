@@ -21,7 +21,7 @@ import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
 
 /**
-  * Group series into sets of data that can be processed and upload to the AQA platform.
+  * Group series into sets of data that can be processed and uploaded to the AQA platform.
   */
 
 object DicomAssembleUpload extends Logging {
