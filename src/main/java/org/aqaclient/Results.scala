@@ -25,6 +25,7 @@ import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.xml.Elem
+import scala.xml.Node
 import scala.xml.NodeSeq
 import scala.xml.XML
 
@@ -194,25 +195,34 @@ object Results extends Logging {
     *
     * @return Procedure, if it can be found.
     */
-  def getProcedureByRtplan(rtplanUID: String): Option[Procedure] =
-    resultList.synchronized {
-      def samePlan(r: Elem): Boolean = {
-        val rtplan = r \ "referencedRtplanUID"
-        rtplan.nonEmpty && rtplan.text.eq(rtplanUID)
-      }
-
-      val result = resultList.values.find(samePlan)
-      if (result.isDefined) {
-        val procName = (result \ "Procedure").text
-        val proc = Procedure.procedureByName(procName)
-        if (proc.isDefined)
-          logger.info("Procedure of RTPLAN " + rtplanUID + " found in results: " + proc)
-        else
-          logger.info("Procedure of RTPLAN " + rtplanUID + " not found in results.")
-        proc
-      } else
-        None
+  def getProcedureByRtplan(rtplanUID: String): Option[Procedure] = {
+    val resultSeq = resultList.synchronized {
+      resultList.values.toList
     }
+
+    def samePlan(r: Node): Boolean = {
+      val rtplan = r \ "referencedRtplanUID"
+      val same = rtplan.nonEmpty && rtplan.text.equals(rtplanUID)
+      same
+    }
+
+    val result = {
+      val seriesList = resultSeq.flatMap(p => (p \ "Series").flatten)
+      val r = seriesList.find(samePlan)
+      r
+    }
+
+    if (result.isDefined) {
+      val procName = (result.get \ "Procedure").text
+      val proc = Procedure.procedureByName(procName)
+      if (proc.isDefined)
+        logger.info("Procedure of RTPLAN " + rtplanUID + " found in results: " + proc)
+      else
+        logger.info("Procedure of RTPLAN " + rtplanUID + " not found in results.")
+      proc
+    } else
+      None
+  }
 
   /**
     * Forcibly get the latest results for each patient.

@@ -18,7 +18,6 @@ package org.aqaclient
 
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 
 /**
   * Group series into sets of data that can be processed and uploaded to the AQA platform.
@@ -52,7 +51,6 @@ object DicomAssembleUpload extends Logging {
       */
     override def postProcess(msg: Option[String]): Unit = {
       logger.info("performing post-processing: " + msg)
-      Trace.trace("performing post-processing: " + msg)
       Results.refreshPatient(this.imageSeries.PatientID)
     }
   }
@@ -105,14 +103,8 @@ object DicomAssembleUpload extends Logging {
 
   private def determineProcedureForRtimageSeriesByPreviousUseOfRtplan(rtimage: Series): Option[Procedure] = {
     if (rtimage.ReferencedRtplanUID.isDefined) {
-      Results.getProcedureByRtplan(rtimage.ReferencedRtplanUID.get)
-    } else
-      None
-  }
-
-  private def determineProcedureForRtimageSeriesByRtplanCharacteristics(rtimage: Series): Option[Procedure] = {
-    if (rtimage.ReferencedRtplanUID.isDefined) {
-      ???
+      val proc = Results.getProcedureByRtplan(rtimage.ReferencedRtplanUID.get)
+      proc
     } else
       None
   }
@@ -120,11 +112,7 @@ object DicomAssembleUpload extends Logging {
   private def determineProcedureForRtimageSeries(rtimage: Series): Option[Procedure] = {
     determineProcedureForRtimageSeriesByPreviousUseOfRtplan(rtimage) match {
       case Some(byPreviousUse) => Some(byPreviousUse)
-      case _ =>
-        determineProcedureForRtimageSeriesByRtplanCharactaristics(rtimage) match {
-          case Some(byCharactarization) => Some(byCharactarization)
-          case _                        => PatientProcedure.getProcedureOfSeriesByPatientID(rtimage)
-        }
+      case _                   => PatientProcedure.getProcedureOfSeriesByPatientID(rtimage)
     }
   }
 
@@ -185,15 +173,12 @@ object DicomAssembleUpload extends Logging {
         .filter(_.dataDate.getTime > recent)
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
-      Trace.trace()
       todoList.foreach(uploadSet => {
-        Trace.trace("Uploading " + uploadSet)
+        logger.info("Queueing upload set: " + uploadSet)
         Sent.add(new Sent(uploadSet, Some(uploadSet.toString)))
         Upload.put(uploadSet)
       })
-      Trace.trace("before confirm dir size: " + ClientConfig.confirmDicomCompleteDir.list().length)
       todoList.foreach(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
-      Trace.trace("after  confirm dir size: " + ClientConfig.confirmDicomCompleteDir.list().length)
     }
 
   /**

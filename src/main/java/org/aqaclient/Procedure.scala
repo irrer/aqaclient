@@ -36,25 +36,21 @@ object Procedure {
     }
 
   /**
-   * Given the name of the procedure, find the procedure.
-   *
-   * @param name Name of procedure.
-   *
-   * @return The Procedure, if found.
-   */
+    * Given the name of the procedure, find the procedure.
+    *
+    * @param name Name of procedure.
+    *
+    * @return The Procedure, if found.
+    */
   def procedureByName(name: String): Option[Procedure] = {
-    def noFunc(name: String) = false
 
-    val func: String => Boolean = name match {
-      case _ if isBBbyCBCT(name)    => isBBbyCBCT
-      case _ if isBBbyEPID(name)    => isBBbyEPID
-      case _ if isPhase2(name)      => isPhase2
-      case _ if isLOC(name)         => isLOC
-      case _ if isLOCBaseline(name) => isLOCBaseline
-      case _ if isMachineLog(name)  => isMachineLog
-      case _                        => noFunc
+    def sameProc(procedure: Procedure): Boolean = {
+      isList.exists(is => {
+        is(name) && is(procedure.Name)
+      })
     }
-    val proc = fetchList().find(func)
+
+    val proc = fetchList().find(p => sameProc(p))
     proc
   }
 
@@ -69,12 +65,29 @@ object Procedure {
       newList.foreach(p => procedureCache.add(p))
     }
 
-  def isBBbyCBCT(name: String) = name.toLowerCase.contains("bb") && name.toLowerCase.contains("cbct")
-  def isBBbyEPID(name: String) = name.toLowerCase.contains("bb") && name.toLowerCase.contains("epid")
-  def isPhase2(name: String) = name.toLowerCase.matches(".*phase *2.*")
-  def isLOC(name: String) = (name.toLowerCase.contains("loc") || name.toLowerCase.contains("leaf offset")) && (!name.toLowerCase.contains("base"))
-  def isLOCBaseline(name: String) = name.toLowerCase.contains("loc") && name.toLowerCase.contains("base")
-  def isMachineLog(name: String) = name.toLowerCase.contains("mach") && name.toLowerCase.contains("log")
+  /**
+    * Given a name, return true if it matches a given procedure.
+    *
+    * Note that procedures should have a standard name.  This is a design flaw and might be fixed in the future.
+    *
+    * @param name Text indicating which procedure.
+    * @return
+    */
+  def isBBbyCBCT(name: String): Boolean = name.toLowerCase.contains("bb") && name.toLowerCase.contains("cbct")
+  def isBBbyEPID(name: String): Boolean = name.toLowerCase.contains("bb") && name.toLowerCase.contains("epid")
+  def isPhase2(name: String): Boolean = name.toLowerCase.matches(".*phase *2.*")
+  def isLOC(name: String): Boolean = (name.toLowerCase.contains("loc") || name.toLowerCase.contains("leaf offset")) && (!name.toLowerCase.contains("base"))
+  def isLOCBaseline(name: String): Boolean = name.toLowerCase.contains("loc") && name.toLowerCase.contains("base")
+  def isMachineLog(name: String): Boolean = name.toLowerCase.contains("mach") && name.toLowerCase.contains("log")
+
+  private val isList = Seq(
+    isBBbyCBCT _,
+    isBBbyEPID _,
+    isPhase2 _,
+    isLOC _,
+    isLOCBaseline _,
+    isMachineLog _
+  )
 
 }
 
