@@ -188,6 +188,33 @@ object Results extends Logging {
   }
 
   /**
+    * Given an RTPLAN UID, return the procedure it was used for in previous results.
+    *
+    * @param rtplanUID SOP Instance UID of RTPLAN.
+    *
+    * @return Procedure, if it can be found.
+    */
+  def getProcedureByRtplan(rtplanUID: String): Option[Procedure] =
+    resultList.synchronized {
+      def samePlan(r: Elem): Boolean = {
+        val rtplan = r \ "referencedRtplanUID"
+        rtplan.nonEmpty && rtplan.text.eq(rtplanUID)
+      }
+
+      val result = resultList.values.find(samePlan)
+      if (result.isDefined) {
+        val procName = (result \ "Procedure").text
+        val proc = Procedure.procedureByName(procName)
+        if (proc.isDefined)
+          logger.info("Procedure of RTPLAN " + rtplanUID + " found in results: " + proc)
+        else
+          logger.info("Procedure of RTPLAN " + rtplanUID + " not found in results.")
+        proc
+      } else
+        None
+    }
+
+  /**
     * Forcibly get the latest results for each patient.
     */
   def refreshAll(): Unit = {

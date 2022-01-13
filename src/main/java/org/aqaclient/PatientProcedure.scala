@@ -139,7 +139,7 @@ object PatientProcedure extends Logging {
     *
     * @return The procedure or nothing.  The latter could be the result of not being able to connect with the server.
     */
-  def getProcedureOfSeries(series: Series): Option[Procedure] = {
+  def getProcedureOfSeriesByPatientID(series: Series): Option[Procedure] = {
     // def getProcedureOfSeries(patientId: String, SeriesInstanceUID: String): Option[Procedure] = {
 
     // get patient procedure related values

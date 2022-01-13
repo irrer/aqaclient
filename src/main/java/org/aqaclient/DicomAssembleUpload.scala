@@ -65,7 +65,7 @@ object DicomAssembleUpload extends Logging {
       val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get)
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
-      val procedureOfSeries = PatientProcedure.getProcedureOfSeries(ct)
+      val procedureOfSeries = PatientProcedure.getProcedureOfSeriesByPatientID(ct)
 
       (localPlan, remotePlan) match {
         // upload CT and RTPLAN
@@ -84,29 +84,48 @@ object DicomAssembleUpload extends Logging {
     * If there is a CT-REG pair that connect to an RTPLAN, then upload it.  Only upload the RTPLAN as necessary.
     */
   private def connectWithPlanViaReg(ct: Series): Option[UploadSetDicomCMove] = {
-    if (ct.isModality(ModalityEnum.CT)) {
-
+    val bbByCBCTProcedure = Procedure.fetchList().find(_.isBBbyCBCT) // the server must support DailyQA OBI
+    val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get).headOption //  .filter(regRefsImage).headOption
+    if (ct.isModality(ModalityEnum.CT) && bbByCBCTProcedure.isDefined && regOpt.isDefined) {
       // Get the REG file that has the same frame of reference as the image file and references the image series.
-      val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get).headOption //  .filter(regRefsImage).headOption
+      val reg = regOpt.get
+      val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
+      val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
 
-      val procedureOfSeries = PatientProcedure.getProcedureOfSeries(ct)
-
-      if (regOpt.isDefined) {
-        val reg = regOpt.get
-        val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
-        val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
-
-        (localPlan, remotePlan) match {
-          case (Some(rtplan), _) if procedureOfSeries.isDefined =>
-            Some(new UploadSetDicomCMove(procedureOfSeries.get, ct.PatientID + " CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
-          case (_, true) if procedureOfSeries.isDefined =>
-            Some(new UploadSetDicomCMove(procedureOfSeries.get, ct.PatientID + " CT and REG, no RTPLAN", ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
-          case _ => None
-        }
-      } else
-        None
+      (localPlan, remotePlan) match {
+        case (Some(rtplan), _) =>
+          Some(new UploadSetDicomCMove(bbByCBCTProcedure.get, ct.PatientID + " CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))) // upload CT, REG, and RTPLAN
+        case (_, true) =>
+          Some(new UploadSetDicomCMove(bbByCBCTProcedure.get, ct.PatientID + " CT and REG, no RTPLAN", ct, Some(reg))) // upload just the CT and REG.  The RTPLAN has already been uploaded
+        case _ => None
+      }
     } else
       None
+  }
+
+  private def determineProcedureForRtimageSeriesByPreviousUseOfRtplan(rtimage: Series): Option[Procedure] = {
+    if (rtimage.ReferencedRtplanUID.isDefined) {
+      Results.getProcedureByRtplan(rtimage.ReferencedRtplanUID.get)
+    } else
+      None
+  }
+
+  private def determineProcedureForRtimageSeriesByRtplanCharacteristics(rtimage: Series): Option[Procedure] = {
+    if (rtimage.ReferencedRtplanUID.isDefined) {
+      ???
+    } else
+      None
+  }
+
+  private def determineProcedureForRtimageSeries(rtimage: Series): Option[Procedure] = {
+    determineProcedureForRtimageSeriesByPreviousUseOfRtplan(rtimage) match {
+      case Some(byPreviousUse) => Some(byPreviousUse)
+      case _ =>
+        determineProcedureForRtimageSeriesByRtplanCharactaristics(rtimage) match {
+          case Some(byCharactarization) => Some(byCharactarization)
+          case _                        => PatientProcedure.getProcedureOfSeriesByPatientID(rtimage)
+        }
+    }
   }
 
   /**
@@ -114,7 +133,7 @@ object DicomAssembleUpload extends Logging {
     */
   private def uploadableRtimage(rtimage: Series): Option[UploadSetDicomCMove] = {
     if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
-      val procedure = PatientProcedure.getProcedureOfSeries(rtimage)
+      val procedure = determineProcedureForRtimageSeries(rtimage)
       if (procedure.isDefined) Some(new UploadSetDicomCMove(procedure.get, rtimage.PatientID + " RTIMAGE only", rtimage)) else None
     } else
       None
