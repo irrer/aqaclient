@@ -54,25 +54,6 @@
 
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
     <HttpsUploadTimeout_sec>30.0</HttpsUploadTimeout_sec>
-    
-    <!-- Port number for the HTTPS service.   Port 443 is the default for HTTPS.
-    If this is missing then the server will use port 443.  The reason to use a non-standard
-    port is that the standard one is already taken on the host machine. -->
-    <!-- <HTTPSPort>9443</HTTPSPort> -->
-
-    <!-- Location of file that contains Java Key Store for HTTPS.  If multiple names are given, then they are
-    each tried in the order given until a readable file is found. -->
-    <JavaKeyStoreFileList>
-        <JavaKeyStoreFile>keystore.jks</JavaKeyStoreFile>
-        <JavaKeyStoreFile>E:\Program Files\UMRO\keystore.jks</JavaKeyStoreFile>
-        <JavaKeyStoreFile>C:\Program Files\UMRO\keystore.jks</JavaKeyStoreFile>
-        <JavaKeyStoreFile>src\main\resources\keystore.jks</JavaKeyStoreFile>
-    </JavaKeyStoreFileList>
-
-    <!-- The password to access the Java Key Store file. -->
-    <JavaKeyStorePassword>9c067233b07c7b04025989a197fad9b12cf4c19006678e2b18b121289bd1635a2d395a603122a6e6
-    </JavaKeyStorePassword> <!-- rodicom11dev -->
-    <!-- <JavaKeyStorePassword>44d18166c66bed60b6394e6625c63dea713dbe465ddc960a7cd109514bc0d2bd</JavaKeyStorePassword> -->     <!-- irrer -->
 
     <!-- Keywords in RTPLAN label that identify the type of plan.  When an RTPLAN is found, its RTPlanLabel (DICOM attribute tag 300A,0002 )
     is searched for the keyword.  If found somewhere in that string (case insensitive), then it is considered that type of plan.  The

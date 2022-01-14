@@ -36,9 +36,6 @@ object ClientConfig
       )
     ) {
 
-  val JavaKeyStorePassword: String = getPassword("JavaKeyStorePassword")
-  val JavaKeyStoreFileList: List[File] = getJavaKeyStoreFileList
-
   val rtplanTypeList: Seq[RtplanType] = getRtplanTypeList
 
   /** Number of minutes into a 24 hour day at which time service should be restarted. */
