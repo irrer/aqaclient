@@ -8,15 +8,43 @@
         <DataDir>C:\Program Files\UMRO\AQAClient\data</DataDir>
     </DataDirList>
 
-    <!-- PACS connection settings for this service. -->
-    <!-- <DICOMClient AETitle='WLQA_TEST' Host='141.214.125.209' Port='15678' /> -->
-    <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
-    <!-- <DICOMClient AETitle='AQACLIENT_DV' Host='uhroappwebsdv1' Port='14567' /> -->
+    <!--
+    DICOMClient is the identity of the AQAClient.
+    DICOMSource is the PACS or treatment planning system (e.g. Varian) where DICOM files are retrieved from.
 
-    <!-- Get DICOM files from here. -->
-    <!-- <DICOMSource AETitle='VMSDBD' Host='VMSDBD' Port='105' /> -->
-    <DICOMSource AETitle='IRRER' Host='141.214.125.209' Port='15678' />
-          
+    Both must be set up so that the PACS will recognize the AQAClient.
+
+    The pairs below are various possible configurations, but only one can be active at a time.
+    -->
+
+    <!-- VMSDBD TEST -->
+    <!--
+    <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
+    <DICOMSource AETitle='VMSDBD'         Host='uhroariasts1'    Port='105'   />
+    -->
+
+    <!-- VMSDBD TEST -->
+    <!--
+    <DICOMClient AETitle='IRRER_TEST'     Host='141.214.125.209' Port='5662'  />
+    <DICOMSource AETitle='VMSDBD'         Host='uhroariasts1'    Port='105'   />
+    -->
+
+    <!-- VMSDBD PRODUCTION -->
+    <!--
+    <DICOMClient AETitle='IRRER_CLINICAL' Host='141.214.125.209' Port='5660'  />
+    <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
+    -->
+
+    <!-- VMSDBD PRODUCTION -->
+    <!--
+    <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
+    <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
+    -->
+
+    <!-- Jim's Conquest server. -->
+    <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
+    <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
+
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
     <PollInterval_sec>30</PollInterval_sec>
