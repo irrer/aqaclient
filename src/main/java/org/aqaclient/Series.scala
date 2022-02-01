@@ -284,13 +284,21 @@ object Series extends Logging {
         .sortBy(s => s.dataDate)
     })
 
-  def getRtplanByFrameOfReference(
-      FrameOfReferenceUID: String
-  ): Option[Series] = {
-    getByModality(ModalityEnum.RTPLAN).find(s =>
-      s.FrameOfReferenceUID.isDefined && s.FrameOfReferenceUID.get
-        .equals(FrameOfReferenceUID)
+  /**
+    * Find an RTPLAN that matches the given frame of reference and was created before the given date.
+    * @param FrameOfReferenceUID Match this.
+    * @param beforeTime Time of image series.
+    * @return Qualifying plan, if found.
+    */
+  def getRtplanByFrameOfReference(FrameOfReferenceUID: String, beforeTime: Date): Option[Series] = {
+    // limit the list to RTPLANs that match.
+    val list = getByModality(ModalityEnum.RTPLAN).filter(rtplan =>
+      rtplan.FrameOfReferenceUID.isDefined &&
+        rtplan.FrameOfReferenceUID.get.equals(FrameOfReferenceUID) &&
+        (rtplan.dataDate.getTime < beforeTime.getTime)
     )
+    // If more than one match, then use the most recently created.
+    list.sortBy(_.dataDate.getTime).lastOption
   }
 
   def getRegByFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
