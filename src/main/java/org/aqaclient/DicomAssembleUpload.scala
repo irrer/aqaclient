@@ -81,7 +81,7 @@ object DicomAssembleUpload extends Logging {
   /**
     * If there is a CT-REG pair that connect to an RTPLAN, then upload it.  Only upload the RTPLAN as necessary.
     */
-  private def connectWithPlanViaReg(ct: Series): Option[UploadSetDicomCMove] = {
+  private def connectCTWithPlanViaReg(ct: Series): Option[UploadSetDicomCMove] = {
     val bbByCBCTProcedure = Procedure.fetchList().find(_.isBBbyCBCT) // the server must support DailyQA OBI
     val regOpt = Series.getRegByRegFrameOfReference(ct.FrameOfReferenceUID.get).headOption //  .filter(regRefsImage).headOption
     if (ct.isModality(ModalityEnum.CT) && bbByCBCTProcedure.isDefined && regOpt.isDefined) {
@@ -141,7 +141,7 @@ object DicomAssembleUpload extends Logging {
       case Some(uploadSet) =>
         Some(uploadSet)
       case _ =>
-        connectWithPlanViaReg(series) match {
+        connectCTWithPlanViaReg(series) match {
           case Some(uploadSet) =>
             Some(uploadSet)
           case _ =>
