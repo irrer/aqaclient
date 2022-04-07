@@ -60,7 +60,7 @@ object DicomAssembleUpload extends Logging {
     */
   private def connectWithPlanByFrameOfRef(ct: Series): Option[UploadSetDicomCMove] = {
     if (ct.isModality(ModalityEnum.CT)) {
-      val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get)
+      val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get, ct.dataDate)
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
       val procedureOfSeries = PatientProcedure.getProcedureOfSeriesByPatientID(ct)
@@ -87,7 +87,7 @@ object DicomAssembleUpload extends Logging {
     if (ct.isModality(ModalityEnum.CT) && bbByCBCTProcedure.isDefined && regOpt.isDefined) {
       // Get the REG file that has the same frame of reference as the image file and references the image series.
       val reg = regOpt.get
-      val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get) // if there is a copy of the plan in <code>Series</code>
+      val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get, ct.dataDate) // if there is a copy of the plan in <code>Series</code>
       val remotePlan = Results.containsPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get) // if the plan is on the server
 
       (localPlan, remotePlan) match {
