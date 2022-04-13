@@ -19,6 +19,7 @@ package org.aqaclient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
+import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import scala.annotation.tailrec
@@ -189,6 +190,46 @@ object Results extends Logging {
   }
 
   /**
+    * Get the modality of a node.
+    * @param n For this node.
+    * @return Name of modality.
+    */
+  private def modalityOf(n: Node): String = (n \ "Modality").head.text.trim
+
+  /**
+    * Get a list all series nodes
+    */
+  private def seriesSeq = resultList.synchronized { resultList.values.toList }.flatMap(p => (p \ "Series").flatten)
+
+  /**
+    * Given a node, return the procedure it referendes.
+    * @param n Node from results.
+    * @return Procedure or None.
+    */
+  private def procedureOfNode(n: Node): Option[Procedure] = {
+    Trace.trace(PrettyXML.xmlToText(n)) // TODO rm
+    (n \ "Procedure").map(_.text.trim).flatMap(Procedure.procedureByName).headOption
+  }
+
+  /**
+    * Find the RTPLAN that has the given SOPInstanceUID.
+    * @param rtplanInstanceUid SOPInstanceUID of one of the members of the RTPLAN series.
+    * @return Matching rtplan node, or None.
+    */
+  private def findRtplanBySopInstanceUid(rtplanInstanceUid: String): Option[Node] = {
+    def rtplanWithUid(n: Node): Boolean = {
+      val jj = PrettyXML.xmlToText(n) // TODO rm
+      if (modalityOf(n).equals("RTPLAN")) {
+        val sopList = (n \ "SOPInstanceUIDList" \ "SOPInstanceUID").map(_.text.trim)
+        sopList.contains(rtplanInstanceUid)
+      } else
+        false
+    }
+
+    seriesSeq.find(rtplanWithUid)
+  }
+
+  /**
     * Given an RTPLAN UID, return the procedure it was used for in previous results.
     *
     * @param rtplanUID SOP Instance UID of RTPLAN.
@@ -196,32 +237,47 @@ object Results extends Logging {
     * @return Procedure, if it can be found.
     */
   def getProcedureByRtplan(rtplanUID: String): Option[Procedure] = {
-    val resultSeq = resultList.synchronized {
-      resultList.values.toList
+
+    def byRtplan = {
+      findRtplanBySopInstanceUid(rtplanUID) match {
+        case Some(rtplanNode) =>
+          Trace.trace(PrettyXML.xmlToText(rtplanNode)) // TODO rm
+          procedureOfNode(rtplanNode)
+        case _ => None
+      }
     }
 
-    def samePlan(r: Node): Boolean = {
-      val rtplan = r \ "referencedRtplanUID"
-      val same = rtplan.nonEmpty && rtplan.text.equals(rtplanUID)
-      same
+    /**
+      * Find the procedure by looking at other series that reference this plan and
+      * return their procedure.
+      * @return Procedure of another series that references the given RTPLAN.
+      */
+    def byOtherImageSeries: Option[Procedure] = {
+
+      def referencesRtplan(n: Node): Boolean = {
+        val ref = (n \ "referencedRtplanUID").map(_.text.trim)
+        ref.contains(rtplanUID)
+      }
+
+      seriesSeq.find(referencesRtplan) match {
+        case Some(n) =>
+          Trace.trace(PrettyXML.xmlToText(n)) // TODO rm
+          procedureOfNode(n)
+        case _ => None
+      }
     }
 
-    val result = {
-      val seriesList = resultSeq.flatMap(p => (p \ "Series").flatten)
-      val r = seriesList.find(samePlan)
-      r
+    // First try looking at the rtplan directly to see if it is known and if it has a procedure defined.  If so, use it.
+    //
+    // If not, look for another series that references the RTPLAN and if found and if it has a procedure defined, use it.
+    //
+    // There is also the (unlikely) possibility that a procedure will not be found.
+    val procedure = byRtplan match {
+      case Some(procedure) =>
+        Some(procedure)
+      case _ => byOtherImageSeries
     }
-
-    if (result.isDefined) {
-      val procName = (result.get \ "Procedure").text
-      val proc = Procedure.procedureByName(procName)
-      if (proc.isDefined)
-        logger.info("Procedure of RTPLAN " + rtplanUID + " found in results: " + proc)
-      else
-        logger.info("Procedure of RTPLAN " + rtplanUID + " not found in results.")
-      proc
-    } else
-      None
+    procedure
   }
 
   /**
@@ -254,5 +310,12 @@ object Results extends Logging {
     PatientProcedure.patientIdList.foreach(p => updatePatient(p, timeoutGet))
     logger.info("Number of patients: " + PatientProcedure.patientIdList.size)
     new Thread(new PeriodicUpdate).start()
+  }
+
+  def main(args: Array[String]): Unit = {
+    init()
+    Trace.trace(getProcedureByRtplan("1.2.246.352.71.5.427549902257.853607.20211012135203"))
+    Trace.trace(getProcedureByRtplan("1.3.6.1.4.1.22361.17483843774714.1857926758.1641396595237.652"))
+    System.exit(0)
   }
 }
