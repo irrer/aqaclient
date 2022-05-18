@@ -19,7 +19,6 @@ package org.aqaclient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
-import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import scala.annotation.tailrec
@@ -202,12 +201,11 @@ object Results extends Logging {
   private def seriesSeq = resultList.synchronized { resultList.values.toList }.flatMap(p => (p \ "Series").flatten)
 
   /**
-    * Given a node, return the procedure it referendes.
+    * Given a node, return the procedure it references.
     * @param n Node from results.
     * @return Procedure or None.
     */
-  private def procedureOfNode(n: Node): Option[Procedure] = {
-    Trace.trace(PrettyXML.xmlToText(n)) // TODO rm
+  def procedureOfNode(n: Node): Option[Procedure] = {
     (n \ "Procedure").map(_.text.trim).flatMap(Procedure.procedureByName).headOption
   }
 
@@ -216,12 +214,12 @@ object Results extends Logging {
     * @param rtplanInstanceUid SOPInstanceUID of one of the members of the RTPLAN series.
     * @return Matching rtplan node, or None.
     */
-  private def findRtplanBySopInstanceUid(rtplanInstanceUid: String): Option[Node] = {
+  def findRtplanBySopInstanceUid(rtplanInstanceUid: String): Option[Node] = {
     def rtplanWithUid(n: Node): Boolean = {
-      val jj = PrettyXML.xmlToText(n) // TODO rm
       if (modalityOf(n).equals("RTPLAN")) {
         val sopList = (n \ "SOPInstanceUIDList" \ "SOPInstanceUID").map(_.text.trim)
-        sopList.contains(rtplanInstanceUid)
+        val ok = sopList.contains(rtplanInstanceUid)
+        ok
       } else
         false
     }
@@ -230,54 +228,20 @@ object Results extends Logging {
   }
 
   /**
-    * Given an RTPLAN UID, return the procedure it was used for in previous results.
-    *
-    * @param rtplanUID SOP Instance UID of RTPLAN.
-    *
-    * @return Procedure, if it can be found.
+    * Find the RTPLAN that has the given SOPInstanceUID.
+    * @param rtplanInstanceUid SOPInstanceUID of one of the members of the RTPLAN series.
+    * @return Matching rtplan node, or None.
     */
-  def getProcedureByRtplan(rtplanUID: String): Option[Procedure] = {
-
-    def byRtplan = {
-      findRtplanBySopInstanceUid(rtplanUID) match {
-        case Some(rtplanNode) =>
-          Trace.trace(PrettyXML.xmlToText(rtplanNode)) // TODO rm
-          procedureOfNode(rtplanNode)
-        case _ => None
-      }
+  def findRtimageByRtplanReference(rtplanInstanceUid: String): Option[Node] = {
+    def rtimageReferencingRtplan(n: Node): Boolean = {
+      if (modalityOf(n).equals("RTIMAGE")) {
+        val rtplanSop = (n \ "referencedRtplanUID").text
+        rtplanSop.equals(rtplanInstanceUid)
+      } else
+        false
     }
 
-    /**
-      * Find the procedure by looking at other series that reference this plan and
-      * return their procedure.
-      * @return Procedure of another series that references the given RTPLAN.
-      */
-    def byOtherImageSeries: Option[Procedure] = {
-
-      def referencesRtplan(n: Node): Boolean = {
-        val ref = (n \ "referencedRtplanUID").map(_.text.trim)
-        ref.contains(rtplanUID)
-      }
-
-      seriesSeq.find(referencesRtplan) match {
-        case Some(n) =>
-          Trace.trace(PrettyXML.xmlToText(n)) // TODO rm
-          procedureOfNode(n)
-        case _ => None
-      }
-    }
-
-    // First try looking at the rtplan directly to see if it is known and if it has a procedure defined.  If so, use it.
-    //
-    // If not, look for another series that references the RTPLAN and if found and if it has a procedure defined, use it.
-    //
-    // There is also the (unlikely) possibility that a procedure will not be found.
-    val procedure = byRtplan match {
-      case Some(procedure) =>
-        Some(procedure)
-      case _ => byOtherImageSeries
-    }
-    procedure
+    seriesSeq.find(rtimageReferencingRtplan)
   }
 
   /**
@@ -312,10 +276,4 @@ object Results extends Logging {
     new Thread(new PeriodicUpdate).start()
   }
 
-  def main(args: Array[String]): Unit = {
-    init()
-    Trace.trace(getProcedureByRtplan("1.2.246.352.71.5.427549902257.853607.20211012135203"))
-    Trace.trace(getProcedureByRtplan("1.3.6.1.4.1.22361.17483843774714.1857926758.1641396595237.652"))
-    System.exit(0)
-  }
 }

@@ -101,18 +101,73 @@ object DicomAssembleUpload extends Logging {
       None
   }
 
-  private def determineProcedureForRtimageSeriesByPreviousUseOfRtplan(rtimage: Series): Option[Procedure] = {
-    if (rtimage.ReferencedRtplanUID.isDefined) {
-      val proc = Results.getProcedureByRtplan(rtimage.ReferencedRtplanUID.get)
-      proc
-    } else
-      None
+  private def procedureByReferencedRtplan(rtplanUID: String): Option[Procedure] = {
+    Results.findRtplanBySopInstanceUid(rtplanUID) match {
+      case Some(node) => Results.procedureOfNode(node)
+      case _          => None
+    }
   }
 
+  private def procedureByOtherRtimageReferencingSameRtplan(rtplanUID: String): Option[Procedure] = {
+    Results.findRtimageByRtplanReference(rtplanUID) match {
+      case Some(node) => Results.procedureOfNode(node)
+      case _          => None
+    }
+  }
+
+  /**
+    * Given an RTIMAGE series, determine which procedure should be run on it.  Try these in the given order:
+    *
+    *  <ul>
+    *    <li>If the RTPLAN it is associated with is in turn associated with a procedure, then use that procedure.</li>
+    *    <li>If another RTIMAGE set references the same RTPLAN, then use the same procedure as the other RTIMAGE.</li>
+    *    <li>If the patient ID is associated with a procedure, then use that procedure.</li>
+    *  </ul>
+    *
+    * @param rtimage RTIMAGE series.
+    * @return Procedure, if it can be determined.
+    */
   private def determineProcedureForRtimageSeries(rtimage: Series): Option[Procedure] = {
-    determineProcedureForRtimageSeriesByPreviousUseOfRtplan(rtimage) match {
-      case Some(byPreviousUse) => Some(byPreviousUse)
-      case _                   => PatientProcedure.getProcedureOfSeriesByPatientID(rtimage)
+
+    val byRtplan = procedureByReferencedRtplan(rtimage.ReferencedRtplanUID.get)
+    val byOtherRtimage = procedureByOtherRtimageReferencingSameRtplan(rtimage.ReferencedRtplanUID.get)
+    val byPatientId = PatientProcedure.getProcedureOfSeriesByPatientID(rtimage)
+
+    val procedureList: Seq[Option[Procedure]] = Seq(
+      byRtplan,
+      byOtherRtimage,
+      byPatientId
+    )
+
+    val procedure = procedureList.flatten.headOption
+
+    procedure
+  }
+
+  /**
+    * If the RTPLAN referenced by the given RTIMAGE series is on the client and is not on the
+    * server, then return it.  Else return None.
+    *
+    * @param rtimage RTPLAN for this RTIMAGE.
+    * @return RTPLAN series, if it needs to be uploaded.
+    */
+  private def uploadRtplanOfRtimageIfNeeded(rtimage: Series): Option[Series] = {
+    val rtplanSopInstanceUid = rtimage.ReferencedRtplanUID
+
+    rtplanSopInstanceUid match {
+      // true if RTIMAGE does not reference an RTPLAN
+      case None =>
+        logger.error("RTIMAGE file does not reference an RTPLAN: " + rtimage)
+        None // RTIMAGE does not reference an RTPLAN.  This should never happen.
+
+      // true if RTPLAN is already on the server
+      case Some(planRef) if Results.findRtplanBySopInstanceUid(rtplanInstanceUid = planRef).isDefined =>
+        None
+
+      // if the client has it, then return it
+      case _ =>
+        val rtplanSeries = Series.getByModality(ModalityEnum.RTPLAN).find(s => s.SOPInstanceUIDList.contains(rtplanSopInstanceUid.get))
+        rtplanSeries // if defined return it, else return None
     }
   }
 
@@ -120,11 +175,28 @@ object DicomAssembleUpload extends Logging {
     * Make UploadSet from RTIMAGE series.
     */
   private def uploadableRtimage(rtimage: Series): Option[UploadSetDicomCMove] = {
-    if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
-      val procedure = determineProcedureForRtimageSeries(rtimage)
-      if (procedure.isDefined) Some(new UploadSetDicomCMove(procedure.get, rtimage.PatientID + " RTIMAGE only", rtimage)) else None
-    } else
-      None
+    val uploadSet: Option[UploadSetDicomCMove] = {
+      if (rtimage.isModality(ModalityEnum.RTIMAGE)) {
+        val procedure = determineProcedureForRtimageSeries(rtimage)
+        if (procedure.isDefined) {
+          val rtplan = uploadRtplanOfRtimageIfNeeded(rtimage) // only defined if we have it and the server does not
+          Some(
+            new UploadSetDicomCMove(
+              procedure = procedure.get,
+              description = rtimage.PatientID + " RTIMAGE only",
+              imageSeries = rtimage,
+              reg = None,
+              plan = rtplan
+            )
+          )
+        } else
+          None // procedure not defined
+      } else {
+        None // this is not an RTIMAGE series
+      }
+    }
+
+    uploadSet
   }
 
   /**

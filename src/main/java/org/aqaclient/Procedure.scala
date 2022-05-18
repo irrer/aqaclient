@@ -79,6 +79,7 @@ object Procedure {
   def isLOC(name: String): Boolean = (name.toLowerCase.contains("loc") || name.toLowerCase.contains("leaf offset")) && (!name.toLowerCase.contains("base"))
   def isLOCBaseline(name: String): Boolean = name.toLowerCase.contains("loc") && name.toLowerCase.contains("base")
   def isMachineLog(name: String): Boolean = name.toLowerCase.contains("mach") && name.toLowerCase.contains("log")
+  def isGapSkew(name: String): Boolean = name.toLowerCase.contains("gap") && name.toLowerCase.contains("skew")
 
   private val isList = Seq(
     isBBbyCBCT _,
@@ -86,7 +87,8 @@ object Procedure {
     isPhase2 _,
     isLOC _,
     isLOCBaseline _,
-    isMachineLog _
+    isMachineLog _,
+    isGapSkew _
   )
 
 }

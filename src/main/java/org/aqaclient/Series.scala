@@ -21,10 +21,10 @@ import com.pixelmed.dicom.AttributeTag
 import com.pixelmed.dicom.TagFromName
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.DicomUtil
-import edu.umro.ScalaUtil.Logging
-import edu.umro.util.Utility
 import edu.umro.ScalaUtil.FileUtil
+import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
+import edu.umro.util.Utility
 
 import java.io.File
 import java.text.SimpleDateFormat
@@ -44,7 +44,8 @@ case class Series(
     Modality: ModalityEnum.Value,
     FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
     RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
-    ReferencedRtplanUID: Option[String]
+    ReferencedRtplanUID: Option[String],
+    SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
 ) extends Logging {
 
   def this(node: Node) =
@@ -56,7 +57,8 @@ case class Series(
       ModalityEnum.toModalityEnum((node \ "@Modality").head.text.trim),
       Series.optText(node, "FrameOfReferenceUID"),
       Series.optText(node, "RegFrameOfReferenceUID"),
-      Series.optText(node, "ReferencedRtplanUID")
+      Series.optText(node, "ReferencedRtplanUID"),
+      Series.getSopInstanceUidList(node)
     )
 
   // @formatter:off
@@ -67,6 +69,7 @@ case class Series(
       {if (FrameOfReferenceUID.isDefined) {<FrameOfReferenceUID>{FrameOfReferenceUID.get}</FrameOfReferenceUID>}}
       {if (RegFrameOfReferenceUID.isDefined) {<RegFrameOfReferenceUID>{RegFrameOfReferenceUID.get}</RegFrameOfReferenceUID>}}
       {if (ReferencedRtplanUID.isDefined) {<ReferencedRtplanUID>{ReferencedRtplanUID.get}</ReferencedRtplanUID>}}
+      <SOPInstanceUIDList>{SOPInstanceUIDList.map(s => <SOPInstanceUID>{s}</SOPInstanceUID>)}</SOPInstanceUIDList>
     </Series>
   }
 
@@ -160,6 +163,7 @@ object Series extends Logging {
       .map(e => e.right.get)
 
     val al = alList.head
+
     val series = new Series(
       dirOf(alList),
       Series.getString(al, TagFromName.SeriesInstanceUID),
@@ -168,7 +172,8 @@ object Series extends Logging {
       ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
       Series.getFrameOfReferenceUID(al),
       Series.getRegFrameOfReferenceUID(alList),
-      Series.getReferencedRtplanUID(al)
+      Series.getReferencedRtplanUID(al),
+      alList.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString())
     )
 
     series
@@ -179,6 +184,10 @@ object Series extends Logging {
       case Some(node) => Some(node.text.trim)
       case _          => None
     }
+  }
+
+  private def getSopInstanceUidList(xml: Node): Seq[String] = {
+    (xml \ "SOPInstanceUIDList" \ "SOPInstanceUID").map(_.text.trim)
   }
 
   /**
