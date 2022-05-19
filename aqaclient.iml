@@ -107,6 +107,6 @@
     <orderEntry type="library" name="Maven: pixelmed:pixelmed:20201205" level="project" />
     <orderEntry type="library" name="Maven: edu.umro:EventNetClient_2.12:0.0.5" level="project" />
     <orderEntry type="library" name="Maven: com.rabbitmq:amqp-client:5.11.0" level="project" />
-    <orderEntry type="library" name="Maven: edu.umro:DicomDict:1.0" level="project" />
+    <orderEntry type="library" name="Maven: edu.umro:DicomDict:2.0" level="project" />
   </component>
 </module>
