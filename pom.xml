@@ -1,3 +1,4 @@
+<!--suppress MavenModelInspection -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>aqaclient</groupId>
@@ -28,7 +29,7 @@
         <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-core</artifactId>                 <version>2.17.1</version>                        </dependency>
         <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-jul</artifactId>                  <version>2.17.1</version> <scope>runtime</scope> </dependency>
         <dependency> <groupId>org.apache.logging.log4j</groupId> <artifactId>log4j-slf4j-impl</artifactId>           <version>2.17.1</version>                        </dependency>
-        <dependency> <groupId>org.restlet.jee</groupId>          <artifactId>org.restlet.ext.fileupload</artifactId> <version>2.3.4</version>                         </dependency>
+        <dependency> <groupId>org.restlet.jee</groupId>          <artifactId>org.restlet.ext.fileupload</artifactId> <version>2.3.9</version>                         </dependency>
         <dependency> <groupId>org.restlet.jse</groupId>          <artifactId>org.restlet.ext.crypto</artifactId>     <version>2.3.5</version>                         </dependency>
         <dependency> <groupId>org.restlet.jse</groupId>          <artifactId>org.restlet.ext.httpclient</artifactId> <version>2.3.5</version>                         </dependency>
         <dependency> <groupId>org.restlet.jse</groupId>          <artifactId>org.restlet.ext.jackson</artifactId>    <version>2.3.5</version>                         </dependency>
@@ -110,7 +111,7 @@
                 </executions>
             </plugin>
 
-            <plugin>
+          <plugin>
               <artifactId>maven-antrun-plugin</artifactId>
               <version>3.0.0</version>
               <executions>
@@ -119,7 +120,8 @@
                   <configuration>
                     <target>
                       <property value="Z:\Projects\aqaclient\${project.artifactId}-${project.version}" name="project.dir"/>
-                      <property value="${project.dir}\${project.artifactId}-${project.version}" name="dest.dir"/>
+                      <!--suppress MavenModelInspection -->
+                        <property value="${project.dir}\${project.artifactId}-${project.version}" name="dest.dir"/>
                       <property value="src/main/resources" name="resource.dir"/>
                       <property value="yajsw-stable-12.12" name="yajsw"/>
                       <!-- <property value="domain\\serviceUserId" name="user_login"/> -->
@@ -166,72 +168,9 @@
                 </execution>
               </executions>
             </plugin>
-      
-      
-      
     </plugins>
-      <!-- </pluginManagement> -->
-      <pluginManagement>
-          <plugins>
-              <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
-              <!--
-              <plugin>
-                  <groupId>org.eclipse.m2e</groupId>
-                  <artifactId>lifecycle-mapping</artifactId>
-                  <version>1.0.0</version>
-                  <configuration>
-                      <lifecycleMappingMetadata>
-                          <pluginExecutions>
-                              <pluginExecution>
-                                  <pluginExecutionFilter>
-                                      <groupId>org.apache.maven.plugins</groupId>
-                                      <artifactId>maven-assembly-plugin</artifactId>
-                                      <versionRange>[2.3,)</versionRange>
-                                      <goals>
-                                          <goal>single</goal>
-                                      </goals>
-                                  </pluginExecutionFilter>
-                                  <action>
-                                      <ignore></ignore>
-                                  </action>
-                              </pluginExecution>
-                          </pluginExecutions>
-                      </lifecycleMappingMetadata>
-                  </configuration>
-              </plugin>
-             -->
-          </plugins>
-      </pluginManagement>
   </build>
 
-    <repositories>
-        <repository>
-            <id>maven-restlet</id>
-            <name>Public online Restlet repository</name>
-            <url>https://maven.restlet.talend.com</url>
-        </repository>
-    </repositories>
+    <!-- Note: the C:\pfc\Maven\settings.xml contains a reference to the https://maven.restlet.talend.com repository. -->
 
-    <!--
-    <repositories>
-        <repository>
-            <id>maven-restlet</id>
-            <name>Public online Restlet repository</name>
-            <url>http://maven.restlet.org</url>
-        </repository>
-    </repositories>
-    <distributionManagement>
-        <repository>
-            <id>releases</id>
-            <name>Internal Releases</name>
-            <url>http://141.214.124.203:8081/nexus/content/repositories/releases</url>
-        </repository>
-        <snapshotRepository>
-            <id>snapshots</id>
-            <name>Internal Releases</name>
-            <url>http://141.214.124.203:8081/nexus/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
-    -->
-  
 </project>
