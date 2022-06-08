@@ -180,12 +180,25 @@ object Results extends Logging {
   /**
     * Return true if there is an RTPLAN with the given FrameOfReferenceUID is in the results.
     */
-  def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Boolean = {
+  private def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Boolean = {
     val doesContain = (getPatientResultList(patientId) \ "Series").exists(n => {
       (n \ "Modality").head.text.trim.equals(ModalityEnum.RTPLAN.toString) &&
         (n \ "FrameOfReferenceUID").head.text.trim.equals(FrameOfReferenceUID)
     })
     doesContain
+  }
+
+  /**
+    * If there is an RTPLAN with the given FrameOfReferenceUID is in the results, then return its procedure.
+    */
+  def procedureOfPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Option[Procedure] = {
+    val nodeList = (getPatientResultList(patientId) \ "Series").filter(n =>
+      (n \ "Modality").head.text.trim.equals(ModalityEnum.RTPLAN.toString) &&
+        (n \ "FrameOfReferenceUID").head.text.trim.equals(FrameOfReferenceUID)
+    )
+
+    val procedureList = nodeList.flatMap(n => Procedure.procedureByName((n \ "Procedure").text))
+    procedureList.headOption
   }
 
   /**
