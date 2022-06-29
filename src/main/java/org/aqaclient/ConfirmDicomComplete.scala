@@ -43,6 +43,30 @@ object ConfirmDicomComplete extends Logging {
       else ClientUtil.listFiles(uploadSet.imageSeries.dir).size
     }
 
+    private def regToXml: Option[Elem] = {
+      try {
+        if (uploadSet.reg.isDefined)
+          Some(<Reg>{uploadSet.reg.get.SeriesInstanceUID}</Reg>)
+        else
+          None
+      } catch {
+        case _: Throwable => None
+      }
+    }
+
+    private def planToXml: Option[Elem] = {
+      try {
+        if (uploadSet.plan.isDefined)
+          Some(<Plan>
+            {uploadSet.reg.get.SeriesInstanceUID}
+          </Plan>)
+        else
+          None
+      } catch {
+        case _: Throwable => None
+      }
+    }
+
     /**
       * Format the upload as XML.  Some fields are not used programmatically, but are
       * added for debugging and diagnosing problems.
@@ -58,8 +82,7 @@ object ConfirmDicomComplete extends Logging {
         <PatientID>{uploadSet.imageSeries.PatientID}</PatientID>
         <Modality>{uploadSet.imageSeries.Modality}</Modality>
         <dataDate>{Series.xmlDateFormat.format(uploadSet.imageSeries.dataDate)}</dataDate>
-        { if (uploadSet.reg.isDefined) <Reg>{ uploadSet.reg.get.SeriesInstanceUID }</Reg> }
-        { if (uploadSet.plan.isDefined) <Plan>{ uploadSet.reg.get.SeriesInstanceUID }</Plan> }
+        { Seq(regToXml, planToXml).flatten }
       </ConfirmDicomComplete>
     }
     // @formatter:on
@@ -72,9 +95,13 @@ object ConfirmDicomComplete extends Logging {
     def file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
 
     def persist(): Unit = {
-      val text = PrettyXML.xmlToText(toXml)
-      val file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
-      FileUtil.writeFile(file, text)
+      try {
+        val text = PrettyXML.xmlToText(toXml)
+        val file = new File(ClientConfig.confirmDicomCompleteDir, fileName)
+        FileUtil.writeFile(file, text)
+      } catch {
+        case t: Throwable => logger.error("Unexpected exception: " + fmtEx(t))
+      }
     }
 
     val timeout = new Date(ClientConfig.ConfirmDicomCompleteTimeout_ms + InitialUploadTime.getTime)
