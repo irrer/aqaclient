@@ -235,11 +235,13 @@ object ConfirmDicomComplete extends Logging {
       val Procedure = new Procedure(procedureXml)
       val imageSeriesUID = (xml \ "ImageSeries").head.text.trim
       val imageSeriesSize = (xml \ "ImageSeries" \ "@size").head.text.trim.toInt
-      if (Series.get(imageSeriesUID).isEmpty)
+      if (Series.get(imageSeriesUID).isEmpty) {
         logger.warn("Could not find series: " + imageSeriesUID)
-      val imageSeries = Series.get(imageSeriesUID).get
+        None
+      } else {
+        val imageSeries = Series.get(imageSeriesUID).get
 
-      /*
+        /*
       Trace.trace()
       Trace.trace("InitialUploadTime: " + InitialUploadTime)
       Trace.trace("procedureXml: " + procedureXml)
@@ -248,14 +250,15 @@ object ConfirmDicomComplete extends Logging {
       Trace.trace("imageSeriesSize: " + imageSeriesSize)
       Trace.trace("imageSeries: " + imageSeries)
       Trace.trace()
-       */
+         */
 
-      val reg = getOptSeries("Reg")
-      val plan = getOptSeries("Plan")
+        val reg = getOptSeries("Reg")
+        val plan = getOptSeries("Plan")
 
-      val uploadSet = new DicomAssembleUpload.UploadSetDicomCMove(Procedure, "redo DICOM CMove upload", imageSeries, reg, plan)
-      val cs = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
-      Some(cs)
+        val uploadSet = new DicomAssembleUpload.UploadSetDicomCMove(Procedure, "redo DICOM CMove upload", imageSeries, reg, plan)
+        val cs = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
+        Some(cs)
+      }
     } catch {
       case t: Throwable =>
         logger.error("Unexpected error reading ConfirmDicomComplete file: " + xmlFile.getAbsolutePath + " : " + fmtEx(t))
