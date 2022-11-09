@@ -187,12 +187,8 @@ object DicomAssembleUpload extends Logging {
         p
     }
 
-    Trace.trace("series: " + rtimage + "  ||||    byRtplan: " + byRtplan)
-
     val byOtherRtimage = procedureByOtherRtimageReferencingSameRtplan(rtimage.ReferencedRtplanUID.get)
-    Trace.trace("series: " + rtimage + "  ||||    byOtherRtimage: " + byOtherRtimage)
     val byPatientId = PatientProcedure.getProcedureOfSeriesByPatientID(rtimage)
-    Trace.trace("series: " + rtimage + "  ||||    byPatientId: " + byPatientId)
 
     val procedureList: Seq[Option[Procedure]] = Seq(
       byRtplan,
@@ -201,7 +197,6 @@ object DicomAssembleUpload extends Logging {
     )
 
     val procedure = procedureList.flatten.headOption
-    Trace.trace("series: " + rtimage + "  ||||    procedure: " + procedure)
 
     procedure
   }
