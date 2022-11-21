@@ -20,6 +20,8 @@ import com.pixelmed.dicom.AttributeFactory
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.AttributeTag
 import com.pixelmed.dicom.TagFromName
+import com.pixelmed.dicom.TransferSyntax
+import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.DicomCFind
 import edu.umro.ScalaUtil.Logging
 
@@ -56,13 +58,20 @@ object DicomFind extends Logging {
     */
   private def genericFind(queryAttributes: AttributeList, queryLevel: DicomCFind.QueryRetrieveLevel.Value): Seq[AttributeList] = {
 
+    val transferSyntax = {
+      val attr = AttributeFactory.newAttribute(TagByName.TransferSyntaxUID)
+      attr.addValue(TransferSyntax.ImplicitVRLittleEndian)
+      attr
+    }
+    queryAttributes.put(transferSyntax)
+
     val didAcquire = DicomMove.dicomSemaphore.tryAcquire(ClientConfig.DicomTimeout_ms, java.util.concurrent.TimeUnit.MILLISECONDS)
     if (!didAcquire)
       logger.error("Could not acquire DICOM semaphore.  Proceeding with C-MOVE anyway.")
     val resultList: Seq[AttributeList] =
       try {
 
-        val start = System.currentTimeMillis()
+        // val start = System.currentTimeMillis()
         val list = DicomCFind.cfind(
           callingAETitle = ClientConfig.DICOMClient.aeTitle,
           calledPacs = ClientConfig.DICOMSource,
@@ -71,8 +80,7 @@ object DicomFind extends Logging {
           limit = None,
           queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
         )
-        val elapsed = System.currentTimeMillis() - start
-
+        // val elapsed = System.currentTimeMillis() - start
         // logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)  // message makes too much noise
         list
       } catch {
@@ -103,7 +111,7 @@ object DicomFind extends Logging {
   }
 
   /**
-    * Get the list of SOPInstanceUID's for the given series.
+    * Get the list of SOPInstanceUIDs for the given series.
     *
     * @param SeriesInstanceUID For this series.
     *
@@ -122,6 +130,55 @@ object DicomFind extends Logging {
     val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size
     logger.info(msg)
     seq
+  }
 
+  /**
+    * Allow testing of C-FIND PatientID patterns on ARIA (VMSDBD).
+    *
+    * Usage: When prompted, enter the text to be used as the PatientID in a C-FIND.
+    *
+    * If an empty string is entered then a default PatientID will be used.
+    *
+    * @param args Not used
+    */
+  def main(args: Array[String]): Unit = {
+    println("Starting ...")
+    ClientConfig.validate
+
+    val defaultPatientID = "$TB5_OBI_2022Q2"
+    // 123456789.123456789.123456789.
+
+    println(s"Enter PatientID C-FIND search pattern (or nothing to use default of $defaultPatientID): ")
+    val s = scala.io.StdIn.readLine
+
+    val searchPattern = {
+      if (s.nonEmpty)
+        s
+      else
+        defaultPatientID
+    }
+
+    val tagSeq = Seq(TagFromName.SeriesInstanceUID, TagByName.Modality)
+    val tagValueSeq = Seq(
+      (TagFromName.PatientID, searchPattern)
+    )
+
+    val queryAttributes = new Query(tagSeq, tagValueSeq).query
+
+    val start = System.currentTimeMillis()
+    val list = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.SERIES)
+    val elapsed = System.currentTimeMillis() - start
+
+    println("---------------------------------------------------------------------------")
+    println("Patient ID search pattern: >>" + searchPattern + "<<  length in characters: " + searchPattern.length)
+    val patientList = list.map(_.get(TagByName.PatientID).getSingleStringValueOrEmptyString).distinct.sorted
+    println("List of patient IDs found:\n    " + patientList.map(id => s">>$id<<").mkString("\n    "))
+    println("Number of series found: " + list.size)
+    val modalityGroups = list.groupBy(_.get(TagByName.Modality).getSingleStringValueOrEmptyString())
+    val text = modalityGroups.keys.map(modality => "    " + modality.formatted("%-10s") + " : " + modalityGroups(modality).size.formatted("%3d"))
+    println(text.mkString("\n"))
+    println("Elapsed time of C-FIND in ms: " + elapsed)
+    println("---------------------------------------------------------------------------")
+    System.exit(0)
   }
 }

@@ -16,6 +16,8 @@
 
 package org.aqaclient
 
+import com.pixelmed.dicom.AttributeList
+import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.Logging
 
 /**
@@ -42,7 +44,17 @@ object DicomProcessing extends Logging {
     * that are known by the server.
     */
   private def fetchDicomOfModality(Modality: String, PatientID: String): Unit = {
-    val serUidList = DicomFind.find(Modality, PatientID).flatMap(fal => ClientUtil.getSerUid(fal))
+    val search = {
+      // if (PatientID.equals("BR1_OBI_QA_2023_Q1")) "*R1_OBI_QA_2023_*" else PatientID
+      ClientConfig.PatientIDCFindPatternMap.get(PatientID) match {
+        case Some(pattern) => pattern
+        case _             => PatientID
+      }
+    }
+
+    def patientIdFilter(al: AttributeList) = (al.get(TagByName.PatientID) != null) && al.get(TagByName.PatientID).getSingleStringValueOrEmptyString().equals(PatientID)
+
+    val serUidList = DicomFind.find(Modality, search).filter(patientIdFilter).flatMap(fal => ClientUtil.getSerUid(fal))
     val newSerUidList = serUidList.filterNot(serUid => FailedSeries.contains(serUid)).filterNot(serUid => Series.contains(serUid)).filterNot(serUid => Results.containsSeries(PatientID, serUid))
     newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID, Modality))
   }
@@ -55,7 +67,7 @@ object DicomProcessing extends Logging {
 
     // List of all modalities that should be fetched for this patient.  Sorted only so that
     // they will be used in a consistent way.
-    val modalityList = patientProcedure.procedureList.flatMap(_.modalityList).distinct.sorted
+    val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
     logger.info("Updating patient ID: " + patientProcedure.patientId)
     modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
   }

@@ -19,6 +19,7 @@ package org.aqaclient
 import edu.umro.ScalaUtil.PACS
 
 import java.io.File
+import scala.xml.Node
 
 /**
   * This class extracts configuration information from the configuration file.  Refer
@@ -114,6 +115,26 @@ object ClientConfig
     val list = fileList.filter(_.isDirectory)
     logText("MachineLogDirList \\ MachineLogDir", list.map(d => d.getAbsolutePath).mkString("\n        ", "\n        ", "\n        "))
     list
+  }
+
+  val PatientIDCFindPatternMap: Map[String, String] = {
+    val list = document \ "PatientIDCFindPatternMap" \ "PatientIDCFindPattern"
+    val idMap: Map[String, String] = {
+      if (list.isEmpty)
+        Map(): Map[String, String]
+      else {
+        def nodeToPair(n: Node): (String, String) = {
+          val id = (n \ "@PatientID").text
+          val pattern = (n \ "@pattern").text
+          (id, pattern)
+        }
+
+        list.map(nodeToPair).toMap
+      }
+    }
+    val text = idMap.keys.map(id => s"    $id :: >>${idMap(id)}<<")
+    logText("PatientIDCFindPatternMap \\ PatientIDCFindPattern\n", text.mkString("\n") + "\n")
+    idMap
   }
 
   /** If this is defined, then the configuration was successfully initialized. */

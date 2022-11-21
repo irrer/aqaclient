@@ -119,19 +119,6 @@ class Procedure(val node: Node) extends Logging {
     Name + " : " + Version
   }
 
-  /**
-    * Return the list of modalities for this procedure.
-    *
-    * Note that by necessity this is 'hard coded' in that the list is derived
-    * from knowing the list of modalities that each procedure uses.
-    */
-  val modalityList: Seq[String] = {
-    if (isBBbyCBCT)
-      Seq("CT", "REG", "RTPLAN")
-    else
-      Seq("RTIMAGE", "RTPLAN")
-  }
-
   /*
   logger.info(
     "Constructed procedure " + toString +

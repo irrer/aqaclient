@@ -18,10 +18,8 @@
     -->
 
     <!-- VMSDBD TEST -->
-    <!--
     <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
-    <DICOMSource AETitle='VMSDBD'         Host='uhroariasts1'    Port='105'   />
-    -->
+    <DICOMSource AETitle='VMSDBD'         Host='10.30.65.100'    Port='105'   />
 
     <!-- VMSDBD TEST -->
     <!--
@@ -42,8 +40,10 @@
     -->
 
     <!-- Jim's Conquest server. -->
+    <!--
     <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
     <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
+    -->
 
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
@@ -170,5 +170,22 @@
     <MachineLogDirList>
       <MachineLogDir>D:\tmp\aqa\MachineLogs\test</MachineLogDir>
     </MachineLogDirList>
+
+    <!-- When performing a C-FIND on Varian's VMSDBD service, there can be a problem where using the PatientID does not
+    work.  For example, using 'BR1_OBI_QA_2023_Q1' will return nothing.  This seems to happen _mostly_ when the PatientID
+    is longer than 16 characters, but because Varian is closed source we can't say for sure.
+
+    The workaround is to use a pattern that is shorter, but will match the patient.  Tha pattern should match the
+    minimum number of PatientIDs (ideally 1) but still match the desired patient.  When the pattern is used, the returned
+    list is filtered so as only to return the originally desired PatientID.  If data from more patients is returned, they
+    are removed from the result, but they do incur extra overhead.
+
+    If this element is missing from the configuration file then a zero-sized list will be assumed.
+
+    BTW: the pattern that works for BR1_OBI_QA_2023_Q1 is '*R1_OBI_QA_2023_*'
+    -->
+    <PatientIDCFindPatternMap>
+      <PatientIDCFindPattern PatientID="BR1_OBI_QA_2023_Q1" pattern="*R1_OBI_QA_2023_*"/>
+    </PatientIDCFindPatternMap>
 
 </AQAClientConfig>
