@@ -73,13 +73,14 @@ object Procedure {
     * @param name Text indicating which procedure.
     * @return
     */
-  def isBBbyCBCT(name: String): Boolean = name.toLowerCase.contains("bb") && name.toLowerCase.contains("cbct")
-  def isBBbyEPID(name: String): Boolean = name.toLowerCase.contains("bb") && name.toLowerCase.contains("epid")
-  def isPhase2(name: String): Boolean = name.toLowerCase.matches(".*phase *2.*")
-  def isLOC(name: String): Boolean = (name.toLowerCase.contains("loc") || name.toLowerCase.contains("leaf offset")) && (!name.toLowerCase.contains("base"))
-  def isLOCBaseline(name: String): Boolean = name.toLowerCase.contains("loc") && name.toLowerCase.contains("base")
-  def isMachineLog(name: String): Boolean = name.toLowerCase.contains("mach") && name.toLowerCase.contains("log")
-  def isGapSkew(name: String): Boolean = name.toLowerCase.contains("gap") && name.toLowerCase.contains("skew")
+  private def isBBbyCBCT(name: String): Boolean = name.toLowerCase.contains("bb") && name.toLowerCase.contains("cbct")
+  private def isBBbyEPID(name: String): Boolean = name.toLowerCase.contains("bb") && name.toLowerCase.contains("epid")
+  private def isPhase2(name: String): Boolean = name.toLowerCase.matches(".*phase *2.*")
+  private def isLOC(name: String): Boolean = (name.toLowerCase.contains("loc") || name.toLowerCase.contains("leaf offset")) && (!name.toLowerCase.contains("base"))
+  private def isLOCBaseline(name: String): Boolean = name.toLowerCase.contains("loc") && name.toLowerCase.contains("base")
+  private def isMachineLog(name: String): Boolean = name.toLowerCase.contains("mach") && name.toLowerCase.contains("log")
+  private def isGapSkew(name: String): Boolean = name.toLowerCase.contains("gap") && name.toLowerCase.contains("skew")
+  private def isWinstonLutz(name: String): Boolean = name.toLowerCase.contains("winston") && name.toLowerCase.contains("lutz")
 
   private val isList = Seq(
     isBBbyCBCT _,
@@ -88,7 +89,8 @@ object Procedure {
     isLOC _,
     isLOCBaseline _,
     isMachineLog _,
-    isGapSkew _
+    isGapSkew _,
+    isWinstonLutz _
   )
 
 }
@@ -110,9 +112,9 @@ class Procedure(val node: Node) extends Logging {
 
   final val isBBbyCBCT = Procedure.isBBbyCBCT(Name)
   final val isBBbyEPID = Procedure.isBBbyEPID(Name)
-  final val isPhase2 = Procedure.isPhase2(Name)
-  final val isLOC = Procedure.isLOC(Name)
-  final val isLOCBaseline = Procedure.isLOCBaseline(Name)
+  // final val isPhase2 = Procedure.isPhase2(Name)
+  // final val isLOC = Procedure.isLOC(Name)
+  // final val isLOCBaseline = Procedure.isLOCBaseline(Name)
   final val isMachineLog = Procedure.isMachineLog(Name)
 
   override def toString: String = {

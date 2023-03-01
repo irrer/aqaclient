@@ -120,7 +120,7 @@
     <!-- Maximum data age to be considered relevant.  Maximum age of data as a floating point number in
     days for it to be uploaded to  the server.  If the data is older than this many days, it will not be
     uploaded.  If this values is not specified then all data will be uploaded, regardless of how old it is.  -->
-    <MaximumDataAge_day>36600.0</MaximumDataAge_day>
+    <MaximumDataAge_day>31.0</MaximumDataAge_day>
     
     <!-- Maximum data age to keep DICOM files stored locally in a file cache.  The term 'data age' refers to the time
     since the DICOM was captured.  Keeping files for some time period is

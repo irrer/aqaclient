@@ -459,8 +459,8 @@ object Series extends Logging {
         if (!seriesDir.getAbsolutePath.equals(series.dir.getAbsolutePath)) {
           logger.warn(
             " Error in series.  Derived series.dir does not match source series dir.  The DICOM should probably be deleted.\n" +
-              "    source Dir : " + seriesDir.getAbsolutePath.formatted("%-160s") + " (dir where DICOM files were found)\n" +
-              "    series.dir : " + series.dir.getAbsolutePath.formatted("%-160s") + " (derived/expected/correct directory)"
+              "    source Dir : " + seriesDir.getAbsolutePath.format("%-160s") + " (dir where DICOM files were found)\n" +
+              "    series.dir : " + series.dir.getAbsolutePath.format("%-160s") + " (derived/expected/correct directory)"
           )
         }
         Some(series)

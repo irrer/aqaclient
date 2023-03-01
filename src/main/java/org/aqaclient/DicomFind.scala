@@ -175,7 +175,7 @@ object DicomFind extends Logging {
     println("List of patient IDs found:\n    " + patientList.map(id => s">>$id<<").mkString("\n    "))
     println("Number of series found: " + list.size)
     val modalityGroups = list.groupBy(_.get(TagByName.Modality).getSingleStringValueOrEmptyString())
-    val text = modalityGroups.keys.map(modality => "    " + modality.formatted("%-10s") + " : " + modalityGroups(modality).size.formatted("%3d"))
+    val text = modalityGroups.keys.map(modality => "    " + modality.format("%-10s") + " : " + modalityGroups(modality).size.formatted("%3d"))
     println(text.mkString("\n"))
     println("Elapsed time of C-FIND in ms: " + elapsed)
     println("---------------------------------------------------------------------------")
