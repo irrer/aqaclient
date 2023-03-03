@@ -18,7 +18,6 @@ package org.aqaclient
 
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import scala.collection.immutable
@@ -95,7 +94,8 @@ object PatientProcedure extends Logging {
   }
 
   /**
-    * Get the latest content.
+    * Get the latest PatientProcedure list from the server.  Put it in the
+    * local <code>patientProcedureList</code> cache.
     */
   private def refreshList(): Unit = {
     try {
