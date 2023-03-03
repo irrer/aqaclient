@@ -48,6 +48,17 @@
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
     <PollInterval_sec>30</PollInterval_sec>
+
+    <!-- List of polling intervals.  When polling the DICOM source (usually ARIA), look at the date of
+    the patient's most recent file.  If it is newer than 'age_day', then that patient will be polled
+    every 'poll_sec' seconds.
+    -->
+    <PollIntervalList>
+        <PollInterval  poll_sec= "15.0"  age_day =   "5.0"/>  <!-- Meant for daily processing. -->
+        <PollInterval  poll_sec= "60.0"  age_day =  "64.0"/>  <!-- Just over two months for monthly QA. -->
+        <PollInterval  poll_sec="120.0"  age_day = "190.0"/>  <!-- Just over a half a year. -->
+        <PollInterval  poll_sec="300.0"  age_day = "380.0"/>  <!-- Just over a year.  Probably means that the patient is totally inactive. -->
+    </PollIntervalList>
     
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS GET operation. -->
     <HttpsGetTimeout_sec>60.0</HttpsGetTimeout_sec>

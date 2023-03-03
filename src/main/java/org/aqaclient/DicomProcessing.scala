@@ -20,6 +20,8 @@ import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.Logging
 
+import java.util.Date
+
 /**
   * Orchestrate all C-FIND and C-MOVE operations to obtain the relevant DICOM.  It is
   * sent via FIFO queue to another thread that groups it into sets for testing.
@@ -60,10 +62,50 @@ object DicomProcessing extends Logging {
   }
 
   /**
+    * Get the date of the most recently created DICOM file for this patient.
+    * If there are no DICOM files for the patient, then return None.
+    *
+    * @param patientId ID of Patient of interest.
+    * @return Time in ms.
+    */
+  private def getMostRecentActivityDate(patientId: String): Option[Date] = {
+    val list = Series.getAllSeries.filter(_.PatientID.equals(patientId))
+    if (list.isEmpty)
+      None
+    else {
+      val latest = list.maxBy(_.dataDate).dataDate
+      Some(latest)
+    }
+  }
+
+  /**
     * Look for new files to process.  It is important to process CT series before
     * RTIMAGE because each RTIMAGE is dependent on the data from CTs.
     */
   def updatePatient(patientProcedure: PatientProcedure): Unit = {
+    if (true) { // Test code to verify that variable polling is working as expected.
+      val mostRecentFileDate: Date = {
+        getMostRecentActivityDate(patientProcedure.patientId) match {
+          case Some(t) => t
+          case _       => new Date(System.currentTimeMillis() - PollInterval.maxAge())
+        }
+      }
+
+      val msInDay = 24 * 60 * 60 * 1000.0
+      val maxFileAge = (System.currentTimeMillis() - mostRecentFileDate.getTime) / msInDay
+      val poll = PollInterval.shouldBePolled(mostRecentFileDate)
+      logger.info("PatientID: " + patientProcedure.patientId + "    Max File Age in Days: " + maxFileAge.formatted("%8.1f") + "    poll: " + poll)
+
+      /* TODO this code should replace the code at the end of updatePatient.
+      if (poll) {
+        // List of all modalities that should be fetched for this patient.  Sorted only so that
+        // they will be used in a consistent way.
+        val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
+        logger.info("Updating patient ID: " + patientProcedure.patientId)
+        modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
+      }
+       */
+    }
 
     // List of all modalities that should be fetched for this patient.  Sorted only so that
     // they will be used in a consistent way.

@@ -62,6 +62,8 @@ object ClientConfig
 
   val PollInterval_sec: Int = logMainText("PollInterval_sec").toInt
 
+  logText("PollIntervalList", PollInterval.init((document \ "PollIntervalList").head))
+
   val HttpsGetTimeout_sec: Double = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
   val HttpsGetTimeout_ms: Some[Long] = Some((HttpsGetTimeout_sec * 1000).round)
 
