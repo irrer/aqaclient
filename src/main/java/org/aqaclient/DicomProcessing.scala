@@ -87,7 +87,7 @@ object DicomProcessing extends Logging {
       val mostRecentFileDate: Date = {
         getMostRecentActivityDate(patientProcedure.patientId) match {
           case Some(t) => t
-          case _       => new Date(System.currentTimeMillis() - PollInterval.maxAge())
+          case _       => new Date(System.currentTimeMillis() - PollInterval.maxAge_ms())
         }
       }
 
@@ -128,6 +128,8 @@ object DicomProcessing extends Logging {
         def run(): Unit = {
           while (true) {
             update()
+            // TODO this should replace the sleep below
+            // Thread.sleep(PollInterval.minPoll_ms())
             Thread.sleep(ClientConfig.PollInterval_sec * 1000)
           }
         }

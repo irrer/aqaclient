@@ -8,7 +8,7 @@ import java.util.Date
 import scala.xml.Node
 
 /**
-  * Support variable length polling.  The approach is to poll recently active
+  * Support variable interval polling.  The approach is to poll recently active
   * patients more frequently than those that have not had activity in a longer
   * time.  This is an optimization to reduce the amount of polling.
   *
@@ -92,10 +92,20 @@ object PollInterval {
     }
 
   /**
+    * Get the minimum polling interval of all the polling intervals.
+    *
+    * @return
+    */
+  def minPoll_ms(): Long =
+    this.synchronized {
+      list.minBy(_.poll_ms).age_ms
+    }
+
+  /**
     * Get the maximum file age of all the polling intervals.
     * @return
     */
-  def maxAge(): Long = this.synchronized { list.maxBy(_.age_ms).age_ms }
+  def maxAge_ms(): Long = this.synchronized { list.maxBy(_.age_ms).age_ms }
 
   private def updatePollTimeIfExpired(): Unit =
     this.synchronized {
