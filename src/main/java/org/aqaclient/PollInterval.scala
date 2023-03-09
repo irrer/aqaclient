@@ -107,7 +107,11 @@ object PollInterval {
     */
   def maxAge_ms(): Long = this.synchronized { list.maxBy(_.age_ms).age_ms }
 
-  private def updatePollTimeIfExpired(): Unit =
+  /**
+    * If any of the poll intervals have expired, then update them.  They are expired if poll_ms has elapsed
+    * since their last poll time. Updating is done by updating pollTime_ms to the current time.
+    */
+  def updatePollTimeIfExpired(): Unit =
     this.synchronized {
       list.foreach(_.isExpired(update = true))
     }

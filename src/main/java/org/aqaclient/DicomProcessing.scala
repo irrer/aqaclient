@@ -128,6 +128,7 @@ object DicomProcessing extends Logging {
         def run(): Unit = {
           while (true) {
             update()
+            PollInterval.updatePollTimeIfExpired()
             // TODO this should replace the sleep below
             // Thread.sleep(PollInterval.minPoll_ms())
             Thread.sleep(ClientConfig.PollInterval_sec * 1000)
