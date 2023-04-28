@@ -455,7 +455,7 @@ object Series extends Logging {
       if (seriesDir.isDirectory && ClientUtil.listFiles(seriesDir).nonEmpty) {
         val series = makeSeriesFromDicomFileDir(seriesDir)
         // warn if seriesDir does not match series.dir
-        logger.info("Loaded series from DICOM: " + series)
+        // logger.info("Loaded series from DICOM: " + series)  // This is a nice log message but it shows too many lines.  Ends up cluttering the log file.
         if (!seriesDir.getAbsolutePath.equals(series.dir.getAbsolutePath)) {
           logger.warn(
             " Error in series.  Derived series.dir does not match source series dir.  The DICOM should probably be deleted.\n" +

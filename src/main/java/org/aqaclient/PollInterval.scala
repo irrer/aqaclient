@@ -98,7 +98,7 @@ object PollInterval {
     */
   def minPoll_ms(): Long =
     this.synchronized {
-      list.minBy(_.poll_ms).age_ms
+      list.minBy(_.poll_ms).poll_ms
     }
 
   /**

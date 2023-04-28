@@ -19,6 +19,7 @@ package org.aqaclient
 import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 
 import java.util.Date
 
@@ -83,40 +84,35 @@ object DicomProcessing extends Logging {
     * RTIMAGE because each RTIMAGE is dependent on the data from CTs.
     */
   def updatePatient(patientProcedure: PatientProcedure): Unit = {
-    if (true) { // Test code to verify that variable polling is working as expected.
-      val mostRecentFileDate: Date = {
-        getMostRecentActivityDate(patientProcedure.patientId) match {
-          case Some(t) => t
-          case _       => new Date(System.currentTimeMillis() - PollInterval.maxAge_ms())
-        }
+    val mostRecentFileDate: Date = {
+      getMostRecentActivityDate(patientProcedure.patientId) match {
+        case Some(t) => t
+        case _       => new Date(System.currentTimeMillis() - PollInterval.maxAge_ms())
       }
-
-      val msInDay = 24 * 60 * 60 * 1000.0
-      val maxFileAge = (System.currentTimeMillis() - mostRecentFileDate.getTime) / msInDay
-      val poll = PollInterval.shouldBePolled(mostRecentFileDate)
-      logger.info("PatientID: " + patientProcedure.patientId + "    Max File Age in Days: " + maxFileAge.formatted("%8.1f") + "    poll: " + poll)
-
-      /* TODO this code should replace the code at the end of updatePatient.
-      if (poll) {
-        // List of all modalities that should be fetched for this patient.  Sorted only so that
-        // they will be used in a consistent way.
-        val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
-        logger.info("Updating patient ID: " + patientProcedure.patientId)
-        modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
-      }
-       */
     }
 
-    // List of all modalities that should be fetched for this patient.  Sorted only so that
-    // they will be used in a consistent way.
-    val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
-    logger.info("Updating patient ID: " + patientProcedure.patientId)
-    modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
+    val msInDay = 24 * 60 * 60 * 1000.0
+    val maxFileAge = (System.currentTimeMillis() - mostRecentFileDate.getTime) / msInDay
+    val poll = PollInterval.shouldBePolled(mostRecentFileDate)
+    logger.info("PatientID: " + patientProcedure.patientId + "    Max File Age in Days: " + maxFileAge.formatted("%8.1f") + "    poll: " + poll)
+
+    if (poll) {
+      // List of all modalities that should be fetched for this patient.  Sorted only so that
+      // they will be used in a consistent way.
+      val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
+      logger.info("Updating patient ID: " + patientProcedure.patientId)
+      modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
+    }
   }
 
   private def update(): Unit = {
-    logger.info("Updating DICOM for " + PatientProcedure.patientIdList.size + " patient IDs.")
-    PatientProcedure.getPatientProcedureList.foreach(updatePatient)
+    try {
+      logger.info("Updating DICOM for " + PatientProcedure.patientIdList.size + " patient IDs.")
+      PatientProcedure.getPatientProcedureList.foreach(updatePatient)
+    } catch {
+      case t: Throwable =>
+        logger.error(s"DicomProcessing.update: Unexpected exception/error: ${fmtEx(t)}")
+    }
   }
 
   /**
@@ -129,9 +125,7 @@ object DicomProcessing extends Logging {
           while (true) {
             update()
             PollInterval.updatePollTimeIfExpired()
-            // TODO this should replace the sleep below
-            // Thread.sleep(PollInterval.minPoll_ms())
-            Thread.sleep(ClientConfig.PollInterval_sec * 1000)
+            Thread.sleep(PollInterval.minPoll_ms())
           }
         }
       }

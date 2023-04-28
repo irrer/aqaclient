@@ -9,8 +9,5 @@
         <module name="aqaclient" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="aqaclient" target="1.8" />
-    </bytecodeTargetLevel>
   </component>
 </project>
