@@ -52,7 +52,7 @@ object ClientConfig
 
   val confirmDicomCompleteDir: File = makeChildDir(DataDir, "ConfirmDicomComplete")
 
-  val staticDirFile: File = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
+  private val staticDirFile: File = getExistingDir("static", Seq(""".\""", """src\main\resources\"""))
 
   val certificateDir: File = makeChildDir(staticDirFile, "certificates")
 
@@ -67,48 +67,49 @@ object ClientConfig
   val HttpsGetTimeout_sec: Double = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
   val HttpsGetTimeout_ms: Some[Long] = Some((HttpsGetTimeout_sec * 1000).round)
 
-  val HttpsUploadTimeout_sec: Double = logMainText("HttpsUploadTimeout_sec", "30.0").toDouble
+  private val HttpsUploadTimeout_sec: Double = logMainText("HttpsUploadTimeout_sec", "30.0").toDouble
   val HttpsUploadTimeout_ms: Some[Long] = Some((HttpsUploadTimeout_sec * 1000).round)
 
   private def dayToMs(day: Double) = (day * 24 * 60 * 60 * 1000).round
 
-  val MaximumDataAge_day: Double = logMainText("MaximumDataAge_day", "100000.0").toDouble
+  private val MaximumDataAge_day: Double = logMainText("MaximumDataAge_day", "100000.0").toDouble
   val MaximumDataAge_ms: Long = dayToMs(MaximumDataAge_day)
 
-  val MaximumDICOMCacheDataAge_day: Double = logMainText("MaximumDICOMCacheDataAge_day", "7.0").toDouble
+  private val MaximumDICOMCacheDataAge_day: Double = logMainText("MaximumDICOMCacheDataAge_day", "7.0").toDouble
   val MaximumDICOMCacheDataAge_ms: Long = dayToMs(MaximumDICOMCacheDataAge_day)
 
-  val MaximumDICOMCacheFileAge_day: Double = logMainText("MaximumDICOMCacheFileAge_day", "3.0").toDouble
+  private val MaximumDICOMCacheFileAge_day: Double = logMainText("MaximumDICOMCacheFileAge_day", "3.0").toDouble
   val MaximumDICOMCacheFileAge_ms: Long = dayToMs(MaximumDICOMCacheFileAge_day)
 
+  //noinspection SpellCheckingInspection
   val AQAURL: String = logMainText("AQAURL")
   val AQAUser: String = logMainText("AQAUser")
   val AQAPassword: String = logMainText("AQAPassword")
-  val ServerSocketTimeout_sec: Int = logMainText("ServerSocketTimeout_sec", "300").toInt
+  private val ServerSocketTimeout_sec: Int = logMainText("ServerSocketTimeout_sec", "300").toInt
   val httpsClientParameters: Map[String, String] = Seq(("socketTimeout", (ServerSocketTimeout_sec * 1000).toString)).toMap
 
-  val HTTPSPort: Int = logMainText("HTTPSPort", "443").toInt
+  // val HTTPSPort: Int = logMainText("HTTPSPort", "443").toInt
   val AMQPBrokerHost: String = logMainText("AMQPBrokerHost", "localhost")
   val AMQPBrokerPort: Int = logMainText("AMQPBrokerPort", "5672").toInt
 
   val DICOMRetryCount: Int = logMainText("DICOMRetryCount", "3").toInt
   val DICOMRetryWait_sec: Double = logMainText("DICOMRetryWait_sec", "1.0").toDouble
-  val DicomTimeout_sec: Double = logMainText("DicomTimeout_sec", "120.0").toDouble
+  private val DicomTimeout_sec: Double = logMainText("DicomTimeout_sec", "120.0").toDouble
   val DicomTimeout_ms: Long = (DicomTimeout_sec * 1000).round
 
-  val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
+  private val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
   val ConfirmDicomCompleteInterval_ms: Long = (ConfirmDicomCompleteInterval_sec * 1000).round
 
-  val ConfirmDicomCompleteTimeout_sec: Double = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
+  private val ConfirmDicomCompleteTimeout_sec: Double = logMainText("ConfirmDicomCompleteTimeout_sec", "300.0").toDouble
   val ConfirmDicomCompleteTimeout_ms: Long = (ConfirmDicomCompleteTimeout_sec * 1000).round
 
-  val ResultsRefreshInterval_min: Double = logMainText("ResultsRefreshInterval_min", "60.0").toDouble
+  private val ResultsRefreshInterval_min: Double = logMainText("ResultsRefreshInterval_min", "60.0").toDouble
   val ResultsRefreshInterval_ms: Long = (ResultsRefreshInterval_min * 60 * 1000).round
 
-  val PatientProcedureAgeLimit_sec: Double = logMainText("PatientProcedureAgeLimit_sec", "60.0").toDouble
+  private val PatientProcedureAgeLimit_sec: Double = logMainText("PatientProcedureAgeLimit_sec", "60.0").toDouble
   val PatientProcedureAgeLimit_ms: Long = (PatientProcedureAgeLimit_sec * 1000).round
 
-  val MachineLogPollingInterval_min: Double = logMainText("MachineLogPollingInterval_min", "60.0").toDouble
+  private val MachineLogPollingInterval_min: Double = logMainText("MachineLogPollingInterval_min", "60.0").toDouble
   val MachineLogPollingInterval_ms: Long = (MachineLogPollingInterval_min * 60 * 1000).round
 
   val MachineLogDirList: Seq[File] = {

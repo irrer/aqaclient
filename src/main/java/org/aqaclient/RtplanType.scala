@@ -17,42 +17,44 @@
 package org.aqaclient
 
 import com.pixelmed.dicom.AttributeList
-import com.pixelmed.dicom.TagFromName
+import edu.umro.DicomDict.TagByName
 import org.aqaclient
 
 case class RtplanType(planType: RtplanType.Value, keywordList: Seq[String]) {
   override def toString: String = planType.toString + " : " + keywordList.mkString("  ||  ")
 
   /**
-   * Return true if the label matches this plan type.
-   */
+    * Return true if the label matches this plan type.
+    */
   def matches(rtplanLabel: String): Boolean = {
     keywordList.exists(kw => kw.toLowerCase.contains(rtplanLabel.toLowerCase))
   }
 }
 
 /**
- * Provide static type and name of for modalities used in this service.
- */
+  * Provide static type and name of for modalities used in this service.
+  */
 object RtplanType extends Enumeration {
   val Phase2: aqaclient.RtplanType.Value = Value
   val DailyQA: aqaclient.RtplanType.Value = Value
   val LOC: aqaclient.RtplanType.Value = Value
   val LOCBaseline: aqaclient.RtplanType.Value = Value
+  val WinstonLutz: aqaclient.RtplanType.Value = Value
+  val GapOffsetSkew: aqaclient.RtplanType.Value = Value
 
   /**
-   * Convert text to RtplanType.  Throw exception on failure to match.
-   */
+    * Convert text to RtplanType.  Throw exception on failure to match.
+    */
   def toRtplanType(text: String): aqaclient.RtplanType.Value = {
     values.filter(v => v.toString.equalsIgnoreCase(text)).toSeq.head
   }
 
   /**
-   * Get the plan type of an attribute list.
-   */
+    * Get the plan type of an attribute list.
+    */
   def planType(al: AttributeList): Either[String, RtplanType] = {
     val label = {
-      val a = al.get(TagFromName.RTPlanLabel)
+      val a = al.get(TagByName.RTPlanLabel)
       if (a == null)
         "No RTPLAN Label"
       else

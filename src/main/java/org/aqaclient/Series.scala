@@ -18,7 +18,6 @@ package org.aqaclient
 
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.AttributeTag
-import com.pixelmed.dicom.TagFromName
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
@@ -34,31 +33,31 @@ import scala.xml.Node
 import scala.xml.XML
 
 /**
-  * Describe a series whose DICOM has been retrieved but has not been processed.
-  */
+ * Describe a series whose DICOM has been retrieved but has not been processed.
+ */
 case class Series(
-    dir: File,
-    SeriesInstanceUID: String,
-    PatientID: String,
-    dataDate: Date,
-    Modality: ModalityEnum.Value,
-    FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
-    RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
-    ReferencedRtplanUID: Option[String],
-    SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
-) extends Logging {
+                   dir: File,
+                   SeriesInstanceUID: String,
+                   PatientID: String,
+                   dataDate: Date,
+                   Modality: ModalityEnum.Value,
+                   FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
+                   RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
+                   ReferencedRtplanUID: Option[String],
+                   SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
+                 ) extends Logging {
 
   def this(node: Node) =
     this(
-      new File(ClientConfig.seriesDir, (node \ "dir").head.text.trim),
-      (node \ "SeriesInstanceUID").head.text.trim,
-      (node \ "@PatientID").head.text.trim,
-      Series.getDataDate(node),
-      ModalityEnum.toModalityEnum((node \ "@Modality").head.text.trim),
-      Series.optText(node, "FrameOfReferenceUID"),
-      Series.optText(node, "RegFrameOfReferenceUID"),
-      Series.optText(node, "ReferencedRtplanUID"),
-      Series.getSopInstanceUidList(node)
+      dir = new File(ClientConfig.seriesDir, (node \ "dir").head.text.trim),
+      SeriesInstanceUID = (node \ "SeriesInstanceUID").head.text.trim,
+      PatientID = (node \ "@PatientID").head.text.trim,
+      dataDate = Series.getDataDate(node),
+      Modality = ModalityEnum.toModalityEnum((node \ "@Modality").head.text.trim),
+      FrameOfReferenceUID = Series.optText(node, "FrameOfReferenceUID"),
+      RegFrameOfReferenceUID = Series.optText(node, "RegFrameOfReferenceUID"),
+      ReferencedRtplanUID = Series.optText(node, "ReferencedRtplanUID"),
+      SOPInstanceUIDList = Series.getSopInstanceUidList(node)
     )
 
   // @formatter:off
@@ -73,27 +72,24 @@ case class Series(
     </Series>
   }
 
+    /** Earliest date of series in ms. */
+    def dataDate_ms: Long = dataDate.getTime
+
   // @formatter:on
 
   def isModality(modality: ModalityEnum.Value): Boolean = modality.toString.equalsIgnoreCase(Modality.toString)
 
   def isRtplan: Boolean = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 
-  def isRecent: Boolean = {
+  private def isRecent: Boolean = {
     val cutoff = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
     dataDate.getTime > cutoff
   }
 
   /**
-    * True if we are interested in it.  The criteria is that either it is an RTPLAN or it was created recently.
-    */
+   * True if we are interested in it.  The criteria is that either it is an RTPLAN or it was created recently.
+   */
   def isViable: Boolean = isRtplan || isRecent
-
-  def ensureFilesExist(): Unit = {
-    if (!(dir.isDirectory && ClientUtil.listFiles(dir).nonEmpty)) {
-      DicomMove.get(SeriesInstanceUID, PatientID, Modality.toString)
-    }
-  }
 
   override def toString: String = {
     "PatientID: " + PatientID + " : " + Modality + "/" + FileUtil.listFiles(dir).size + "    date: " + Series.xmlDateFormat.format(
@@ -103,17 +99,17 @@ case class Series(
 }
 
 /**
-  * Maintain and provide utilities to access a pool of DICOM series that have been retrieved from
-  * the PACS (or RadOnc planning system) that have not been processed.
-  */
+ * Maintain and provide utilities to access a pool of DICOM series that have been retrieved from
+ * the PACS (or RadOnc planning system) that have not been processed.
+ */
 
 object Series extends Logging {
 
   /**
-    * Name of file in each patient directory that contains a list of Series for that patient as
-    * XML.  The new and old versions are transient and only exist while a new version of the
-    * file is being written.
-    */
+   * Name of file in each patient directory that contains a list of Series for that patient as
+   * XML.  The new and old versions are transient and only exist while a new version of the
+   * file is being written.
+   */
   private val xmlFileName = "index.xml"
   private val xmlFileNameNew = "indexNew.xml"
   private val xmlFileNameOld = "indexOld.xml"
@@ -125,9 +121,9 @@ object Series extends Logging {
   val xmlDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss.SSS")
 
   /**
-    * Get the given attribute as a string.  Make a new string to break the link to the AttributeList
-    */
-  def getString(al: AttributeList, tag: AttributeTag) =
+   * Get the given attribute as a string.  Make a new string to break the link to the AttributeList
+   */
+  private def getString(al: AttributeList, tag: AttributeTag) =
     new String(al.get(tag).getStringValues.head)
 
   def dirOf(alList: Seq[AttributeList]): File = {
@@ -138,14 +134,14 @@ object Series extends Logging {
     val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).maxBy(_.getTime)
 
     val patientDirName = FileUtil.replaceInvalidFileNameCharacters(
-      alList.head.get(TagFromName.PatientID).getSingleStringValueOrNull,
+      alList.head.get(TagByName.PatientID).getSingleStringValueOrNull,
       '_'
     )
     val patientDir = new File(ClientConfig.seriesDir, patientDirName)
     patientDir.mkdirs
     val dateText = dateFormat.format(maxDate)
-    val modality = alList.head.get(TagFromName.Modality).getSingleStringValueOrDefault("unknown")
-    val seriesUid = alList.head.get(TagFromName.SeriesInstanceUID).getSingleStringValueOrDefault("unknown")
+    val modality = alList.head.get(TagByName.Modality).getSingleStringValueOrDefault("unknown")
+    val seriesUid = alList.head.get(TagByName.SeriesInstanceUID).getSingleStringValueOrDefault("unknown")
     val subDirName = FileUtil.replaceInvalidFileNameCharacters(dateText + "_" + modality + "_" + alList.size + "_" + seriesUid, '_')
     val seriesDir = new File(patientDir, subDirName)
 
@@ -153,8 +149,8 @@ object Series extends Logging {
   }
 
   /**
-    * Make a series from the DICOM files in the given directory.
-    */
+   * Make a series from the DICOM files in the given directory.
+   */
   def makeSeriesFromDicomFileDir(seriesDir: File): Series = {
     val alList = ClientUtil
       .listFiles(seriesDir)
@@ -165,15 +161,15 @@ object Series extends Logging {
     val al = alList.head
 
     val series = new Series(
-      dirOf(alList),
-      Series.getString(al, TagFromName.SeriesInstanceUID),
-      Series.getString(al, TagFromName.PatientID),
-      ClientUtil.dataDateTime(al),
-      ModalityEnum.toModalityEnum(Series.getString(al, TagFromName.Modality)),
-      Series.getFrameOfReferenceUID(al),
-      Series.getRegFrameOfReferenceUID(alList),
-      Series.getReferencedRtplanUID(al),
-      alList.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString())
+      dir = dirOf(alList),
+      SeriesInstanceUID = Series.getString(al, TagByName.SeriesInstanceUID),
+      PatientID = Series.getString(al, TagByName.PatientID),
+      dataDate = ClientUtil.dataDateTime(al),
+      Modality = ModalityEnum.toModalityEnum(Series.getString(al, TagByName.Modality)),
+      FrameOfReferenceUID = Series.getFrameOfReferenceUID(al),
+      RegFrameOfReferenceUID = Series.getRegFrameOfReferenceUID(alList),
+      ReferencedRtplanUID = Series.getReferencedRtplanUID(al),
+      SOPInstanceUIDList = alList.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString())
     )
 
     series
@@ -182,7 +178,7 @@ object Series extends Logging {
   private def optText(xml: Node, tag: String): Option[String] = {
     (xml \ tag).headOption match {
       case Some(node) => Some(node.text.trim)
-      case _          => None
+      case _ => None
     }
   }
 
@@ -191,8 +187,8 @@ object Series extends Logging {
   }
 
   /**
-    * Parse the dataDate from Series XML.
-    */
+   * Parse the dataDate from Series XML.
+   */
   private def getDataDate(xml: Node): Date = {
     lazy val defaultDate = new Date
     try {
@@ -212,23 +208,24 @@ object Series extends Logging {
   }
 
   private def getFrameOfReferenceUID(al: AttributeList): Option[String] = {
-    val a = al.get(TagFromName.FrameOfReferenceUID)
+    val a = al.get(TagByName.FrameOfReferenceUID)
     if (a == null)
       None
     else
       Some(new String(a.getSingleStringValueOrEmptyString))
   }
 
+
   /**
-    * Get the frames of references that match the CTs.
-    */
+   * Get the frames of references that match the CTs.
+   */
   private def getRegFrameOfReferenceUID(
-      alList: Seq[AttributeList]
-  ): Option[String] = {
+                                         alList: Seq[AttributeList]
+                                       ): Option[String] = {
 
     // all the frames of reference
     val allFOR = alList
-      .flatMap(al => DicomUtil.findAllSingle(al, TagFromName.FrameOfReferenceUID))
+      .flatMap(al => DicomUtil.findAllSingle(al, TagByName.FrameOfReferenceUID))
       .map(at => at.getSingleStringValueOrEmptyString)
       .distinct
       .filterNot(uid => uid.equals(""))
@@ -245,14 +242,14 @@ object Series extends Logging {
   }
 
   /**
-    * Get the reference RTPLAN UID if it there is one.
-    */
+   * Get the reference RTPLAN UID if it there is one.
+   */
   private def getReferencedRtplanUID(al: AttributeList): Option[String] = {
     if (al.get(TagByName.ReferencedRTPlanSequence) != null) {
       val rtplanSeq =
         DicomUtil.seqToAttr(al, TagByName.ReferencedRTPlanSequence)
       val rtplanUid = rtplanSeq.head
-        .get(TagFromName.ReferencedSOPInstanceUID)
+        .get(TagByName.ReferencedSOPInstanceUID)
         .getSingleStringValueOrEmptyString
       Some(new String(rtplanUid))
     } else
@@ -260,8 +257,8 @@ object Series extends Logging {
   }
 
   /**
-    * Pool of series whose DICOM contents have been fetched but have not yet been processed.
-    */
+   * Pool of series whose DICOM contents have been fetched but have not yet been processed.
+   */
   private val SeriesPool = scala.collection.mutable.HashMap[String, Series]()
 
   def get(SeriesInstanceUID: String): Option[Series] =
@@ -275,8 +272,8 @@ object Series extends Logging {
     }
 
   /**
-    * Get the number of series in pool.
-    */
+   * Get the number of series in pool.
+   */
   def size: Int =
     SeriesPool.synchronized {
       SeriesPool.size
@@ -294,11 +291,12 @@ object Series extends Logging {
     })
 
   /**
-    * Find an RTPLAN that matches the given frame of reference and was created before the given date.
-    * @param FrameOfReferenceUID Match this.
-    * @param beforeTime Time of image series.
-    * @return Qualifying plan, if found.
-    */
+   * Find an RTPLAN that matches the given frame of reference and was created before the given date.
+   *
+   * @param FrameOfReferenceUID Match this.
+   * @param beforeTime          Time of image series.
+   * @return Qualifying plan, if found.
+   */
   def getRtplanByFrameOfReference(FrameOfReferenceUID: String, beforeTime: Date): Option[Series] = {
     // limit the list to RTPLANs that match.
     val list = getByModality(ModalityEnum.RTPLAN).filter(rtplan =>
@@ -318,34 +316,34 @@ object Series extends Logging {
   }
 
   /**
-    * Get the list of REG files that have the same frame of reference as the given image file.
-    *
-    * @param FrameOfReferenceUID DICOM frame of reference UID to find
-    * @return Series that have that frame of reference.
-    */
+   * Get the list of REG files that have the same frame of reference as the given image file.
+   *
+   * @param FrameOfReferenceUID DICOM frame of reference UID to find
+   * @return Series that have that frame of reference.
+   */
   def getRegByRegFrameOfReference(FrameOfReferenceUID: String): Seq[Series] = {
     def forMatches(fr: String) = {
       fr.equals(FrameOfReferenceUID) ||
-      fr.contains(" " + FrameOfReferenceUID + " ") ||
-      fr.matches(".* " + FrameOfReferenceUID + " .*") ||
-      fr.matches(FrameOfReferenceUID + " .*") ||
-      fr.matches(".* " + FrameOfReferenceUID)
+        fr.contains(" " + FrameOfReferenceUID + " ") ||
+        fr.matches(".* " + FrameOfReferenceUID + " .*") ||
+        fr.matches(FrameOfReferenceUID + " .*") ||
+        fr.matches(".* " + FrameOfReferenceUID)
     }
 
     getByModality(ModalityEnum.REG).filter(s => s.RegFrameOfReferenceUID.isDefined && forMatches(s.RegFrameOfReferenceUID.get))
   }
 
   /**
-    * Put a series into the pool for uploading.  Also notify the uploader to update.
-    */
+   * Put a series into the pool for uploading.  Also notify the uploader to update.
+   */
   private def put(series: Series, showInfo: Boolean = true) = {
     if (showInfo) logger.info("put series: " + series)
     SeriesPool.synchronized(SeriesPool.put(series.SeriesInstanceUID, series))
   }
 
   /**
-    * Put a series into the pool for uploading.  Also notify the uploader to update.
-    */
+   * Put a series into the pool for uploading.  Also notify the uploader to update.
+   */
   private def putList(seriesList: Seq[Series]) = {
     SeriesPool.synchronized(
       seriesList.map(series => SeriesPool.put(series.SeriesInstanceUID, series))
@@ -353,8 +351,8 @@ object Series extends Logging {
   }
 
   /**
-    * Put the series in the pool and persist it's metadata in the xml file.
-    */
+   * Put the series in the pool and persist it's metadata in the xml file.
+   */
   def persist(series: Series): Unit = {
     if (get(series.SeriesInstanceUID).isEmpty) {
       put(series)
@@ -368,8 +366,8 @@ object Series extends Logging {
   }
 
   /**
-    * Remove a series.
-    */
+   * Remove a series.
+   */
   private def remove(series: Series): Unit =
     SeriesPool.synchronized {
       if (SeriesPool.contains(series.SeriesInstanceUID)) {
@@ -386,8 +384,13 @@ object Series extends Logging {
     }
 
   /**
-    * Update a series, including the internal pool, the XML index file, and the DICOM directory.
-    */
+   * Update a series, including the internal pool, the XML index file, and the
+   * DICOM directory.  Re-get all the DICOM files.
+   *
+   * @param SeriesInstanceUID Series Instance UID
+   * @param PatientID         Patient ID
+   * @param Modality          Series Modality
+   */
   def update(SeriesInstanceUID: String, PatientID: String, Modality: String): Option[Series] = {
     get(SeriesInstanceUID) match {
       case Some(oldSeries) =>
@@ -408,10 +411,10 @@ object Series extends Logging {
   }
 
   /**
-    * Remove zip files that may remain from the previous instantiation of this server.
-    *
-    * @param maxAge_ms Maximum age in ms that files must be before they are deleted.
-    */
+   * Remove zip files that may remain from the previous instantiation of this server.
+   *
+   * @param maxAge_ms Maximum age in ms that files must be before they are deleted.
+   */
   private def removeObsoleteZipFiles(maxAge_ms: Long = 60 * 60 * 1000): Unit = {
     def del(f: File): Unit = {
       try {
@@ -448,8 +451,8 @@ object Series extends Logging {
   }
 
   /**
-    * Given a directory that contains the DICOM files of a series, reinstate the Series object.
-    */
+   * Given a directory that contains the DICOM files of a series, reinstate the Series object.
+   */
   private def reinstateFromDicom(seriesDir: File): Option[Series] = {
     try {
       if (seriesDir.isDirectory && ClientUtil.listFiles(seriesDir).nonEmpty) {
@@ -530,11 +533,11 @@ object Series extends Logging {
   }
 
   /**
-    * Update the XML file with the latest contents of the patient.  The list should
-    * contain entries for only one patient.  When writing, do it using renaming so as to
-    * minimize the chance of losing the contents in the event that the service is
-    * unexpectedly shut down.
-    */
+   * Update the XML file with the latest contents of the patient.  The list should
+   * contain entries for only one patient.  When writing, do it using renaming so as to
+   * minimize the chance of losing the contents in the event that the service is
+   * unexpectedly shut down.
+   */
   private def updatePatientXml(list: Seq[Series]): Unit = {
     if (list.nonEmpty) {
       if (list.groupBy(s => s.PatientID).size > 1)
@@ -546,7 +549,7 @@ object Series extends Logging {
         .groupBy(s => s.SeriesInstanceUID)
         .map(g => g._2.head)
         . // remove multiple Series that have the same series UID
-        filter(s => patIdList.contains(s.PatientID))
+          filter(s => patIdList.contains(s.PatientID))
         .toSeq
         .sortBy(s => s.dataDate) // sort to make them findable by a human looking at the xml
 
@@ -574,15 +577,15 @@ object Series extends Logging {
   }
 
   /**
-    * Determine which DICOM directories should be kept based on age and remove any old ones.  An
-    * index of them is still maintained in XML, but the DICOM files are removed to save disk space.
-    */
+   * Determine which DICOM directories should be kept based on age and remove any old ones.  An
+   * index of them is still maintained in XML, but the DICOM files are removed to save disk space.
+   */
   private def removeOldDicom(): Unit = {
 
     def keep(s: Series) = {
       s.isRtplan ||
-      s.dataDate.getTime > (System.currentTimeMillis - ClientConfig.MaximumDICOMCacheDataAge_ms) ||
-      s.dir.lastModified > (System.currentTimeMillis - ClientConfig.MaximumDICOMCacheFileAge_ms)
+        s.dataDate.getTime > (System.currentTimeMillis - ClientConfig.MaximumDICOMCacheDataAge_ms) ||
+        s.dir.lastModified > (System.currentTimeMillis - ClientConfig.MaximumDICOMCacheFileAge_ms)
     }
 
     def removeDicom(s: Series): Unit = {
@@ -610,9 +613,9 @@ object Series extends Logging {
   }
 
   /**
-    * Look at the series whose metadata is in XML or that have already been
-    * fetched via C-MOVE and add a Series entry for them.
-    */
+   * Look at the series whose metadata is in XML or that have already been
+   * fetched via C-MOVE and add a Series entry for them.
+   */
   private def reinstatePreviouslyFetchedSeries(): Unit = {
     // get from XML
     ClientUtil.listFiles(ClientConfig.seriesDir).foreach(patientDir => reinstateFromXml(patientDir))
@@ -641,8 +644,8 @@ object Series extends Logging {
   }
 
   /**
-    * Remove series (and their files) of patients that are no longer active.
-    */
+   * Remove series (and their files) of patients that are no longer active.
+   */
   private def removeObsoletePatientSeries() = {
     val patSet = PatientProcedure.patientIdList.toSet
     getAllSeries
@@ -651,8 +654,8 @@ object Series extends Logging {
   }
 
   /**
-    * Initialize series pool.
-    */
+   * Initialize series pool.
+   */
   def init(): Unit = {
     logger.info("initializing Series")
     if (false) { // TODO rm keep until debugged rm

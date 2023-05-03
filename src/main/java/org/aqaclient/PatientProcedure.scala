@@ -45,7 +45,7 @@ object PatientProcedure extends Logging {
 
   private val patientProcedureList = ArrayBuffer[PatientProcedure]()
 
-  private def patientProcedureFile() = new File(ClientConfig.getDataDir, "PatientProcedureList.xml")
+  private def patientProcedureFile() = new File(ClientConfig.DataDir, "PatientProcedureList.xml")
 
   /**
     * Write the content to a text file if it has changed.  This is for diagnosing problems and debugging.

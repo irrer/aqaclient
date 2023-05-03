@@ -40,7 +40,7 @@ object EventReceiver extends Logging {
     }
   }
 
-  val queueNameList = Seq("Aria.Event.EventPlanApproval", "Aria.Event.EventPlanStatus")
+  private val queueNameList = Seq("Aria.Event.EventPlanApproval", "Aria.Event.EventPlanStatus")
 
   def updatePatient(data: Array[Byte]): Unit = {
     val document = XML.loadString(new String(data))

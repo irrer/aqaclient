@@ -58,7 +58,7 @@ object ConfirmDicomComplete extends Logging {
       try {
         if (uploadSet.plan.isDefined)
           Some(<Plan>
-            {uploadSet.reg.get.SeriesInstanceUID}
+            {uploadSet.plan.get.SeriesInstanceUID}
           </Plan>)
         else
           None

@@ -19,7 +19,6 @@ package org.aqaclient
 import com.pixelmed.dicom.AttributeFactory
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.AttributeTag
-import com.pixelmed.dicom.TagFromName
 import com.pixelmed.dicom.TransferSyntax
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.DicomCFind
@@ -98,10 +97,10 @@ object DicomFind extends Logging {
     */
   def find(modality: String, patientID: String): Seq[AttributeList] = {
 
-    val tagSeq = Seq(TagFromName.SeriesInstanceUID)
+    val tagSeq = Seq(TagByName.SeriesInstanceUID)
     val tagValueSeq = Seq(
-      (TagFromName.Modality, modality),
-      (TagFromName.PatientID, patientID)
+      (TagByName.Modality, modality),
+      (TagByName.PatientID, patientID)
     )
 
     val queryAttributes = new Query(tagSeq, tagValueSeq).query
@@ -119,14 +118,14 @@ object DicomFind extends Logging {
     */
   def getSliceUIDsInSeries(SeriesInstanceUID: String): Seq[String] = {
 
-    val tagSeq = Seq(TagFromName.SOPInstanceUID)
-    val tagValueSeq = Seq((TagFromName.SeriesInstanceUID, SeriesInstanceUID))
+    val tagSeq = Seq(TagByName.SOPInstanceUID)
+    val tagValueSeq = Seq((TagByName.SeriesInstanceUID, SeriesInstanceUID))
 
     val queryAttributes = new Query(tagSeq, tagValueSeq).query
 
     val resultList = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.IMAGE)
 
-    val seq = resultList.map(r => r.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
+    val seq = resultList.map(r => r.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
     val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size
     logger.info(msg)
     seq
@@ -158,9 +157,9 @@ object DicomFind extends Logging {
         defaultPatientID
     }
 
-    val tagSeq = Seq(TagFromName.SeriesInstanceUID, TagByName.Modality)
+    val tagSeq = Seq(TagByName.SeriesInstanceUID, TagByName.Modality)
     val tagValueSeq = Seq(
-      (TagFromName.PatientID, searchPattern)
+      (TagByName.PatientID, searchPattern)
     )
 
     val queryAttributes = new Query(tagSeq, tagValueSeq).query

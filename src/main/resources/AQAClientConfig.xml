@@ -18,8 +18,10 @@
     -->
 
     <!-- VMSDBD TEST -->
+    <!--
     <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
     <DICOMSource AETitle='VMSDBD'         Host='10.30.65.100'    Port='105'   />
+    -->
 
     <!-- VMSDBD TEST -->
     <!--
@@ -40,10 +42,8 @@
     -->
 
     <!-- Jim's Conquest server. -->
-    <!--
     <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
     <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
-    -->
 
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->

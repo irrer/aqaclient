@@ -19,12 +19,12 @@ package org.aqaclient
 import com.pixelmed.dicom.AttributeFactory
 import com.pixelmed.dicom.AttributeList
 import com.pixelmed.dicom.AttributeTag
-import com.pixelmed.dicom.TagFromName
 import com.pixelmed.network.ReceivedObjectHandler
 import edu.umro.ScalaUtil.DicomCFind
 import edu.umro.ScalaUtil.DicomReceiver
 import edu.umro.ScalaUtil.Logging
 import edu.umro.util.Utility
+import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.FileUtil
 
 import java.io.File
@@ -112,10 +112,10 @@ object DicomMove extends Logging {
   private def getSliceList(SeriesInstanceUID: String): Seq[String] = {
     try {
       val al = new AttributeList
-      val ser = AttributeFactory.newAttribute(TagFromName.SeriesInstanceUID)
+      val ser = AttributeFactory.newAttribute(TagByName.SeriesInstanceUID)
       ser.addValue(SeriesInstanceUID)
       al.put(ser)
-      val sop = AttributeFactory.newAttribute(TagFromName.SOPInstanceUID)
+      val sop = AttributeFactory.newAttribute(TagByName.SOPInstanceUID)
       al.put(sop)
 
       val alList = DicomCFind.cfind(
@@ -128,7 +128,7 @@ object DicomMove extends Logging {
       )
 
       def gg(al: AttributeList) = {
-        val s = al.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString
+        val s = al.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString
         s
       }
 
@@ -149,7 +149,7 @@ object DicomMove extends Logging {
     try {
       val al = new AttributeList
       al.read(file)
-      al.get(TagFromName.SOPInstanceUID).getSingleStringValueOrEmptyString match {
+      al.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString match {
         case ""  => None
         case uid => Some(uid)
       }
@@ -181,8 +181,8 @@ object DicomMove extends Logging {
       specification.put(a)
     }
 
-    addAttr(TagFromName.QueryRetrieveLevel, "SERIES")
-    addAttr(TagFromName.SeriesInstanceUID, SeriesInstanceUID)
+    addAttr(TagByName.QueryRetrieveLevel, "SERIES")
+    addAttr(TagByName.SeriesInstanceUID, SeriesInstanceUID)
 
     ClientUtil.listFiles(transferDir).map(f => f.delete) // delete all files in transfer directory
     Utility.deleteFileTree(dicomReceiver.setSubDir(transferDir.getName))

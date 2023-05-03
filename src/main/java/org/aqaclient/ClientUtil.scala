@@ -17,13 +17,12 @@
 package org.aqaclient
 
 import com.pixelmed.dicom.AttributeList
-import com.pixelmed.dicom.TagFromName
+import edu.umro.DicomDict.TagByName
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
-import org.aqaclient.Upload.fmtEx
 import org.restlet.data.ChallengeScheme
 import org.restlet.data.MediaType
 import org.restlet.representation.Representation
@@ -32,14 +31,14 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
-import scala.xml.Node
+import scala.annotation.tailrec
 
 object ClientUtil extends Logging {
   private val timeHumanFriendlyFormat = new SimpleDateFormat("EEE MMM dd yyyy HH:mm:ss Z")
 
   def timeHumanFriendly(date: Date): String = timeHumanFriendlyFormat.format(date)
 
-  val defaultDateTime = new Date(24 * 60 * 60 * 1000)
+  private val defaultDateTime = new Date(24 * 60 * 60 * 1000)
 
   val timeAsFileNameFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss-SSS")
 
@@ -52,15 +51,10 @@ object ClientUtil extends Logging {
   }
 
   /**
-    * Get an attribute of a node as text.
-    */
-  def getAttr(node: Node, name: String): String = (node \ ("@" + name)).text
-
-  /**
     * Get SeriesInstanceUID
     */
   def getSerUid(al: AttributeList): Option[String] = {
-    val serUid = al.get(TagFromName.SeriesInstanceUID).getSingleStringValueOrEmptyString
+    val serUid = al.get(TagByName.SeriesInstanceUID).getSingleStringValueOrEmptyString
     if (serUid.isEmpty) None else Some(serUid)
   }
 
@@ -84,11 +78,11 @@ object ClientUtil extends Logging {
     */
   def dataDateTime(al: AttributeList): Date = {
     val dateTimeTagPairList = Seq(
-      (TagFromName.RTPlanDate, TagFromName.RTPlanTime),
-      (TagFromName.ContentDate, TagFromName.ContentTime),
-      (TagFromName.AcquisitionDate, TagFromName.AcquisitionTime),
-      (TagFromName.SeriesDate, TagFromName.SeriesTime),
-      (TagFromName.InstanceCreationDate, TagFromName.InstanceCreationTime)
+      (TagByName.RTPlanDate, TagByName.RTPlanTime),
+      (TagByName.ContentDate, TagByName.ContentTime),
+      (TagByName.AcquisitionDate, TagByName.AcquisitionTime),
+      (TagByName.SeriesDate, TagByName.SeriesTime),
+      (TagByName.InstanceCreationDate, TagByName.InstanceCreationTime)
     )
 
     val date =
@@ -193,6 +187,7 @@ object ClientUtil extends Logging {
     result
   }
 
+  @tailrec
   private def makeUniqueZipFile(description: String): File = {
     val file = {
       val name = timeAsFileNameFormat.format(new Date) + "_" + description + ".zip"
