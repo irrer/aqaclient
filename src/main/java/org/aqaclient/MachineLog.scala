@@ -44,7 +44,7 @@ object MachineLog extends Logging {
       try {
         val machLog = MachineLogFile(file)
         if (dsnDateSet.contains(DsnDate(machLog.DeviceSerialNumber, machLog.date))) { // if this is already on the server, then it is irrelevant
-          logger.info("File " + file.getName + " is not new to the server and is being ignored.")
+          // logger.info("File " + file.getName + " is not new to the server and is being ignored.")
           None
         } else
           Some(machLog)
@@ -54,7 +54,8 @@ object MachineLog extends Logging {
           None
       }
     }
-    logger.info("Making machine log from file " + file.getName + "    Success: " + result.isDefined)
+    if (result.isDefined)
+      logger.info(s"Making machine log from file ${file.getName}")
     result
   }
 
