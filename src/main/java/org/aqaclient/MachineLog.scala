@@ -22,7 +22,7 @@ object MachineLog extends Logging {
     * @param file Varian generated file.
     */
   private case class MachineLogFile(file: File) {
-    val text: String = FileUtil.readTextFile(file).right.get
+    private val text: String = FileUtil.readTextFile(file).right.get
     private val node = XML.loadString(text)
     val date: Long = {
       val d = varianDateFormat.parse((node \ "DateTimeSaved").text)
@@ -116,8 +116,11 @@ object MachineLog extends Logging {
     * Determine which machine log entries are not on the server and send them for the given directory.
     */
   private def updateDir(dir: File, dsnDateSet: Set[DsnDate]): Unit = {
-    val machLogList = dir.listFiles.toSeq.flatMap(f => makeMachineLogFile(f, dsnDateSet)).sortBy(_.date)
-    machLogList.groupBy(_.DeviceSerialNumber).foreach(g => uploadToServer(g._2))
+    if (dir.isDirectory) {
+      val machLogList = FileUtil.listFiles(dir).flatMap(f => makeMachineLogFile(f, dsnDateSet)).sortBy(_.date)
+      machLogList.groupBy(_.DeviceSerialNumber).foreach(g => uploadToServer(g._2))
+    } else
+      logger.warn(s"Unexpected configuration error (Exception): machine log directory does not exist: ${dir.getAbsolutePath}")
   }
 
   /**
