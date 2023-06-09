@@ -90,7 +90,7 @@ object DicomAssembleUpload extends Logging {
     procedure.isDefined && (procedure.get.isBBbyCBCT || procedure.get.isBBbyEPID)
 
   /**
-   * If the given CT's frame of reference matches an RTPLAN, then upload it.
+   * If the given the frame of reference of the CT matches an RTPLAN, then upload it.
    */
   private def connectWithPlanByFrameOfRef(ct: Series): Option[UploadSetDicomCMove] = {
     if (ct.isModality(ModalityEnum.CT)) {
@@ -327,17 +327,6 @@ object DicomAssembleUpload extends Logging {
       // ignore image series that are too old
       val recent = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
 
-      if (true) {
-        val wl = Series.getByModality(ModalityEnum.RTIMAGE).filter(_.isWL)
-
-        val notRes = wl.filterNot(series => Results.containsSeries(series))
-
-        val notFail = wl.filterNot(series => FailedSeries.contains(series.SeriesInstanceUID))
-
-        val notSent = wl.filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
-
-        val rec = wl.filter(series => series.isWL || (series.dataDate.getTime > recent))
-      }
 
       // list of all available image series, not have failed before, sorted by acquisition date, and not already sent
       val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE))
