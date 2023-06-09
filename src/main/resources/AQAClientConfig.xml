@@ -36,14 +36,14 @@
     -->
 
     <!-- VMSDBD PRODUCTION -->
-    <!--
     <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
     <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
-    -->
 
     <!-- Jim's Conquest server. -->
+    <!--
     <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
     <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
+    -->
 
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
@@ -103,7 +103,8 @@
     will vary.
        -->
     <AQAURL>https://localhost:9443</AQAURL>
-    <!-- <AQAURL>http://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL> -->
+    <!-- <AQAURL>https://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL> -->
+    <!-- <AQAURL>https://uhroappwebspr1.umhs.med.umich.edu:8111</AQAURL> -->
 
     <!-- Log into AQA with this user ID. -->
     <AQAUser>adminUMich</AQAUser>
@@ -144,7 +145,11 @@
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days.  -->
     <MaximumDICOMCacheFileAge_day>36600.0</MaximumDICOMCacheFileAge_day>
-    
+
+    <!-- Number of days to keep temporary zip files.  These are created as a prelude to performing an upload.
+    Floating point number in days.  Default 14. -->
+    <MaximumTemporaryZipFileAge_day>14.0</MaximumTemporaryZipFileAge_day>
+
     <!-- Time of day as hours and minutes (HH:MM) that program will restart
     itself. This is done to avoid errors that build up over time.  The time is
     formatted as a 24 hour clock, so 23:00 is eleven PM. -->

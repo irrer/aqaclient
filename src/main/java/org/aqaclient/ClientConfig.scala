@@ -81,6 +81,9 @@ object ClientConfig
   private val MaximumDICOMCacheFileAge_day: Double = logMainText("MaximumDICOMCacheFileAge_day", "3.0").toDouble
   val MaximumDICOMCacheFileAge_ms: Long = dayToMs(MaximumDICOMCacheFileAge_day)
 
+  private val MaximumTemporaryZipFileAge_day: Double = logMainText("MaximumTemporaryZipFileAge_day", "14.0").toDouble
+  val MaximumTemporaryZipFileAge_ms: Long = dayToMs(MaximumTemporaryZipFileAge_day)
+
   //noinspection SpellCheckingInspection
   val AQAURL: String = logMainText("AQAURL")
   val AQAUser: String = logMainText("AQAUser")
