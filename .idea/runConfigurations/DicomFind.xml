@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DicomFind" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="org.aqaclient.DicomFind" />
+    <module name="aqaclient" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="org.aqaclient.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
