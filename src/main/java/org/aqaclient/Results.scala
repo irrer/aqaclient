@@ -70,7 +70,7 @@ object Results extends Logging {
     *
     * @return Result text or None.
     */
-  private def getHttpTextFromServer(patientId: String): Option[String] = {
+  def getHttpTextFromServer(patientId: String): Option[String] = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
     logger.info("Getting list of series for PatientID " + patientId)
 
@@ -180,6 +180,7 @@ object Results extends Logging {
   /**
     * Return true if there is an RTPLAN with the given FrameOfReferenceUID is in the results.
     */
+  /*
   private def containsPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Boolean = {
     val doesContain = (getPatientResultList(patientId) \ "Series").exists(n => {
       (n \ "Modality").head.text.trim.equals(ModalityEnum.RTPLAN.toString) &&
@@ -187,6 +188,7 @@ object Results extends Logging {
     })
     doesContain
   }
+  */
 
   /**
     * If there is an RTPLAN with the given FrameOfReferenceUID is in the results, then return its procedure.
