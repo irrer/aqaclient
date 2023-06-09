@@ -81,9 +81,14 @@ case class Series(
 
   def isRtplan: Boolean = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 
+  val isWL:Boolean = {
+    isModality(ModalityEnum.RTIMAGE) &&
+      (PatientID.matches(".*QASRSWL.*") || PatientID.matches(".*TB3SRS.*"))
+  }
+
   private def isRecent: Boolean = {
     val cutoff = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
-    dataDate.getTime > cutoff
+    (dataDate.getTime > cutoff) || isWL
   }
 
   /**
@@ -412,14 +417,12 @@ object Series extends Logging {
 
   /**
    * Remove zip files that may remain from the previous instantiation of this server.
-   *
-   * @param maxAge_ms Maximum age in ms that files must be before they are deleted.
    */
-  private def removeObsoleteZipFiles(maxAge_ms: Long = 60 * 60 * 1000): Unit = {
+  private def removeObsoleteZipFiles(): Unit = {
     def del(f: File): Unit = {
       try {
         val age = System.currentTimeMillis() - f.lastModified()
-        if (age > maxAge_ms) {
+        if (age > ClientConfig.MaximumTemporaryZipFileAge_ms) {
           f.delete
           logger.info("Deleted zip file " + f.getAbsolutePath)
         }
@@ -658,9 +661,7 @@ object Series extends Logging {
    */
   def init(): Unit = {
     logger.info("initializing Series")
-    if (false) { // TODO rm keep until debugged rm
-      removeObsoleteZipFiles(0)
-    }
+    removeObsoleteZipFiles()
     reinstatePreviouslyFetchedSeries()
     removeObsoletePatientSeries()
     logger.info(
