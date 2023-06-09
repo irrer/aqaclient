@@ -90,6 +90,7 @@ object Upload extends Logging {
         // try { uploadSet.zipFile.delete() }
         // catch { case _: Throwable => }
         Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
+        if (uploadSet.procedure.isWinstonLutz) Thread.sleep(20 * 1000) // TODO rm
         // Series.removeObsoleteZipFiles() // clean up any zip files
         ok
       } catch {
