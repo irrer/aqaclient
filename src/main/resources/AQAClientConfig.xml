@@ -204,4 +204,7 @@
       <PatientIDCFindPattern PatientID="BR1_OBI_QA_2023_Q1" pattern="*R1_OBI_QA_2023_*"/>
     </PatientIDCFindPatternMap>
 
+    <!-- If true, process old Winston Lutz data.   This will be deprecated when old Winston Lutz data has been migrated.-->
+    <ProcessOldWL>false</ProcessOldWL>
+
 </AQAClientConfig>

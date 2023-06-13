@@ -143,6 +143,8 @@ object ClientConfig
     idMap
   }
 
+  val ProcessOldWL: Boolean = logMainText("ProcessOldWL", "false").equalsIgnoreCase("true")
+
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true
 

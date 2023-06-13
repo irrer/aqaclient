@@ -81,14 +81,14 @@ case class Series(
 
   def isRtplan: Boolean = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 
-  val isWL:Boolean = {
+  val isWL: Boolean = {
     isModality(ModalityEnum.RTIMAGE) &&
       (PatientID.matches(".*QASRSWL.*") || PatientID.matches(".*TB3SRS.*"))
   }
 
   private def isRecent: Boolean = {
     val cutoff = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
-    (dataDate.getTime > cutoff) || isWL
+    (dataDate.getTime > cutoff) || (ClientConfig.ProcessOldWL && isWL)
   }
 
   /**
