@@ -136,6 +136,15 @@ object Results extends Logging {
     }
   }
 
+  /**
+    * Put value in list.  For testing only.
+    * @param patientId Patient ID.
+    * @param e Results for patient.
+    */
+  def testPut(patientId: String, e: Elem): Unit = {
+    resultList.synchronized { resultList.put(patientId, e) }
+  }
+
   // a patient result list with no items
   private val emptyList = { <SeriesList></SeriesList> }
 
@@ -188,19 +197,39 @@ object Results extends Logging {
     })
     doesContain
   }
-  */
+   */
 
   /**
     * If there is an RTPLAN with the given FrameOfReferenceUID is in the results, then return its procedure.
     */
   def procedureOfPlanWithFrameOfReferenceUID(patientId: String, FrameOfReferenceUID: String): Option[Procedure] = {
-    val nodeList = (getPatientResultList(patientId) \ "Series").filter(n =>
-      (n \ "Modality").head.text.trim.equals(ModalityEnum.RTPLAN.toString) &&
-        (n \ "FrameOfReferenceUID").head.text.trim.equals(FrameOfReferenceUID)
-    )
 
-    val procedureList = nodeList.flatMap(n => Procedure.procedureByName((n \ "Procedure").text))
-    procedureList.headOption
+    def isPwF(s: Node): Boolean = {
+
+      def isRtplan: Boolean = (s \ "Modality").head.text.trim.equals(ModalityEnum.RTPLAN.toString)
+
+      def sameFrameOfRef: Boolean = {
+        val node = s \ "FrameOfReferenceUID"
+        node.nonEmpty && node.head.text.trim.equals(FrameOfReferenceUID)
+      }
+
+      def hasProcedure: Boolean = (s \ "Procedure").nonEmpty
+
+      try {
+        isRtplan && sameFrameOfRef && hasProcedure
+      } catch {
+        case _: Throwable => false
+      }
+    }
+
+    val nodeOf: Option[Node] = (getPatientResultList(patientId) \ "Series").find(isPwF)
+
+    if (nodeOf.isEmpty)
+      None
+    else {
+      val procName = (nodeOf.get \ "Procedure").text
+      Procedure.procedureByName(procName)
+    }
   }
 
   /**

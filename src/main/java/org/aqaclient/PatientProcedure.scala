@@ -82,7 +82,14 @@ object PatientProcedure extends Logging {
     Procedure.setList(newList)
   }
 
-  private def populateFromText(text: String): Unit = {
+  /**
+    * Populate from the given XML text.
+    *
+    * Note: This is only generally used for testing.
+    *
+    * @param text XML text.
+    */
+  def populateFromText(text: String): Unit = {
     val node = XML.loadString(text)
     // Trace.trace("populateFromText:\n" + text)
     val list = (node \ "PatientProcedure").map(n => new PatientProcedure(n))

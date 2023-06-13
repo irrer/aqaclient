@@ -1,0 +1,96 @@
+<SeriesList>
+
+  <Series>
+    <SeriesInstanceUID>1.2.246.352.71.2.427549902257.6467136.20220906174255</SeriesInstanceUID>
+    <DeviceSerialNumber>427549902257</DeviceSerialNumber>
+    <SOPInstanceUIDList>
+      <SOPInstanceUID>1.2.246.352.71.5.427549902257.938844.20220906174558</SOPInstanceUID>
+    </SOPInstanceUIDList>
+    <FrameOfReferenceUID>1.2.246.352.205.4839200455795585025.4195600589068878499</FrameOfReferenceUID>
+    <Modality>RTPLAN</Modality>
+    <SOPClassUID>1.2.840.10008.5.1.4.1.1.481.5</SOPClassUID>
+    <PatientID>QASRSWLISOCAL2022AUG</PatientID>
+    <Procedure>WinstonLutz 0.1</Procedure>
+    <DataDate>2022-09-06T17:42:55</DataDate>
+    <NumberOfSlices>1</NumberOfSlices>
+  </Series>
+
+  <Series>
+    <SeriesInstanceUID>1.2.246.352.62.2.5395579488484489792.862517543682603941</SeriesInstanceUID>
+    <DeviceSerialNumber>3525</DeviceSerialNumber>
+    <SOPInstanceUIDList>
+      <SOPInstanceUID>1.2.246.352.62.1.5303877084831962684.6070371548271215544</SOPInstanceUID>
+      <SOPInstanceUID>1.2.246.352.62.1.5405016881230684645.4434442918949136826</SOPInstanceUID>
+      <SOPInstanceUID>1.2.246.352.62.1.5055779559795992656.15628152551257888431</SOPInstanceUID>
+      <SOPInstanceUID>1.2.246.352.62.1.4625502776568055976.5804273300599125938</SOPInstanceUID>
+      <SOPInstanceUID>1.2.246.352.62.1.4716197511441089778.17339658706378543024</SOPInstanceUID>
+    </SOPInstanceUIDList>
+    <FrameOfReferenceUID>1.2.246.352.62.3.5427220765397235523.18010771099079258756</FrameOfReferenceUID>
+    <Modality>RTIMAGE</Modality>
+    <SOPClassUID>1.2.840.10008.5.1.4.1.1.481.1</SOPClassUID>
+    <PatientID>$20140602</PatientID>
+    <referencedRtplanUID>1.2.246.352.71.5.824327626427.572133.20180504144124</referencedRtplanUID>
+    <URL>/results/INST_2/MACH_7/Gap_Skew_0.1_4/2022-10-24T18-20-13-278_24444/output_2023-02-16T17-14-37-688/display.html</URL>
+    <Procedure>Gap Skew 0.1</Procedure>
+    <Status>done</Status>
+    <AnalysisStartDate>2023-02-16T17:14:37</AnalysisStartDate>
+    <DataDate>2020-10-10T14:22:54</DataDate>
+    <NumberOfSlices>5</NumberOfSlices>
+  </Series>
+
+  <Series>
+    <SeriesInstanceUID>1.2.246.352.71.2.824327626427.2345534.20140602131116</SeriesInstanceUID>
+    <DeviceSerialNumber>824327626427</DeviceSerialNumber>
+    <SOPInstanceUIDList>
+      <SOPInstanceUID>1.2.246.352.71.5.824327626427.245627.20140602132138</SOPInstanceUID>
+    </SOPInstanceUIDList>
+    <Modality>RTPLAN</Modality>
+    <SOPClassUID>1.2.840.10008.5.1.4.1.1.481.5</SOPClassUID>
+    <PatientID>$20140602</PatientID>
+    <DataDate>2021-02-16T14:29:17</DataDate>
+    <NumberOfSlices>1</NumberOfSlices>
+  </Series>
+
+  <Series>
+    <SeriesInstanceUID>1.2.246.352.71.2.824327626427.2345534.20140602131116</SeriesInstanceUID>
+    <DeviceSerialNumber>824327626427</DeviceSerialNumber>
+    <SOPInstanceUIDList>
+      <SOPInstanceUID>1.2.246.352.71.5.824327626427.245647.20140602133213</SOPInstanceUID>
+    </SOPInstanceUIDList>
+    <Modality>RTPLAN</Modality>
+    <SOPClassUID>1.2.840.10008.5.1.4.1.1.481.5</SOPClassUID>
+    <PatientID>$20140602</PatientID>
+    <DataDate>2021-02-16T14:29:17</DataDate>
+    <NumberOfSlices>1</NumberOfSlices>
+  </Series>
+
+  <Series>
+    <SeriesInstanceUID>1.2.246.352.71.2.824327626427.2345494.20140602130055</SeriesInstanceUID>
+    <DeviceSerialNumber>824327626427</DeviceSerialNumber>
+    <SOPInstanceUIDList>
+      <SOPInstanceUID>1.3.6.1.4.1.22361.18005768598668.696052084.1401728109948.0</SOPInstanceUID>
+    </SOPInstanceUIDList>
+    <Modality>RTPLAN</Modality>
+    <SOPClassUID>1.2.840.10008.5.1.4.1.1.481.5</SOPClassUID>
+    <PatientID>$20140602</PatientID>
+    <referencedRtplanUID>1.3.6.1.4.1.22361.18005768598668.696052084.1401728109948.4</referencedRtplanUID>
+    <DataDate>2021-02-16T14:29:18</DataDate>
+    <NumberOfSlices>1</NumberOfSlices>
+  </Series>
+
+  <Series>
+    <SeriesInstanceUID>1.2.246.352.71.2.427549902257.5725085.20210610131929</SeriesInstanceUID>
+    <DeviceSerialNumber>427549902257</DeviceSerialNumber>
+    <SOPInstanceUIDList>
+      <SOPInstanceUID>1.2.246.352.71.5.427549902257.825599.20210610132046</SOPInstanceUID>
+    </SOPInstanceUIDList>
+    <FrameOfReferenceUID>1.3.6.1.4.1.22361.17483834219463.64289797.1623239465285.351</FrameOfReferenceUID>
+    <Modality>RTPLAN</Modality>
+    <Procedure>Gap Skew 0.1</Procedure>
+    <SOPClassUID>1.2.840.10008.5.1.4.1.1.481.5</SOPClassUID>
+    <PatientID>$TX4_OBI_2021Q2</PatientID>
+    <DataDate>2021-06-10T13:29:54</DataDate>
+    <NumberOfSlices>1</NumberOfSlices>
+  </Series>
+  
+</SeriesList>
