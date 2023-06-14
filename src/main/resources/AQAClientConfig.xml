@@ -60,8 +60,12 @@
         <PollInterval  poll_sec="300.0"  age_day = "380.0"/>  <!-- Just over a year.  Probably means that the patient is totally inactive. -->
     </PollIntervalList>
     
-    <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS GET operation. -->
+    <!-- Timeout (in seconds as a floating point) to wait before timing out for a failed HTTPS GET operation. Default 60.0 seconds. -->
     <HttpsGetTimeout_sec>60.0</HttpsGetTimeout_sec>
+
+    <!-- Timeout (in seconds as a floating point) to wait before retrying a failed HTTPS operation. Default 10.0 seconds. -->
+    <HttpsRetryTimeout_sec>10.0</HttpsRetryTimeout_sec>
+
 
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
     <HttpsUploadTimeout_sec>30.0</HttpsUploadTimeout_sec>

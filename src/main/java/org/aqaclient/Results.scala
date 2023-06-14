@@ -115,8 +115,8 @@ object Results extends Logging {
               updatePatient(patientId, timeout)
           }
         case _ =>
-          logger.warn("Unable to fetch list of series for PatientID " + patientId + " .  Will retry in " + ClientConfig.HttpsGetTimeout_sec + " seconds.")
-          Thread.sleep(ClientConfig.HttpsGetTimeout_ms.get)
+          logger.warn("Unable to fetch list of series for PatientID " + patientId + " .  Will retry in " + ClientConfig.HttpsRetryTimeout_sec + " seconds.")
+          Thread.sleep(ClientConfig.HttpsRetryTimeout_ms.get)
           updatePatient(patientId, timeout)
       }
     } else {

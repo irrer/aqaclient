@@ -67,6 +67,9 @@ object ClientConfig
   val HttpsGetTimeout_sec: Double = logMainText("HttpsGetTimeout_sec", "60.0").toDouble
   val HttpsGetTimeout_ms: Some[Long] = Some((HttpsGetTimeout_sec * 1000).round)
 
+  val HttpsRetryTimeout_sec: Double = logMainText("HttpsRetryTimeout_sec", "10.0").toDouble
+  val HttpsRetryTimeout_ms: Some[Long] = Some((HttpsRetryTimeout_sec * 1000).round)
+
   private val HttpsUploadTimeout_sec: Double = logMainText("HttpsUploadTimeout_sec", "30.0").toDouble
   val HttpsUploadTimeout_ms: Some[Long] = Some((HttpsUploadTimeout_sec * 1000).round)
 
