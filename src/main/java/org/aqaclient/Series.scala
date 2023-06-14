@@ -73,7 +73,7 @@ case class Series(
   }
 
     /** Earliest date of series in ms. */
-    def dataDate_ms: Long = dataDate.getTime
+    private def dataDate_ms: Long = dataDate.getTime
 
   // @formatter:on
 
@@ -81,6 +81,7 @@ case class Series(
 
   def isRtplan: Boolean = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 
+  //noinspection SpellCheckingInspection
   val isWL: Boolean = {
     isModality(ModalityEnum.RTIMAGE) &&
       (PatientID.matches(".*QASRSWL.*") || PatientID.matches(".*TB3SRS.*"))
@@ -131,10 +132,10 @@ object Series extends Logging {
   private def getString(al: AttributeList, tag: AttributeTag) =
     new String(al.get(tag).getStringValues.head)
 
-  def dirOf(alList: Seq[AttributeList]): File = {
+  /** Used for creating directory name. */
+  private val dirDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss")
 
-    /** Used for creating directory name. */
-    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss")
+  def dirOf(alList: Seq[AttributeList]): File = {
 
     val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).maxBy(_.getTime)
 
@@ -144,7 +145,7 @@ object Series extends Logging {
     )
     val patientDir = new File(ClientConfig.seriesDir, patientDirName)
     patientDir.mkdirs
-    val dateText = dateFormat.format(maxDate)
+    val dateText = dirDateFormat.format(maxDate)
     val modality = alList.head.get(TagByName.Modality).getSingleStringValueOrDefault("unknown")
     val seriesUid = alList.head.get(TagByName.SeriesInstanceUID).getSingleStringValueOrDefault("unknown")
     val subDirName = FileUtil.replaceInvalidFileNameCharacters(dateText + "_" + modality + "_" + alList.size + "_" + seriesUid, '_')
@@ -292,7 +293,7 @@ object Series extends Logging {
       SeriesPool.values
         .filter(s => s.isModality(modality))
         .toList
-        .sortBy(s => s.dataDate)
+        .sortBy(s => s.dataDate_ms)
     })
 
   /**
@@ -303,7 +304,7 @@ object Series extends Logging {
    * @return Qualifying plan, if found.
    */
   def getRtplanByFrameOfReference(FrameOfReferenceUID: String, beforeTime: Date): Option[Series] = {
-    // limit the list to RTPLANs that match.
+    // limit the list to RTPLANS that match.
     val list = getByModality(ModalityEnum.RTPLAN).filter(rtplan =>
       rtplan.FrameOfReferenceUID.isDefined &&
         rtplan.FrameOfReferenceUID.get.equals(FrameOfReferenceUID) &&
@@ -313,12 +314,14 @@ object Series extends Logging {
     list.sortBy(_.dataDate.getTime).lastOption
   }
 
+  /*
   def getRegByFrameOfReference(FrameOfReferenceUID: String): Option[Series] = {
     getByModality(ModalityEnum.REG).find(s =>
       s.FrameOfReferenceUID.isDefined && s.FrameOfReferenceUID.get
         .equals(FrameOfReferenceUID)
     )
   }
+  */
 
   /**
    * Get the list of REG files that have the same frame of reference as the given image file.
@@ -339,7 +342,7 @@ object Series extends Logging {
   }
 
   /**
-   * Put a series into the pool for uploading.  Also notify the uploader to update.
+   * Put a series into the pool for uploading.
    */
   private def put(series: Series, showInfo: Boolean = true) = {
     if (showInfo) logger.info("put series: " + series)
@@ -378,6 +381,7 @@ object Series extends Logging {
       if (SeriesPool.contains(series.SeriesInstanceUID)) {
         logger.info("Removing local copy of series " + series)
         SeriesPool -= series.SeriesInstanceUID
+
       }
       try {
         if (series.dir.exists)
@@ -456,6 +460,7 @@ object Series extends Logging {
   /**
    * Given a directory that contains the DICOM files of a series, reinstate the Series object.
    */
+  /*
   private def reinstateFromDicom(seriesDir: File): Option[Series] = {
     try {
       if (seriesDir.isDirectory && ClientUtil.listFiles(seriesDir).nonEmpty) {
@@ -478,6 +483,7 @@ object Series extends Logging {
         None
     }
   }
+  */
 
   private def reinstateFromXml(patientDir: File): Unit = {
     val xmlFile = {
@@ -521,9 +527,7 @@ object Series extends Logging {
         logger.info(
           "Reinstated " + list.size + " series from " + xmlFile.getAbsolutePath
         )
-        updatePatientXml(
-          list
-        ) // save them back, sorted by date with duplicates removed
+        updatePatientXml(list) // save them back, sorted by date with duplicates removed
       }
     } catch {
       case t: Throwable =>
@@ -547,12 +551,9 @@ object Series extends Logging {
         throw new RuntimeException(
           "Error: series from more than one patient can not be in XML file."
         )
-      val patIdList = PatientProcedure.patientIdList.toSet
       val updated = list
         .groupBy(s => s.SeriesInstanceUID)
         .map(g => g._2.head)
-        . // remove multiple Series that have the same series UID
-          filter(s => patIdList.contains(s.PatientID))
         .toSeq
         .sortBy(s => s.dataDate) // sort to make them findable by a human looking at the xml
 
@@ -615,17 +616,51 @@ object Series extends Logging {
     logger.info("Removed old DICOM series.")
   }
 
+
+  private def reIndex(): Unit = {
+    val list = getAllSeries.groupBy(_.PatientID).values.map(_.sortBy(_.dataDate_ms))
+    list.foreach(updatePatientXml)
+  }
+
+
   /**
    * Look at the series whose metadata is in XML or that have already been
    * fetched via C-MOVE and add a Series entry for them.
    */
   private def reinstatePreviouslyFetchedSeries(): Unit = {
+
+    case class DirSeries(dirName: String) {
+      private val parts = dirName.split("_")
+
+      val date: Date = dirDateFormat.parse(parts.head)
+      val modality: ModalityEnum.Value = ModalityEnum.toModalityEnum(parts(1))
+      val sliceCount: Int = parts(2).toInt
+      val seriesUid: String = parts(3).trim
+
+      override def toString: String = s"$date  $modality  $sliceCount  $seriesUid"
+
+      val isValid: Boolean = toString.nonEmpty
+    }
+
+
     // get from XML
     ClientUtil.listFiles(ClientConfig.seriesDir).foreach(patientDir => reinstateFromXml(patientDir))
 
     // get DICOM files that may not be in XML
     // list of all DICOM directories
-    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).flatMap(patientDir => ClientUtil.listFiles(patientDir))
+
+
+    def isDicomDir(dir: File): Boolean = {
+      try {
+        dir.isDirectory && DirSeries(dir.getName).isValid
+      }
+      catch {
+        case _: Throwable => false
+      }
+    }
+
+
+    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).flatMap(patientDir => ClientUtil.listFiles(patientDir).filter(isDicomDir))
 
     // set of all directory paths from series loaded from XML
     val dirSetFromXml = getAllSeries.map(s => s.dir.getAbsolutePath).toSet
@@ -634,13 +669,29 @@ object Series extends Logging {
     val dirNotInXml = dirList.filterNot(dir => dirSetFromXml.contains(dir.getAbsolutePath))
     logger.info("Number of DICOM directories that were not saved in XML: " + dirNotInXml.size)
 
-    // Make Series object from DICOM not in XML
-    val seriesNotInXml = dirNotInXml.flatMap(dir => reinstateFromDicom(dir))
+    def resolveSeries(dir: File): Unit = {
+      val series = makeSeriesFromDicomFileDir(dir)
+      val indexedOpt = getAllSeries.find(s => s.SeriesInstanceUID.equals(series.SeriesInstanceUID))
 
-    seriesNotInXml.foreach(series => persist(series))
+      if (indexedOpt.nonEmpty) {
+        val indexed = indexedOpt.get
+        val sameDir = indexed.dir.getAbsolutePath.equals(series.dir.getAbsolutePath)
+        0 match {
+          case _ if sameDir => remove(indexed)
+          case _ => FileUtil.deleteFileTree(indexed.dir)
+        }
+      }
+      put(series)
+    }
+
+    // Make Series object from DICOM not in XML
+    dirNotInXml.foreach(resolveSeries)
 
     // clean up old DICOM files
     removeOldDicom()
+
+    // make the XML indexes match what is in memory
+    reIndex()
 
     // tell the uploader to check for series that needs to be uploaded
     DicomAssembleUpload.scanSeries()
@@ -649,12 +700,14 @@ object Series extends Logging {
   /**
    * Remove series (and their files) of patients that are no longer active.
    */
+  /*
   private def removeObsoletePatientSeries() = {
     val patSet = PatientProcedure.patientIdList.toSet
     getAllSeries
       .filterNot(series => patSet.contains(series.PatientID))
       .map(series => remove(series))
   }
+  */
 
   /**
    * Initialize series pool.
@@ -663,7 +716,7 @@ object Series extends Logging {
     logger.info("initializing Series")
     removeObsoleteZipFiles()
     reinstatePreviouslyFetchedSeries()
-    removeObsoletePatientSeries()
+    // removeObsoletePatientSeries()
     logger.info(
       "Series initialization complete.   Number of series in pool: " + Series.size
     )
