@@ -182,19 +182,24 @@ object MachineLog extends Logging {
   private class Poll extends Runnable {
 
     override def run(): Unit = {
+
       while (true) {
         try {
-          val machineLogProcedure = Procedure.fetchList().find(_.isMachineLog).get
-          readFromServer() match {
-            case Some(serverMachineLog) =>
-              logger.info("Starting to update Machine Log files...")
-              val start = System.currentTimeMillis()
-              updateMachineLog(serverMachineLog, machineLogProcedure)
-              val elapsed = System.currentTimeMillis() - start
-              logger.info(s"Finished updating Machine Log files.  Elapsed time in ms: $elapsed")
-            case _ =>
-              logger.warn(s"Unable to retrieve machine log from server.")
+          Procedure.fetchList().find(_.isMachineLog) match {
+            case Some(machineLogProcedure) =>
+              readFromServer() match {
+                case Some(serverMachineLog) =>
+                  logger.info("Starting to update Machine Log files...")
+                  val start = System.currentTimeMillis()
+                  updateMachineLog(serverMachineLog, machineLogProcedure)
+                  val elapsed = System.currentTimeMillis() - start
+                  logger.info(s"Finished updating Machine Log files.  Elapsed time in ms: $elapsed")
+                case _ =>
+                  logger.warn(s"Unable to retrieve machine log from server.")
+              }
+            case _ => logger.info("MachineLog procedure not defined on the AQA server.")
           }
+
         } catch {
           case t: Throwable => logger.warn(s"Unexpected error: ${fmtEx(t)}")
         }
