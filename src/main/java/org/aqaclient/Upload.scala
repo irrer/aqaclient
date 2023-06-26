@@ -38,7 +38,7 @@ object Upload extends Logging {
 
       // upload the files and wait for the processing to finish.  Do this in a synchronized so that no
       // other HTTP activity from this service is being attempted while it waits.
-      val result = ClientUtil.httpsPost(uploadSet.procedure.URL, uploadSet.zipFile)
+      val result = HttpUtil.httpsPost(uploadSet.procedure.URL, uploadSet.zipFile)
 
       val elapsed = System.currentTimeMillis - start
       result match {

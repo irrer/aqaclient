@@ -16,16 +16,15 @@
 
 package aqaclient.test
 
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
-import org.aqaclient.ClientConfig
-import org.aqaclient.Results
 import edu.umro.RestletUtil.HttpsClient
 import edu.umro.ScalaUtil.Trace
+import org.restlet.data.ChallengeScheme
+import org.scalatest.FlatSpec
+import org.scalatest.Matchers
 
 /**
- * Test the Config.
- */
+  * Test the Config.
+  */
 
 class TestHTTPS extends FlatSpec with Matchers {
   "TestHTTPS" should "define values" in {
@@ -34,9 +33,14 @@ class TestHTTPS extends FlatSpec with Matchers {
     val baseUrl = "https://uhroappwebsdv1.umhs.med.umich.edu:8111"
     val url = baseUrl + "/GetSeries?PatientID=" + PatientID
     Trace.trace(url)
-    val user = "irrer"
+    val userId = "irrer"
     val password = "23eetslp"
-    val elem = HttpsClient.httpsGet(url, ClientConfig.AQAUser, ClientConfig.AQAPassword)
+
+    val cs = HttpsClient.makeChallengeResponse(scheme = ChallengeScheme.HTTP_BASIC, userId, password)
+
+    val cr = HttpsClient.makeClientResource(url, challengeResponse = Some(cs), trustKnownCertificates = true)
+
+    val elem = HttpsClient.httpsGet(cr, url)
     Trace.trace(elem)
     true should be(true)
   }

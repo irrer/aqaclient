@@ -126,7 +126,7 @@ object MachineLog extends Logging {
     * @return List of what the server has.  If the attempt to get the list fails, then return None.
     */
   private def readFromServer(): Option[Seq[ServerMachineLog]] = {
-    val xmlText = ClientUtil.httpsGet(ClientConfig.AQAURL + "/admin/MachineLogXml")
+    val xmlText = HttpUtil.httpsGet(ClientConfig.AQAURL + "/admin/MachineLogXml")
     if (xmlText.isDefined) {
       val machineList = XML.loadString(xmlText.get) \ "MachineLogDateList"
       val list = machineList.map(m => toServerMachineLog(m))

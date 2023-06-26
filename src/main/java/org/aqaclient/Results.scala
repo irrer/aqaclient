@@ -78,7 +78,7 @@ object Results extends Logging {
     // 'None' means HTTP failure.  Also protect against exception from HTTP GET.
     val httpText: Option[String] = {
       try {
-        val t = ClientUtil.httpsGet(url)
+        val t = HttpUtil.httpsGet(url)
         t
       } catch {
         case t: Throwable =>

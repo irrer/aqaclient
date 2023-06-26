@@ -18,7 +18,6 @@ package org.aqaclient
 
 import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
-import edu.umro.RestletUtil.HttpsClient
 import edu.umro.RestletUtil.TrustingSslContextFactory
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
@@ -26,8 +25,8 @@ import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
 import org.apache.http.ConnectionClosedException
 import org.restlet.data.ChallengeScheme
-import org.restlet.data.MediaType
 import org.restlet.representation.Representation
+import org.restlet.resource.ClientResource
 
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -107,88 +106,6 @@ object ClientUtil extends Logging {
     }
   }
 
-  // for synchronizing HTTP calls
-  private val syncAQAClientHTTP = "syncAQAClientHTTP"
-
-  /**
-    * Get text via HTTPS from the server.
-    *
-    * @param url Full URL.
-    * @return Text on success, nothing on failure.
-    */
-  def httpsGet(url: String): Option[String] = {
-    try {
-      logger.info("Performing GET from " + url)
-      val start = System.currentTimeMillis()
-      val result = syncAQAClientHTTP.synchronized {
-        HttpsClient.httpsGet(
-          url,
-          ClientConfig.AQAUser,
-          ClientConfig.AQAPassword,
-          ChallengeScheme.HTTP_BASIC,
-          trustKnownCertificates = true,
-          ClientConfig.httpsClientParameters,
-          timeout_ms = ClientConfig.HttpsGetTimeout_ms
-        ) match {
-          case Left(exception) =>
-            logger.warn("Unable to GET from: " + url + " : " + fmtEx(exception))
-            None
-          case Right(representation) =>
-            val outStream = new ByteArrayOutputStream
-            representation.write(outStream)
-            val text = outStream.toString
-            representation.exhaust()
-
-            val stream = representation.getStream
-            Trace.trace("representation.getStream: " + stream)
-            if (stream != null) {
-              Trace.trace("Closing representation stream")
-              stream.close()
-              Trace.trace("Closed representation stream")
-            }
-            val elapsed = System.currentTimeMillis() - start
-            logger.info("Successfully completed HTTPS GET of " + text.length + " bytes from " + url + " in " + elapsed + " ms.  text: " + text.take(200))
-            Some(text)
-        }
-      }
-      result
-    } catch {
-      case t: Throwable =>
-        logger.warn("Unexpected error while performing HTTPS GET from " + url + " : " + fmtEx(t))
-        None
-    }
-  }
-
-  /**
-    * Upload the files.  Do this in a synchronized so that no other HTTP
-    * activity from this service is being attempted while it waits.
-    *
-    * @param url Where to send the data.
-    * @param zipFile Data to upload
-    * @return Either an error (left) or success (right).
-    */
-  def httpsPost(url: String, zipFile: File): Either[Throwable, Representation] = {
-
-    logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
-    val start = System.currentTimeMillis()
-    val result = ClientUtil.syncAQAClientHTTP.synchronized {
-      HttpsClient.httpsPostSingleFileAsMulipartForm(
-        url,
-        zipFile,
-        MediaType.APPLICATION_ZIP,
-        ClientConfig.AQAUser,
-        ClientConfig.AQAPassword,
-        ChallengeScheme.HTTP_BASIC,
-        trustKnownCertificates = true,
-        ClientConfig.httpsClientParameters,
-        timeout_ms = ClientConfig.HttpsUploadTimeout_ms
-      )
-    }
-    val elapsed = System.currentTimeMillis() - start
-    logger.info("Performed POST to " + url + " with zip file of size " + zipFile.length() + "    elapsed ms: " + elapsed)
-    result
-  }
-
   @tailrec
   private def makeUniqueZipFile(description: String): File = {
     val file = {
@@ -229,10 +146,7 @@ object ClientUtil extends Logging {
   // ---------------------------------------------------------------------------------------------------
 
   import org.restlet.data.ChallengeResponse
-  import org.restlet.data.ChallengeScheme
   import org.restlet.data.Cookie
-  import org.restlet.representation.Representation
-  import org.restlet.resource.ClientResource
 
   /**
     * Establish the client resource, setting up the certificate trust model as the caller specified.

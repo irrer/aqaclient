@@ -107,7 +107,7 @@ object PatientProcedure extends Logging {
   private def refreshList(): Unit = {
     try {
       lastUpdateTime_ms = System.currentTimeMillis()
-      ClientUtil.httpsGet(url) match {
+      HttpUtil.httpsGet(url) match {
         case Some(text) =>
           val previousText = readFromFile()
           persistList(text)
