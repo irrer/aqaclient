@@ -120,7 +120,7 @@ object Results extends Logging {
           updatePatient(patientId, timeout)
       }
     } else {
-      logger.warn("Timed out getting results from server.  Giving up and using latest results")
+      logger.warn(s"Timed out getting results from server.  Giving up and using latest results for $patientId")
       // if there are previous results, use them, else return an empty list.
       val fileText = FileUtil.readTextFile(resultsFile(patientId))
       if (fileText.isRight) {
