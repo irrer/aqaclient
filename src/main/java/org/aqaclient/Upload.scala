@@ -42,9 +42,8 @@ object Upload extends Logging {
 
       val elapsed = System.currentTimeMillis - start
       result match {
-        case Right(good) =>
+        case Right(_) =>
           logger.info("Elapsed time in ms of upload: " + elapsed + "  Successful upload of data set to AQA for " + uploadSet)
-          println(good)
           None
         case Left(failure) =>
           logger.warn("Elapsed time in ms of upload: " + elapsed + "  Failed to upload data set to AQA for " + uploadSet + " : " + fmtEx(failure))
@@ -57,14 +56,11 @@ object Upload extends Logging {
     }
   }
 
-  /** Maximum number of times to attempt an upload before giving up. */
-  private val maxUploadRetryCount = 4
-
   /**
     * Upload a set of DICOM files for processing.
     */
   @tailrec
-  private def upload(uploadSet: UploadSet, retryCount: Int = maxUploadRetryCount): Boolean = {
+  private def upload(uploadSet: UploadSet, retryCount: Int = ClientConfig.MaxUploadRetryCount): Boolean = {
     logger.info("Processing upload " + uploadSet)
     val success: Boolean =
       try {

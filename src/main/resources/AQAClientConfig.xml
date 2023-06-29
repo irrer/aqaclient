@@ -68,7 +68,11 @@
 
 
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
-    <HttpsUploadTimeout_sec>30.0</HttpsUploadTimeout_sec>
+    <HttpsUploadTimeout_sec>240.0</HttpsUploadTimeout_sec>
+
+    <!-- After initial upload attempt has been made, if the upload fails, then retry this many times.  A value of 0 means that
+   the upload will only be attempted once and no retries will be done.  Positive integer value defaults to 0. -->
+    <MaxUploadRetryCount>0</MaxUploadRetryCount>
 
     <!-- Keywords in RTPLAN label that identify the type of plan.  When an RTPLAN is found, its RTPlanLabel (DICOM attribute tag 300A,0002 )
     is searched for the keyword.  If found somewhere in that string (case insensitive), then it is considered that type of plan.  The

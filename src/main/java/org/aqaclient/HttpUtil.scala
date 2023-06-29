@@ -43,7 +43,7 @@ object HttpUtil extends Logging {
   /**
    * Get a valid client resource.
    *
-   * @param clear If true, discard the current resource and make a new oe
+   * @param clear If true, discard the current resource and make a new one
    * @return
    */
   private def getClientRes(clear: Boolean = false): ClientResource = {
@@ -103,6 +103,10 @@ object HttpUtil extends Logging {
    * Upload the files.  Do this in a synchronized so that no other HTTP
    * activity from this service is being attempted while it waits.
    *
+   * Note on ClientResource: The POST operation is done infrequently and can last a
+   * long time, so using a ClientResource from a pool can create problems.  Instead,
+   * a new ClientResource is created for each use of POST.
+   *
    * @param url     Where to send the data.
    * @param zipFile Data to upload
    * @return Either an error (left) or success (right).
@@ -111,15 +115,14 @@ object HttpUtil extends Logging {
 
     logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
     val start = System.currentTimeMillis()
-    val result = clientRes.synchronized {
+    val result =
       HttpsClient.httpsPostSingleFileAsMulipartForm(
-        getClientRes(),
+        (new ClientRes).clientResource, // get a ClientResource for use by this upload only.
         url,
         zipFile,
         MediaType.APPLICATION_ZIP,
         timeout_ms = ClientConfig.HttpsUploadTimeout_ms
       )
-    }
 
     if (result.isLeft)
       getClientRes(clear = true) // Failure, so don't use this resource again
