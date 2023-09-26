@@ -25,7 +25,12 @@ import java.security.cert.X509Certificate
  */
 object HttpsInit extends Logging {
 
-  def certToHuman(cert: X509Certificate): String = {
+  /**
+   * Convert certificate to a form that makes sense to humans.
+   * @param cert Certificate to convert.
+   * @return Text form of certificate.
+   */
+  private def certToHuman(cert: X509Certificate): String = {
     cert.getSubjectDN.getName + "  " + "Valid from " + cert.getNotBefore + " to " + cert.getNotAfter
   }
 
