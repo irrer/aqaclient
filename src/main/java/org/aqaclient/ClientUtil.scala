@@ -83,7 +83,7 @@ object ClientUtil extends Logging {
       (TagByName.ContentDate, TagByName.ContentTime),
       (TagByName.AcquisitionDate, TagByName.AcquisitionTime),
       (TagByName.SeriesDate, TagByName.SeriesTime),
-      (TagByName.InstanceCreationDate, TagByName.InstanceCreationTime)
+      (TagByName.CreationDate, TagByName.CreationTime)
     )
 
     val date =
@@ -175,6 +175,7 @@ object ClientUtil extends Logging {
     clientResource
   }
 
+  //noinspection ConvertNullInitializerToUnderscore
   private var cr: ClientResource = null
 
   private def httpsGet(
