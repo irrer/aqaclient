@@ -63,9 +63,9 @@ object HttpUtil extends Logging {
    */
   def httpsGet(url: String): Option[String] = {
     try {
-      logger.info("Performing GET from " + url)
       val start = System.currentTimeMillis()
       val result = clientRes.synchronized {
+        logger.info("Performing GET from " + url)
         HttpsClient.httpsGet(
           getClientRes(),
           url,
@@ -113,22 +113,27 @@ object HttpUtil extends Logging {
    */
   def httpsPost(url: String, zipFile: File): Either[Throwable, Representation] = {
 
-    logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
-    val start = System.currentTimeMillis()
-    val result =
-      HttpsClient.httpsPostSingleFileAsMulipartForm(
-        (new ClientRes).clientResource, // get a ClientResource for use by this upload only.
-        url,
-        zipFile,
-        MediaType.APPLICATION_ZIP,
-        timeout_ms = ClientConfig.HttpsUploadTimeout_ms
-      )
+    val result = clientRes.synchronized {
+      logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
+      val start = System.currentTimeMillis()
+      val res = try {
+        HttpsClient.httpsPostSingleFileAsMulipartForm(
+          (new ClientRes).clientResource, // get a ClientResource for use by this upload only.
+          url,
+          zipFile,
+          MediaType.APPLICATION_ZIP,
+          timeout_ms = ClientConfig.HttpsUploadTimeout_ms
+        )
+      }
+      catch {
+        case t: Throwable => Left(t)
+      }
 
-    if (result.isLeft)
-      getClientRes(clear = true) // Failure, so don't use this resource again
+      val elapsed = System.currentTimeMillis() - start
+      logger.info(s"Performed POST to $url with zip file of size ${zipFile.length()}     elapsed ms:    $elapsed    success: ${res.isRight}")
+      res
+    }
 
-    val elapsed = System.currentTimeMillis() - start
-    logger.info("Performed POST to " + url + " with zip file of size " + zipFile.length() + "    elapsed ms: " + elapsed)
     result
   }
 
