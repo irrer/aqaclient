@@ -44,6 +44,7 @@ case class Series(
                    FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
                    RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
                    ReferencedRtplanUID: Option[String],
+                   DeviceSerialNumber: Option[String] = None,
                    SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
                  ) extends Logging {
 
@@ -57,6 +58,7 @@ case class Series(
       FrameOfReferenceUID = Series.optText(node, "FrameOfReferenceUID"),
       RegFrameOfReferenceUID = Series.optText(node, "RegFrameOfReferenceUID"),
       ReferencedRtplanUID = Series.optText(node, "ReferencedRtplanUID"),
+      DeviceSerialNumber = Series.optText(node, "DeviceSerialNumber"),
       SOPInstanceUIDList = Series.getSopInstanceUidList(node)
     )
 
@@ -68,6 +70,7 @@ case class Series(
       {if (FrameOfReferenceUID.isDefined) {<FrameOfReferenceUID>{FrameOfReferenceUID.get}</FrameOfReferenceUID>}}
       {if (RegFrameOfReferenceUID.isDefined) {<RegFrameOfReferenceUID>{RegFrameOfReferenceUID.get}</RegFrameOfReferenceUID>}}
       {if (ReferencedRtplanUID.isDefined) {<ReferencedRtplanUID>{ReferencedRtplanUID.get}</ReferencedRtplanUID>}}
+      {if (DeviceSerialNumber.isDefined) {<DeviceSerialNumber>{DeviceSerialNumber.get}</DeviceSerialNumber>}}
       <SOPInstanceUIDList>{SOPInstanceUIDList.map(s => <SOPInstanceUID>{s}</SOPInstanceUID>)}</SOPInstanceUIDList>
     </Series>
   }
@@ -81,21 +84,56 @@ case class Series(
 
   def isRtplan: Boolean = Modality.toString.equals(ModalityEnum.RTPLAN.toString)
 
+  private def isRtimage: Boolean = Modality.toString.equals(ModalityEnum.RTIMAGE.toString)
+
   //noinspection SpellCheckingInspection
-  val isWL: Boolean = {
+  private val isWL: Boolean = { // TODO rm when WL migration is done
     isModality(ModalityEnum.RTIMAGE) &&
       (PatientID.matches(".*QASRSWL.*") || PatientID.matches(".*TB3SRS.*"))
   }
 
   private def isRecent: Boolean = {
     val cutoff = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
-    (dataDate.getTime > cutoff) || (ClientConfig.ProcessOldWL && isWL)
+    val is = dataDate.getTime > cutoff
+    is
   }
 
   /**
    * True if we are interested in it.  The criteria is that either it is an RTPLAN or it was created recently.
    */
-  def isViable: Boolean = isRtplan || isRecent
+  def isViable: Boolean = {
+
+    // Return true if the device serial number is valid.  An empty one is currently ok to support backwards
+    // compatibility.  It is not ok if the DeviceSerialNumber is defined, but is not on the valid list, which
+    // probably means that it is data from an old machine.
+    def deviceSerialNumberIsValid: Boolean = DeviceSerialNumber.nonEmpty && ClientConfig.ValidDeviceSerialNumberList.contains(DeviceSerialNumber.get)
+
+    // TODO should revisit viability criteria.  Should all RTIMAGE files be required to reference an RTPLAN?  The DeviceSerialNumber should probably
+    //  also be a requirement maybe for CTs too, though that would mean that non-CBCT machines (like the Philips) would fail..
+    val is = 0 match {
+      // Even old RTPLAN files can be useful because they are referenced by recent files.
+      case _ if isRtplan =>
+        true
+
+      // Other non-RTIMAGE files should be processed if they are recent.  Note that some CBCTs do not have a DeviceSerialNumber (TX2 and TX6)
+      case _ if isRecent && (!isRtimage) =>
+        true
+
+      // If an RTIMAGE file is recent and it references an RTPLAN, then it should be processed.  Sometimes
+      // 'junk' RTIMAGE files are put in the system that do not reference an RTPLAN.
+      case _ if isRecent && isRtimage && ReferencedRtplanUID.isDefined && deviceSerialNumberIsValid =>
+        true
+
+      // Special case for handling old Winston Lutz data.  // TODO rm this case when old WL processing is complete, though it is harmless to keep.
+      case _ if ClientConfig.ProcessOldWL && isWL && isRtimage && ReferencedRtplanUID.isDefined && deviceSerialNumberIsValid =>
+        true
+
+      // Any other files are not viable.
+      case _ =>
+        false
+    }
+    is
+  }
 
   override def toString: String = {
     "PatientID: " + PatientID + " : " + Modality + "/" + FileUtil.listFiles(dir).size + "    date: " + Series.xmlDateFormat.format(
@@ -132,26 +170,99 @@ object Series extends Logging {
   private def getString(al: AttributeList, tag: AttributeTag) =
     new String(al.get(tag).getStringValues.head)
 
+  private def getStringOpt(al: AttributeList, tag: AttributeTag): Option[String] = {
+    try {
+      Some(new String(al.get(tag).getStringValues.head))
+    }
+    catch {
+      case _: Throwable => None
+    }
+  }
+
   /** Used for creating directory name. */
   private val dirDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss")
 
-  def dirOf(alList: Seq[AttributeList]): File = {
+  private def makePatientDirName(PatientID: String): String = FileUtil.replaceInvalidFileNameCharacters(PatientID, '_')
 
-    val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).maxBy(_.getTime)
+  /**
+   * Make a series directory from parameters.  Also make the patient directory if necessary.
+   *
+   * @param SeriesInstanceUID SeriesInstanceUID
+   * @param PatientID         PatientID
+   * @param sliceCount        Number of slices in series.
+   * @param Modality          Modality
+   * @param date              Data date of series.
+   * @return Series directory.
+   */
+  private def makeSeriesDir(SeriesInstanceUID: String, PatientID: String, sliceCount: Int, Modality: String, date: Date): File = {
+    val patientDirName = makePatientDirName(PatientID)
 
-    val patientDirName = FileUtil.replaceInvalidFileNameCharacters(
-      alList.head.get(TagByName.PatientID).getSingleStringValueOrNull,
-      '_'
-    )
     val patientDir = new File(ClientConfig.seriesDir, patientDirName)
-    patientDir.mkdirs
-    val dateText = dirDateFormat.format(maxDate)
-    val modality = alList.head.get(TagByName.Modality).getSingleStringValueOrDefault("unknown")
-    val seriesUid = alList.head.get(TagByName.SeriesInstanceUID).getSingleStringValueOrDefault("unknown")
-    val subDirName = FileUtil.replaceInvalidFileNameCharacters(dateText + "_" + modality + "_" + alList.size + "_" + seriesUid, '_')
-    val seriesDir = new File(patientDir, subDirName)
 
+    val dateText = dirDateFormat.format(date)
+
+    val subDirName = {
+      val text = dateText + "_" + Modality + "_" + sliceCount + "_" + SeriesInstanceUID
+      FileUtil.replaceInvalidFileNameCharacters(text, '_')
+    }
+
+    val dir = new File(patientDir, subDirName)
+    dir.mkdirs
+    dir
+  }
+
+  /**
+   * Given make a File from a Seq[AttributeList].
+   *
+   * @param alList Contains series content.
+   * @return directory to use.
+   */
+  def dirOf(alList: Seq[AttributeList]): File = {
+    val maxDate = alList.map(al => ClientUtil.dataDateTime(al)).maxBy(_.getTime)
+    val PatientID = {
+      try {
+        new String(alList.head.get(TagByName.PatientID).getSingleStringValueOrNull)
+      }
+      catch {
+        // This should NEVER happen, but we know all about that sort of situation.
+        case _: Throwable => "unknown"
+      }
+    }
+    val Modality = alList.head.get(TagByName.Modality).getSingleStringValueOrDefault("unknown")
+    val SeriesInstanceUID = alList.head.get(TagByName.SeriesInstanceUID).getSingleStringValueOrDefault("unknown")
+
+    val seriesDir = makeSeriesDir(SeriesInstanceUID, PatientID, alList.size, Modality, maxDate)
     seriesDir
+  }
+
+  /** Date to be used when a series has no slices. */
+  private val dummyDate: Date = ClientUtil.timeAsFileNameFormat.parse("1800-01-01T00-00-00-000")
+
+  /**
+   * Make an empty series from the given parameters.
+   *
+   * @param SeriesInstanceUID SeriesInstanceUID
+   * @param PatientID         PatientID
+   * @param Modality          Modality
+   * @return An empty series
+   */
+  def makeEmptySeries(SeriesInstanceUID: String, PatientID: String, Modality: String): Series = {
+
+    val dir = makeSeriesDir(SeriesInstanceUID, PatientID, sliceCount = 0, Modality, dummyDate)
+
+    val series = Series(
+      dir = dir,
+      SeriesInstanceUID = SeriesInstanceUID,
+      PatientID = PatientID,
+      dataDate = dummyDate,
+      Modality = ModalityEnum.toModalityEnum(Modality),
+      FrameOfReferenceUID = None,
+      RegFrameOfReferenceUID = None,
+      ReferencedRtplanUID = None,
+      DeviceSerialNumber = None,
+      SOPInstanceUIDList = Seq()
+    )
+    series
   }
 
   /**
@@ -175,6 +286,7 @@ object Series extends Logging {
       FrameOfReferenceUID = Series.getFrameOfReferenceUID(al),
       RegFrameOfReferenceUID = Series.getRegFrameOfReferenceUID(alList),
       ReferencedRtplanUID = Series.getReferencedRtplanUID(al),
+      DeviceSerialNumber = Series.getStringOpt(al, TagByName.DeviceSerialNumber),
       SOPInstanceUIDList = alList.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString())
     )
 
@@ -264,6 +376,8 @@ object Series extends Logging {
 
   /**
    * Pool of series whose DICOM contents have been fetched but have not yet been processed.
+   * Key: SeriesInstanceUID
+   * Value: Series
    */
   private val SeriesPool = scala.collection.mutable.HashMap[String, Series]()
 
@@ -285,8 +399,25 @@ object Series extends Logging {
       SeriesPool.size
     }
 
+  /**
+   * Return true if the given series instance UID is in the series pool.
+   *
+   * @param SeriesInstanceUID Look for this one.
+   * @return True if it is in the pool.
+   */
   def contains(SeriesInstanceUID: String): Boolean =
     get(SeriesInstanceUID).isDefined
+
+  /**
+   * Return true if there is at least one series with the given patient ID.
+   *
+   * @param PatientID Look for this patient ID.
+   * @return True if there is at least one series for that patient.
+   */
+  private def containsPatientID(PatientID: String): Boolean =
+    SeriesPool.synchronized {
+      SeriesPool.values.exists(series => series.PatientID.equals(PatientID))
+    }
 
   def getByModality(modality: ModalityEnum.Value): List[Series] =
     SeriesPool.synchronized({
@@ -485,6 +616,11 @@ object Series extends Logging {
   }
   */
 
+  /**
+   * Read the index.xml files in the given patientDir.
+   *
+   * @param patientDir Directory for a patient's DICOM files.
+   */
   private def reinstateFromXml(patientDir: File): Unit = {
     val xmlFile = {
       // Try different versions of the file in case there was a problem with updating it.
@@ -643,12 +779,24 @@ object Series extends Logging {
     }
 
 
-    // get from XML
-    ClientUtil.listFiles(ClientConfig.seriesDir).foreach(patientDir => reinstateFromXml(patientDir))
+    //noinspection ScalaUnusedSymbol
+    case class PatientInfo(PatientID: String) {
+      private val dirName = makePatientDirName(PatientID)
+      val dir = new File(ClientConfig.seriesDir, dirName)
+    }
+
+
+    // List of patients that are active.  They must be on either the patient procedure list of the list awaiting completion.
+    val activePatientList = (PatientProcedure.getPatientProcedureList.map(_.patientId) ++ ConfirmDicomComplete.getActivePatientIDList).distinct.map(PatientInfo)
+
+    val activeNotInitializePatientList = activePatientList.filterNot(patientInfo => Series.containsPatientID(patientInfo.PatientID))
+
+    // get from XML if they are not already in the series pool.
+    activeNotInitializePatientList.foreach(patientInfo => reinstateFromXml(patientInfo.dir))
+    logger.info(s"Number of active patients to reinstate to XML: ${activePatientList.size}")
 
     // get DICOM files that may not be in XML
     // list of all DICOM directories
-
 
     def isDicomDir(dir: File): Boolean = {
       try {
@@ -659,8 +807,7 @@ object Series extends Logging {
       }
     }
 
-
-    val dirList = ClientUtil.listFiles(ClientConfig.seriesDir).flatMap(patientDir => ClientUtil.listFiles(patientDir).filter(isDicomDir))
+    val dirList = activeNotInitializePatientList.flatMap(patInfo => ClientUtil.listFiles(patInfo.dir)).filter(isDicomDir)
 
     // set of all directory paths from series loaded from XML
     val dirSetFromXml = getAllSeries.map(s => s.dir.getAbsolutePath).toSet
@@ -713,7 +860,8 @@ object Series extends Logging {
    * Initialize series pool.
    */
   def init(): Unit = {
-    logger.info("initializing Series")
+    logger.info(s"initializing Series.  Using default series date of $dummyDate")
+
     removeObsoleteZipFiles()
     reinstatePreviouslyFetchedSeries()
     // removeObsoletePatientSeries()

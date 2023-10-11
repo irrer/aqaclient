@@ -148,6 +148,13 @@ object ClientConfig
     idMap
   }
 
+  // TODO : This list should be fetched from the server.
+  val ValidDeviceSerialNumberList: Seq[String] = {
+    val list = (document \ "ValidDeviceSerialNumberList" \ "ValidDeviceSerialNumber").map(node => node.text)
+    logText(""" ValidDeviceSerialNumberList \ ValidDeviceSerialNumber """, list.mkString("\n        ", "\n        ", "\n        "))
+    list
+  }
+
   val ProcessOldWL: Boolean = logMainText("ProcessOldWL", "false").equalsIgnoreCase("true")
 
   /** If this is defined, then the configuration was successfully initialized. */

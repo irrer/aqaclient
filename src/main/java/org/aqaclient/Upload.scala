@@ -17,7 +17,6 @@
 package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 
 import scala.annotation.tailrec
 
@@ -65,12 +64,10 @@ object Upload extends Logging {
     val success: Boolean =
       try {
         logger.info("Beginning upload of " + uploadSet)
-        Trace.trace()
         val start = System.currentTimeMillis()
         val msg = uploadToAQA(uploadSet)
         val elapsed = System.currentTimeMillis() - start
         logger.info("Elapsed upload time: " + edu.umro.ScalaUtil.Util.intervalTimeUserFriendly(elapsed) + " : " + uploadSet)
-        Trace.trace()
         val ok = msg.isEmpty
         if (ok)
           logger.info("Successfully uploaded " + uploadSet)
@@ -79,14 +76,11 @@ object Upload extends Logging {
         }
 
         logger.info("Executing post-processing...")
-        Trace.trace()
         uploadSet.postProcess(msg)
-        Trace.trace()
         logger.info("Finished executing post-processing.")
         // try { uploadSet.zipFile.delete() }
         // catch { case _: Throwable => }
         Thread.sleep((ClientConfig.GracePeriod_sec * 1000).toLong)
-        if (uploadSet.procedure.isWinstonLutz) Thread.sleep(20 * 1000) // TODO rm
         // Series.removeObsoleteZipFiles() // clean up any zip files
         ok
       } catch {

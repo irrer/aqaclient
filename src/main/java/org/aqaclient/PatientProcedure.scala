@@ -105,28 +105,38 @@ object PatientProcedure extends Logging {
     * local <code>patientProcedureList</code> cache.
     */
   private def refreshList(): Unit = {
-    try {
-      lastUpdateTime_ms = System.currentTimeMillis()
-      HttpUtil.httpsGet(url) match {
-        case Some(text) =>
-          val previousText = readFromFile()
-          persistList(text)
-          populateFromText(text)
-          // If the list changed, then fetch a new set of Results from the server.
-          if (!text.equals(previousText)) {
-            logger.info("PatientProcedure list has changed.  Refreshing Results list from server.")
-            Results.refreshAll()
-          }
-        case _ =>
-          logger.warn("Have to get PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url)
+    if (ClientConfig.ProcessOldWL) { // TODO rm
+      // do nothing
+      if (patientProcedureList.isEmpty) {
+        val text = FileUtil.readTextFile(patientProcedureFile()).right.get
+        populateFromText(text)
+      }
+    } else {
+      try {
+        lastUpdateTime_ms = System.currentTimeMillis()
+        HttpUtil.httpsGet(url) match {
+          case Some(text) =>
+            val previousText = readFromFile()
+            persistList(text)
+            populateFromText(text)
+            // If the list changed, then fetch a new set of Results from the server.
+            if (!text.equals(previousText)) {
+              logger.info("PatientProcedure list has changed.  Refreshing Results list from server.")
+              Results.refreshAll()
+              logger.info("PatientProcedure list has changed.  Updating Series list.")
+              Series.init()
+            }
+          case _ =>
+            logger.warn("Have to get PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url)
+            if (patientProcedureList.isEmpty)
+              populateFromText(readFromFile())
+        }
+      } catch { // in case HTTP GET call throws an exception
+        case t: Throwable =>
+          logger.warn("Error.  Getting PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url + " HTTP Exception: " + fmtEx(t))
           if (patientProcedureList.isEmpty)
             populateFromText(readFromFile())
       }
-    } catch { // in case HTTP GET call throws an exception
-      case t: Throwable =>
-        logger.warn("Error.  Getting PatientProcedure from local file " + patientProcedureFile().getAbsolutePath + " .  Could not get content from " + url + " HTTP Exception: " + fmtEx(t))
-        if (patientProcedureList.isEmpty)
-          populateFromText(readFromFile())
     }
   }
 

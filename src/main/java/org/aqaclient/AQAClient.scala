@@ -29,7 +29,7 @@ object AQAClient extends Logging {
   /** Time at which service was started. */
   val serviceStartTime: Long = System.currentTimeMillis
 
-  /**b
+  /**
     * Main entry point for service.
     *
     * @param args Ignored

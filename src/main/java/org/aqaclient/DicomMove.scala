@@ -59,7 +59,7 @@ object DicomMove extends Logging {
   private def makeTransferDir(SeriesInstanceUID: String, PatientID: String, Modality: String): File = {
     val name = {
       val t = ClientUtil.timeAsFileNameFormat.format(new Date) + "_" + PatientID + "_" + Modality + "_" + SeriesInstanceUID
-      FileUtil.replaceInvalidFileNameCharacters(t, '_').replace(' ', '_').replaceAll("___*", "_")
+      FileUtil.replaceInvalidFileNameCharacters(t, '_').replace(' ', '_').replaceAll("_+", "_")
     }
 
     val dir = new File(transferParentDir, name)
@@ -87,6 +87,13 @@ object DicomMove extends Logging {
     dr
   }
 
+  /**
+    * Copy files from the transfer directory to the series directory.  Use those files to
+    * create a Series object.  When done, delete the transfer directory.
+    *
+    * @param transferDir Temporary place to put files.
+    * @return Series, if everything goes right.
+    */
   private def moveTransferDirToSeriesDir(transferDir: File): Option[Series] = {
     val transferList = ClientUtil.listFiles(transferDir)
     if (transferList.isEmpty) None
@@ -220,14 +227,14 @@ object DicomMove extends Logging {
   @tailrec
   private def getCredibleSliceList(SeriesInstanceUID: String, history: Seq[Seq[String]] = Seq()): Seq[String] = {
     // At least this many C-FINDS must return the same result before we believe it.
-    val minCredibleSize = 3
+    val minAttempts = 3
 
     // Wait this many ms between C-FINDs to allow time for more slices to arrive.  Also avoids overloading the server.
     val cFindWaitInterval_ms = 500
 
-    val latest = history.takeRight(minCredibleSize).map(_.size)
+    val latest = history.takeRight(minAttempts).map(_.size)
     // of the last tries, there must be a minimum number of tries that are all the same size.
-    val isCredible = (latest.size == minCredibleSize) && (latest.distinct.size == 1)
+    val isCredible = (latest.size == minAttempts) && (latest.distinct.size == 1)
 
     if (isCredible) {
       logger.info("getCredibleSliceList: C-FIND was executed " + history.size + " times to get a consistent list of " + history.last.size + " slices   " + history.size + " times.")
@@ -236,6 +243,57 @@ object DicomMove extends Logging {
       if (history.nonEmpty) Thread.sleep(cFindWaitInterval_ms)
       val sliceList = getSliceList(SeriesInstanceUID)
       getCredibleSliceList(SeriesInstanceUID, history :+ sliceList)
+    }
+  }
+
+  /**
+    * Log a message, marked the series as failed (so it will not be tried in the future), and return None.  Note
+    * that the list of series marked as failed will be reset when the server restarts, at which point they will
+    * be tried again.
+    */
+  private def failed(msg: String, SeriesInstanceUID: String, description: String) = {
+    logger.warn(description + " " + msg)
+    FailedSeries.put(SeriesInstanceUID)
+    None
+  }
+
+  /**
+    * Do a C-MOVE to get files.  If the number of slices received is fewer than expected, then retry.
+    * @param retry Number of times that operation has been retried.
+    * @param description For reporting progress and errors.
+    * @param transferDir Put DICOM files here.
+    * @param SeriesInstanceUID Fetch files for this series.
+    * @param findSize Expected number of slices (from C-FIND).
+    * @return
+    */
+  @tailrec
+  private def getAll(retry: Int, description: String, transferDir: File, SeriesInstanceUID: String, findSize: Int): Option[Series] = {
+
+    logger.warn("trying series " + description + "    retry count " + retry)
+
+    if (ClientConfig.DICOMRetryCount >= retry) {
+      val sopCMoveList = getEntireSeries(SeriesInstanceUID, transferDir)
+      val moveSize = sopCMoveList.size
+
+      logger.info(s"Received $moveSize slices for $description")
+      val diff = findSize - moveSize
+      if (diff <= 0) {
+        if (diff == 0) {
+          logger.info(s"Successfully got ${sopCMoveList.size} slices as expected on try $retry")
+        } else {
+          logger.warn(s"$description C-FIND returned $findSize results but C-MOVE returned more: $moveSize This should never happen.  Proceeding anyway.")
+        }
+        val series = moveTransferDirToSeriesDir(transferDir)
+        series
+      } else {
+        logger.warn(s"$description C-MOVE returned only $moveSize files when C-FIND found $findSize")
+        logger.info(s"$description DicomMove.get Retry ${1 + ClientConfig.DICOMRetryCount - retry} of C-MOVE")
+        Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
+        getAll(retry + 1, description, transferDir, SeriesInstanceUID, findSize)
+      }
+    } else {
+      val msg = s"Giving up on getting series $SeriesInstanceUID via C-MOVE after retrying ${ClientConfig.DICOMRetryCount} times.  It will be ignored until this service restarts."
+      failed(msg, SeriesInstanceUID, description)
     }
   }
 
@@ -254,60 +312,27 @@ object DicomMove extends Logging {
 
     // Get the SOP UID list via C-FIND.
     val sopCFindList = getCredibleSliceList(SeriesInstanceUID)
+    val findSize = sopCFindList.size
 
-    /**
-      * Log a message, marked the series as failed (so it will not be tried in the future), and return None.  Note
-      * that the list of series marked as failed will be reset when the server restarts, at which point they will
-      * be tried again.
-      */
-    def failed(msg: String) = {
-      logger.warn(description + " " + msg)
-      FailedSeries.put(SeriesInstanceUID)
-      None
-    }
-
-    @tailrec
-    def getAll(retry: Int): Option[Series] = {
-
-      logger.warn("trying series " + description + "    retry count " + retry)
-
-      if (ClientConfig.DICOMRetryCount >= retry) {
-        val sopCMoveList = getEntireSeries(SeriesInstanceUID, transferDir)
-
-        logger.info("Number of slices received for " + description + " " + SeriesInstanceUID + " : " + sopCMoveList.size)
-        val diff = sopCFindList.size - sopCMoveList.size
-        if (diff <= 0) {
-          if (diff == 0) {
-            logger.info("Successfully got " + sopCMoveList.size + " slices on try " + retry)
-          } else {
-            logger.warn(description + "C-FIND returned " + sopCFindList.size + " results but C-MOVE returned more: " + sopCMoveList.size + ".  This should never happen.  Proceeding anyway.")
-          }
-          moveTransferDirToSeriesDir(transferDir)
-        } else {
-          logger.warn(description + " C-MOVE returned only " + sopCMoveList.size + " files when C-FIND found " + sopCFindList.size)
-          logger.info(description + " DicomMove.get Retry " + (1 + ClientConfig.DICOMRetryCount - retry) + " of C-MOVE for series " + SeriesInstanceUID)
-          Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
-          getAll(retry + 1)
-        }
-      } else {
-        failed(
-          " Giving up on getting series " + SeriesInstanceUID + " via C-MOVE after retrying " + ClientConfig.DICOMRetryCount +
-            " times.    It will be ignored until this service restarts."
-        )
-      }
-    }
-
-    if (sopCFindList.isEmpty) { // if no slices, then never bother again (until next server restart)
-      failed("C-FIND could not find any slices for this series: " + SeriesInstanceUID)
+    val result: Option[Series] = if (sopCFindList.isEmpty) { // if no slices, then never bother again
+      failed(s"C-FIND could not find any slices for series.", SeriesInstanceUID, description)
+      // make an empty series so that next time it will be ignored (and more quickly).
+      val res = Series.makeEmptySeries(SeriesInstanceUID, PatientID, Modality)
+      Some(res)
     } else {
-      val result = getAll(1)
-
-      // the transfer directory should be deleted if it still exists
-      if (transferDir.exists) Utility.deleteFileTree(transferDir)
-
-      result
+      val res = getAll(1, description, transferDir, SeriesInstanceUID, findSize)
+      res
     }
 
+    // the transfer directory should be deleted if it still exists
+    try {
+      Utility.deleteFileTree(transferDir)
+    } catch {
+      case t: Throwable =>
+        logger.warn(s"Ignoring unexpected exception deleting transfer directory for $description : ${fmtEx(t)}")
+    }
+
+    result
   }
 
   /**

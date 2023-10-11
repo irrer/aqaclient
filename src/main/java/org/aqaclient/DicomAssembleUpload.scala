@@ -324,9 +324,6 @@ object DicomAssembleUpload extends Logging {
    */
   private def update(): Unit =
     updateSyncDicomAssembleUpload.synchronized {
-      // ignore image series that are too old
-      val recent = System.currentTimeMillis - ClientConfig.MaximumDataAge_ms
-
 
       // list of all available image series, not have failed before, sorted by acquisition date, and not already sent
       val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE))
@@ -334,7 +331,7 @@ object DicomAssembleUpload extends Logging {
         .filterNot(series => FailedSeries.contains(series.SeriesInstanceUID))
         .sortBy(_.dataDate)
         .filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
-        .filter(series => series.isWL || (series.dataDate.getTime > recent))
+        .filter(_.isViable)
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
       todoList.foreach(uploadSet => {

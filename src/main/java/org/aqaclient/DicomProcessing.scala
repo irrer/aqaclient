@@ -98,7 +98,12 @@ object DicomProcessing extends Logging {
     if (poll) {
       // List of all modalities that should be fetched for this patient.  Sorted only so that
       // they will be used in a consistent way.
-      val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
+      val modalityList = {
+        if (ClientConfig.ProcessOldWL)
+          Seq("RTPLAN", "RTIMAGE") // TODO rm this after old WL data migration is done
+        else
+          Seq("RTPLAN", "CT", "REG", "RTIMAGE")
+      }
       logger.info("Updating patient ID: " + patientProcedure.patientId)
       modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
     }

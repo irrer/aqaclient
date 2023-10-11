@@ -1,14 +1,39 @@
 package org.aqaclient
 
+import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
+import edu.umro.ScalaUtil.DicomUtil
+import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Trace
 
+import java.io.File
 import scala.xml.XML
 
 /**
  * Show what WL data has been migrated to prod and which has not.
  */
-object WLMigrateGuide {
+object WLMigrate {
+
+  val validMachineList = Seq(
+    "UM_TB1",
+    "UM-Tx2",
+    "UM_TB3",
+    "UM-EX4",
+    "UM_TB5",
+    "UM-Tx6",
+    "BR1"
+  )
+
+  val validSerialNumberList = Seq(
+    "3068",
+    "1039",
+    "4471",
+    "3340",
+    "2448",
+    "3526",
+    "3525"
+  )
+
   private def getPatientIdList: Seq[String] = {
     // @formatter:off
     //noinspection SpellCheckingInspection
@@ -22,6 +47,7 @@ object WLMigrateGuide {
     // @formatter:on
     //noinspection SpellCheckingInspection
     // Seq("$QASRSWLBALLMILL00", "QASRSWL8G6T2C2020", "QASRSWLBALL2019NOV")
+    Seq("QASRSWL1")
   }
 
   private def seriesListToSeriesUidList(text: String): Seq[String] = {
@@ -34,8 +60,53 @@ object WLMigrateGuide {
   }
 
   private def hasSlices(seriesUid: String): Boolean = {
-    val sliceUidList = DicomFind.getSliceUIDsInSeries(seriesUid)
-    sliceUidList.nonEmpty
+    val series = Series.get(seriesUid)
+    if (series.isDefined) {
+      FileUtil.listFiles(series.get.dir).nonEmpty
+    }
+    else {
+      val sliceUidList = DicomFind.getSliceUIDsInSeries(seriesUid)
+      sliceUidList.nonEmpty
+    }
+  }
+
+  private def isValidWL(seriesUid: String): Boolean = {
+    val series = Series.get(seriesUid).get
+
+    def readDicomFile(file: File): AttributeList = {
+      val al = new AttributeList
+      al.read(file)
+      al
+    }
+
+    def isValidSerialNumber(al: AttributeList): Boolean = {
+      val serialNumberList = DicomUtil.findAllSingle(al, TagByName.DeviceSerialNumber).map(_.getSingleStringValueOrEmptyString).filter(_.nonEmpty).distinct
+      val ok = serialNumberList.nonEmpty && validSerialNumberList.contains(serialNumberList.head)
+
+      if (!ok) println(s"Series $seriesUid does not contain a valid DeviceSerialNumber.")
+
+      ok
+    }
+
+    def referencesRtplan(al: AttributeList): Boolean = {
+      try {
+        val planRef = DicomUtil.seqToAttr(al, TagByName.ReferencedRTPlanSequence).head.get(TagByName.ReferencedSOPInstanceUID)
+        planRef != null
+      }
+      catch {
+        case _: Throwable => false
+      }
+    }
+
+    def isValidXRayImageReceptorTranslation(al: AttributeList): Boolean = {
+      val xRay = al.get(TagByName.XRayImageReceptorTranslation).getDoubleValues.distinct
+      (xRay.head != 0) && (xRay.size > 1)
+    }
+
+    val alList = FileUtil.listFiles(series.dir).map(readDicomFile)
+
+    val ok = alList.map(al => isValidSerialNumber(al) && referencesRtplan(al) && isValidXRayImageReceptorTranslation(al)).reduce(_ && _)
+    ok
   }
 
   /**
@@ -53,7 +124,14 @@ object WLMigrateGuide {
       val uidList = attrList.map(_.getSingleStringValueOrEmptyString()).sorted
       uidList.filter(hasSlices)
     }
-    val aqaText = Results.getHttpTextFromServer(patientID)
+    val aqaText = try {
+      Results.getHttpTextFromServer(patientID)
+    }
+    catch {
+      case t: Throwable =>
+        Trace.trace(s"Unexpected exception from Results.getHttpTextFromServer : $t")
+        None
+    }
 
     if (aqaText.isDefined) {
       val aqaSeriesList = seriesListToSeriesUidList(aqaText.get).sorted
@@ -69,17 +147,25 @@ object WLMigrateGuide {
       Trace.trace(s"$patientID todo size: ${todoList.size}")
       Trace.trace(s"$patientID todo list: $todoList")
 
-      /*
-      def getEm(seriesUID: String): Unit = {
-        val series = DicomMove.get(seriesUID, patientID, Modality = "RTIMAGE")
-        Trace.trace(s"Got series $series")
-        Trace.trace()
+      def fetchDicom(seriesUID: String): Unit = {
+        val srs = Series.get(seriesUID)
+        val alreadyRead = srs.isDefined && srs.get.dir.isDirectory
+
+        if (!alreadyRead) {
+          Trace.trace(s"Getting series $seriesUID")
+          val series = DicomMove.get(seriesUID, patientID, Modality = "RTIMAGE")
+          Trace.trace(s"Got series $series")
+          Trace.trace()
+        }
       }
 
-      todoList.foreach(getEm)
-      */
+      todoList.foreach(fetchDicom)
 
-      todoList.size
+      val toSendList = todoList.filter(isValidWL)
+
+      println("toSendList:\n    " + toSendList.mkString("\n    "))
+
+      toSendList.size
     }
     else {
       Trace.trace(s"No AQA text for $patientID")
@@ -94,6 +180,8 @@ object WLMigrateGuide {
     HttpsInit.init()
     Trace.trace()
     DicomMove.init()
+    Trace.trace()
+    Series.init()
     Trace.trace()
     val start = System.currentTimeMillis()
 
