@@ -32,6 +32,7 @@ object DicomProcessing extends Logging {
     * Get all files for the given series via C-MOVE.
     */
   private def fetchSeries(SeriesInstanceUID: String, PatientID: String, Modality: String): Unit = {
+    logger.info(s"fetchSeries  C-MOVE  SeriesInstanceUID: $SeriesInstanceUID    PatientID: $PatientID    Modality: $Modality")
     DicomMove.get(SeriesInstanceUID, PatientID, Modality) match {
       case Some(series) =>
         Series.persist(series)
@@ -58,6 +59,7 @@ object DicomProcessing extends Logging {
 
     val serUidList = DicomFind.find(Modality, search).filter(patientIdFilter).flatMap(fal => ClientUtil.getSerUid(fal))
     val newSerUidList = serUidList.filterNot(serUid => FailedSeries.contains(serUid)).filterNot(serUid => Series.contains(serUid)).filterNot(serUid => Results.containsSeries(PatientID, serUid))
+    if (newSerUidList.nonEmpty) logger.info(s"fetchDicomOfModality  PatientID: $PatientID    Modality: $Modality    newSerUidList: ${newSerUidList.mkString("\n")}")
     newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID, Modality))
   }
 

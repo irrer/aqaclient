@@ -334,6 +334,7 @@ object DicomAssembleUpload extends Logging {
         .filter(_.isViable)
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
+      logger.info(s"update: todo list size: ${todoList.size}")
       todoList.foreach(uploadSet => {
         logger.info("Queueing upload set: " + uploadSet)
         Sent.add(new Sent(uploadSet, Some(uploadSet.toString)))

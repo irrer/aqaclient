@@ -103,10 +103,29 @@ case class Series(
    */
   def isViable: Boolean = {
 
-    // Return true if the device serial number is valid.  An empty one is currently ok to support backwards
-    // compatibility.  It is not ok if the DeviceSerialNumber is defined, but is not on the valid list, which
-    // probably means that it is data from an old machine.
-    def deviceSerialNumberIsValid: Boolean = DeviceSerialNumber.nonEmpty && ClientConfig.ValidDeviceSerialNumberList.contains(DeviceSerialNumber.get)
+    /**
+     * Return true if, based the device serial number, the files should be submitted to the server.
+     * It is not ok if the DeviceSerialNumber is defined, but is not on the valid list, which probably
+     * means that it is data from an old machine.
+     *
+     * If the serial number is not defined, then it is not valid.  The server needs the serial number to
+     * identify the machine, so submitting to the server would fail anyway.
+     *
+     * If the list of machines is empty, then assume that we are dealing with an old version of the server
+     * that does not support getting the list of machines.
+     *
+     * @return True if, based on the serial number, the files should be submitted to the server.
+     */
+    def deviceSerialNumberIsValid: Boolean = {
+      val machineDeviceSerialNumberList: Seq[String] = {
+        Machine.getMachineList match {
+          case Some(list) => list.flatMap(_.SerialNumber)
+          case _ => Seq()
+        }
+      }
+      DeviceSerialNumber.nonEmpty &&
+        (machineDeviceSerialNumberList.isEmpty || machineDeviceSerialNumberList.contains(DeviceSerialNumber.get))
+    }
 
     // TODO should revisit viability criteria.  Should all RTIMAGE files be required to reference an RTPLAN?  The DeviceSerialNumber should probably
     //  also be a requirement maybe for CTs too, though that would mean that non-CBCT machines (like the Philips) would fail..

@@ -110,9 +110,9 @@
     .cer suffix.  This service supports both.   Different browsers interface 
     will vary.
        -->
-    <!-- <AQAURL>https://localhost:9443</AQAURL> -->
+    <AQAURL>https://localhost:9443</AQAURL><!--  -->
     <!-- <AQAURL>https://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL> -->
-    <AQAURL>https://uhroappwebspr1.umhs.med.umich.edu:8111</AQAURL>
+    <!-- <AQAURL>https://uhroappwebspr1.umhs.med.umich.edu:8111</AQAURL> -->
 
     <!-- Log into AQA with this user ID. -->
     <AQAUser>adminUMich</AQAUser>
@@ -211,17 +211,6 @@
     <PatientIDCFindPatternMap>
       <PatientIDCFindPattern PatientID="BR1_OBI_QA_2023_Q1" pattern="*R1_OBI_QA_2023_*"/>
     </PatientIDCFindPatternMap>
-
-    <!-- Machines must have one of these DeviceSerialNumbers otherwise they will not be uploaded to the AQA server. -->
-    <ValidDeviceSerialNumberList>
-        <ValidDeviceSerialNumber>3068</ValidDeviceSerialNumber>
-        <ValidDeviceSerialNumber>1039</ValidDeviceSerialNumber>
-        <ValidDeviceSerialNumber>4471</ValidDeviceSerialNumber>
-        <ValidDeviceSerialNumber>3340</ValidDeviceSerialNumber>
-        <ValidDeviceSerialNumber>2448</ValidDeviceSerialNumber>
-        <ValidDeviceSerialNumber>3526</ValidDeviceSerialNumber>
-        <ValidDeviceSerialNumber>3525</ValidDeviceSerialNumber>
-    </ValidDeviceSerialNumberList>
 
     <!-- If true, process old Winston Lutz data.   This will be deprecated when old Winston Lutz data has been migrated.-->
     <ProcessOldWL>true</ProcessOldWL>
