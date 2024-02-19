@@ -287,29 +287,45 @@ object Series extends Logging {
   /**
    * Make a series from the DICOM files in the given directory.
    */
-  def makeSeriesFromDicomFileDir(seriesDir: File): Series = {
-    val alList = ClientUtil
-      .listFiles(seriesDir)
-      .map(f => ClientUtil.readDicomFile(f))
-      .filter(e => e.isRight)
-      .map(e => e.right.get)
+  def makeSeriesFromDicomFileDir(seriesDir: File): Option[Series] = {
 
-    val al = alList.head
+    try {
+      val alList = ClientUtil
+        .listFiles(seriesDir)
+        .map(f => ClientUtil.readDicomFile(f))
+        .filter(e => e.isRight)
+        .map(e => e.right.get)
 
-    val series = new Series(
-      dir = dirOf(alList),
-      SeriesInstanceUID = Series.getString(al, TagByName.SeriesInstanceUID),
-      PatientID = Series.getString(al, TagByName.PatientID),
-      dataDate = ClientUtil.dataDateTime(al),
-      Modality = ModalityEnum.toModalityEnum(Series.getString(al, TagByName.Modality)),
-      FrameOfReferenceUID = Series.getFrameOfReferenceUID(al),
-      RegFrameOfReferenceUID = Series.getRegFrameOfReferenceUID(alList),
-      ReferencedRtplanUID = Series.getReferencedRtplanUID(al),
-      DeviceSerialNumber = Series.getStringOpt(al, TagByName.DeviceSerialNumber),
-      SOPInstanceUIDList = alList.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString())
-    )
+      if (alList.isEmpty) {
+        val msg = s"Unexpected empty series dir ${seriesDir.getAbsolutePath}"
+        logger.error(msg)
+        None
+      }
+      else {
+        val al = alList.head // if there are no files in the dir then this will be empty
 
-    series
+        val series = new Series(
+          dir = dirOf(alList),
+          SeriesInstanceUID = Series.getString(al, TagByName.SeriesInstanceUID),
+          PatientID = Series.getString(al, TagByName.PatientID),
+          dataDate = ClientUtil.dataDateTime(al),
+          Modality = ModalityEnum.toModalityEnum(Series.getString(al, TagByName.Modality)),
+          FrameOfReferenceUID = Series.getFrameOfReferenceUID(al),
+          RegFrameOfReferenceUID = Series.getRegFrameOfReferenceUID(alList),
+          ReferencedRtplanUID = Series.getReferencedRtplanUID(al),
+          DeviceSerialNumber = Series.getStringOpt(al, TagByName.DeviceSerialNumber),
+          SOPInstanceUIDList = alList.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString())
+        )
+
+        Some(series)
+      }
+    }
+    catch {
+      case t: Throwable =>
+        val msg = s"Unexpected exception while reading series dir ${seriesDir.getAbsolutePath}: ${fmtEx(t)}"
+        logger.error(msg)
+        None
+    }
   }
 
   private def optText(xml: Node, tag: String): Option[String] = {
@@ -836,18 +852,22 @@ object Series extends Logging {
     logger.info("Number of DICOM directories that were not saved in XML: " + dirNotInXml.size)
 
     def resolveSeries(dir: File): Unit = {
-      val series = makeSeriesFromDicomFileDir(dir)
-      val indexedOpt = getAllSeries.find(s => s.SeriesInstanceUID.equals(series.SeriesInstanceUID))
+      makeSeriesFromDicomFileDir(dir) match {
+        case Some(series) =>
+          val indexedOpt = getAllSeries.find(s => s.SeriesInstanceUID.equals(series.SeriesInstanceUID))
 
-      if (indexedOpt.nonEmpty) {
-        val indexed = indexedOpt.get
-        val sameDir = indexed.dir.getAbsolutePath.equals(series.dir.getAbsolutePath)
-        0 match {
-          case _ if sameDir => remove(indexed)
-          case _ => FileUtil.deleteFileTree(indexed.dir)
-        }
+          if (indexedOpt.nonEmpty) {
+            val indexed = indexedOpt.get
+            val sameDir = indexed.dir.getAbsolutePath.equals(series.dir.getAbsolutePath)
+            0 match {
+              case _ if sameDir => remove(indexed)
+              case _ => FileUtil.deleteFileTree(indexed.dir)
+            }
+          }
+          put(series)
+
+        case _ => logger.info(s"Ignoring series dir ${dir.getAbsolutePath}")
       }
-      put(series)
     }
 
     // Make Series object from DICOM not in XML

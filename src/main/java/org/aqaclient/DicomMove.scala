@@ -105,7 +105,7 @@ object DicomMove extends Logging {
         seriesDir.getParentFile.mkdirs
         transferDir.renameTo(seriesDir)
         val series = Series.makeSeriesFromDicomFileDir(seriesDir)
-        Some(series)
+        series
       } catch {
         case t: Throwable =>
           logger.warn("Unexpected error while moving files in transfer directory: " + fmtEx(t))
