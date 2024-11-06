@@ -36,7 +36,7 @@ object DicomProcessing extends Logging {
     DicomMove.get(SeriesInstanceUID, PatientID, Modality) match {
       case Some(series) =>
         Series.persist(series)
-        if (series.isViable) DicomAssembleUpload.scanSeries()
+        if (series.isViable && series.slicesAreViable) DicomAssembleUpload.update()
       case _ => ;
     }
   }
@@ -75,7 +75,7 @@ object DicomProcessing extends Logging {
     if (list.isEmpty)
       None
     else {
-      val latest = list.maxBy(_.dataDate).dataDate
+      val latest = list.maxBy(_.seriesDateTime).seriesDateTime
       Some(latest)
     }
   }
@@ -100,12 +100,8 @@ object DicomProcessing extends Logging {
     if (poll) {
       // List of all modalities that should be fetched for this patient.  Sorted only so that
       // they will be used in a consistent way.
-      val modalityList = {
-        if (ClientConfig.ProcessOldWL)
-          Seq("RTPLAN", "RTIMAGE") // TODO rm this after old WL data migration is done
-        else
-          Seq("RTPLAN", "CT", "REG", "RTIMAGE")
-      }
+      val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
+
       logger.info("Updating patient ID: " + patientProcedure.patientId)
       modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
     }

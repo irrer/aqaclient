@@ -19,7 +19,6 @@ package org.aqaclient
 import com.pixelmed.dicom.AttributeList
 import edu.umro.DicomDict.TagByName
 import edu.umro.RestletUtil.TrustingSslContextFactory
-import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.Trace
@@ -73,29 +72,6 @@ object ClientUtil extends Logging {
   }
 
   /**
-    * Make a best effort to get the date (date+time) from the given attribute list.
-    *
-    * On failure return None.
-    */
-  def dataDateTime(al: AttributeList): Date = {
-    val dateTimeTagPairList = Seq(
-      (TagByName.RTPlanDate, TagByName.RTPlanTime),
-      (TagByName.ContentDate, TagByName.ContentTime),
-      (TagByName.AcquisitionDate, TagByName.AcquisitionTime),
-      (TagByName.SeriesDate, TagByName.SeriesTime),
-      (TagByName.CreationDate, TagByName.CreationTime)
-    )
-
-    val date =
-      try {
-        dateTimeTagPairList.flatMap(dtp => DicomUtil.getTimeAndDate(al, dtp._1, dtp._2)).headOption
-      } catch {
-        case t: Throwable => throw new RuntimeException("Could not get date+time from DICOM: " + fmtEx(t))
-      }
-    if (date.isDefined) date.get else defaultDateTime
-  }
-
-  /**
     * Safely get a list of files in a directory.  On failure, return an empty list.
     */
   def listFiles(dir: File): List[File] = {
@@ -138,6 +114,32 @@ object ClientUtil extends Logging {
     FileUtil.writeBinaryFile(zipFile, bytes)
     logger.info("wrote zip file " + zipFile.getName + "    size: " + bytes.length)
     zipFile
+  }
+
+  /**
+    * Delete the given file.
+    * @param file File to delete
+    * @return true if deleted.
+    */
+  def deleteFile(file: File): Boolean = {
+
+    try {
+      file.setReadable(true)
+      file.setWritable(true)
+      file.setExecutable(true)
+    } catch {
+      case t: Throwable => logger.warn(s"Error attempting to delete file ${file.getAbsolutePath} : ${fmtEx(t)}")
+    }
+
+    try {
+      if (!file.delete())
+        logger.warn(s"File.delete function indicated that file was not deleted: ${file.getAbsolutePath}")
+    } catch {
+      case t: Throwable => logger.warn(s"Error attempting to delete file ${file.getAbsolutePath} : ${fmtEx(t)}")
+    }
+    val success = !file.exists()
+
+    success
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -200,6 +202,18 @@ object ClientUtil extends Logging {
 
   def main(args: Array[String]): Unit = {
     println("Starting")
+
+    if (true) {
+      val file = new File("""D:\Program Files\UMRO\AQAClient\data\tempZip\2024-10-22T18-30-43-173_size_1934585_BB_by_EPID-0.1_$TB4_OBI_2024_RTIMAGE_5.zip""")
+      Trace.trace(s"exists before: ${file.exists()}")
+      val success = ClientUtil.deleteFile(file)
+      //val success = file.delete()
+      Trace.trace(s"success: $success")
+      Trace.trace(s"exists after: ${file.exists()}")
+      Thread.sleep(1000)
+      System.exit(99)
+    }
+
     val urlList: Seq[String] = Seq(
       "https://upload.wikimedia.org/wikipedia/commons/a/a5/Flower_poster_2.jpg",
       "https://www.pcclean.io/wp-content/gallery/roma-wallpapers/Roma-22.jpg",

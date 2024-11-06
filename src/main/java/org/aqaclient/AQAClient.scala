@@ -27,7 +27,7 @@ import java.util.Date
 object AQAClient extends Logging {
 
   /** Time at which service was started. */
-  val serviceStartTime: Long = System.currentTimeMillis
+  private val serviceStartTime: Long = System.currentTimeMillis
 
   /**
     * Main entry point for service.
@@ -46,8 +46,6 @@ object AQAClient extends Logging {
         logger.info("Validated configuration")
         HttpsInit.init()
         logger.info("Initialized HTTPS")
-        ConfirmDicomComplete.init()
-        logger.info("Initialized ConfirmDicomComplete")
         DicomMove.init()
         logger.info("Retrieved PatientID list")
         PatientProcedure.init()
@@ -62,6 +60,8 @@ object AQAClient extends Logging {
         logger.info("Started Upload")
         EventReceiver.init()
         logger.info("Initialized EventReceiver")
+        ConfirmDicomComplete.init()
+        logger.info("Initialized ConfirmDicomComplete")
         new ClientWebServer
         logger.info("Initialized ClientWebServer")
         MachineLog.init()

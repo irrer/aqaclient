@@ -25,20 +25,17 @@ import edu.umro.ScalaUtil.DicomReceiver
 import edu.umro.ScalaUtil.Logging
 import edu.umro.util.Utility
 import edu.umro.DicomDict.TagByName
+import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
 
 import java.io.File
 import java.util.Date
-import java.util.concurrent.Semaphore
 import scala.annotation.tailrec
 
 /**
   * Utility for getting DICOM via C-MOVE and caching them in the local disk.
   */
 object DicomMove extends Logging {
-
-  /** Used to limit use of DICOM C-MOVEs and C-FINDs to one. */
-  val dicomSemaphore = new Semaphore(1)
 
   /** Name of parent dir that contains subdirectories used for DICOM C-MOVEs. */
   private val transferParentDirName = "transferDicomMove"
@@ -88,32 +85,6 @@ object DicomMove extends Logging {
   }
 
   /**
-    * Copy files from the transfer directory to the series directory.  Use those files to
-    * create a Series object.  When done, delete the transfer directory.
-    *
-    * @param transferDir Temporary place to put files.
-    * @return Series, if everything goes right.
-    */
-  private def moveTransferDirToSeriesDir(transferDir: File): Option[Series] = {
-    val transferList = ClientUtil.listFiles(transferDir)
-    if (transferList.isEmpty) None
-    else
-      try {
-        val alList = transferList.map(f => ClientUtil.readDicomFile(f)).filter(al => al.isRight).map(al => al.right.get)
-        val seriesDir = Series.dirOf(alList)
-        Utility.deleteFileTree(seriesDir)
-        seriesDir.getParentFile.mkdirs
-        transferDir.renameTo(seriesDir)
-        val series = Series.makeSeriesFromDicomFileDir(seriesDir)
-        series
-      } catch {
-        case t: Throwable =>
-          logger.warn("Unexpected error while moving files in transfer directory: " + fmtEx(t))
-          None
-      }
-  }
-
-  /**
     * Get a list of the SOPInstanceUIDs of the series via C-FIND
     */
   private def getSliceList(SeriesInstanceUID: String): Seq[String] = {
@@ -139,6 +110,7 @@ object DicomMove extends Logging {
         s
       }
 
+      //val sopList: scala.collection.immutable.Seq[String] = alList.map(s => gg(s)).asInstanceOf[scala.collection.immutable.Seq[String]]
       val sopList = alList.map(s => gg(s))
       logger.info("SeriesSeriesInstanceUID C-FIND found " + sopList.size + " slices for SeriesInstanceUID " + SeriesInstanceUID)
       sopList
@@ -150,37 +122,15 @@ object DicomMove extends Logging {
   }
 
   /**
-    * Get the SOPInstanceUID of a file.
-    */
-  private def fileToSopInstanceUID(file: File): Option[String] = {
-    try {
-      val al = new AttributeList
-      al.read(file)
-      al.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString match {
-        case ""  => None
-        case uid => Some(uid)
-      }
-
-    } catch {
-      case t: Throwable =>
-        logger.warn("Unable to get SOPInstanceUID from file " + file.getAbsolutePath + " : " + fmtEx(t))
-        None
-    }
-  }
-
-  /**
-    * Get the list of all SOPInstanceUID in the transfer directory.
-    */
-  private def getSopList(transferDir: File): Seq[String] = ClientUtil.listFiles(transferDir).flatMap(f => fileToSopInstanceUID(f))
-
-  /**
     * Attempt to get an entire series with one DICOM C-MOVE.
     *
     * This should always work, but it seems that the Varian VMSDBD daemon sometimes only
     * sends a partial list of files.
     */
-  private def getEntireSeries(SeriesInstanceUID: String, transferDir: File): Seq[String] = {
+  private def performCMove(SeriesInstanceUID: String, description: String, PatientID: String, Modality: String): Seq[AttributeList] = {
     val specification = new AttributeList
+
+    val transferDir = makeTransferDir(SeriesInstanceUID, PatientID, Modality)
 
     def addAttr(tag: AttributeTag, value: String): Unit = {
       val a = AttributeFactory.newAttribute(tag)
@@ -191,29 +141,32 @@ object DicomMove extends Logging {
     addAttr(TagByName.QueryRetrieveLevel, "SERIES")
     addAttr(TagByName.SeriesInstanceUID, SeriesInstanceUID)
 
-    ClientUtil.listFiles(transferDir).map(f => f.delete) // delete all files in transfer directory
-    Utility.deleteFileTree(dicomReceiver.setSubDir(transferDir.getName))
+    ClientUtil.listFiles(transferDir).foreach(ClientUtil.deleteFile) // delete all files in transfer directory
+    // Utility.deleteFileTree(dicomReceiver.setSubDir(transferDir.getName))
+    dicomReceiver.setSubDir(transferDir.getName)
 
-    val didAcquire = dicomSemaphore.tryAcquire(ClientConfig.DicomTimeout_ms, java.util.concurrent.TimeUnit.MILLISECONDS)
-    if (!didAcquire)
-      logger.error("Could not acquire DICOM semaphore.  Proceeding with C-MOVE anyway.")
-    try {
-      val start = System.currentTimeMillis()
-      dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
-      logger.info("Successfully copied DICOM files.")
-      val elapsed = System.currentTimeMillis() - start
+    val start = System.currentTimeMillis()
+    dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
+    val elapsed = System.currentTimeMillis() - start
 
-      val size = ClientUtil.listFiles(transferDir).size
-      val msPerFile = (elapsed.toDouble / size).formatted("%10.3f").trim
+    val alList = {
+      def seriesMatches(al: AttributeList): Boolean = {
+        ClientUtil.getSerUid(al) match {
+          case Some(serUid) => serUid.equals(SeriesInstanceUID)
+          case _            => false
+        }
+      }
 
-      logger.info("Successfully performed DICOM C-MOVE to transfer dir " + transferDir.getName + "  Number of files: " + size + "    ms per file: " + msPerFile + "    Elapsed ms: " + elapsed)
-    } catch {
-      case t: Throwable => logger.error("Unexpected exception during DICOM C-MOVE: " + fmtEx(t))
-    } finally {
-      dicomSemaphore.release()
+      val list = ClientUtil.listFiles(transferDir).map(ClientUtil.readDicomFile).filter(_.isRight).map(_.right.get)
+      list.filter(seriesMatches)
     }
 
-    getSopList(transferDir)
+    val size = alList.size
+    val msPerFile = (elapsed.toDouble / size).formatted("%10.3f").trim
+
+    logger.info(s"Successfully performed DICOM C-MOVE   $description  ${transferDir.getName}    Number of files: $size    ms per file: $msPerFile     Elapsed ms: $elapsed")
+
+    alList
   }
 
   /**
@@ -258,38 +211,56 @@ object DicomMove extends Logging {
   }
 
   /**
+    * Write the given list of DICOM files to the given directory.
+    * @param dir Write to this directory.
+    * @param alList Write this DICOM.
+    */
+  private def writeAlList(dir: File, alList: Seq[AttributeList]): Unit = {
+    def writeAl(al: AttributeList): Unit = {
+      val sop = al.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString()
+      val file = new File(dir, sop + ".dcm")
+      DicomUtil.writeAttributeListToFile(al, file, "AQAClient")
+    }
+    alList.foreach(writeAl)
+    logger.info(s"Wrote ${alList.size} DICOM files to Series dir ${dir.getAbsolutePath}")
+  }
+
+  /**
     * Do a C-MOVE to get files.  If the number of slices received is fewer than expected, then retry.
     * @param retry Number of times that operation has been retried.
     * @param description For reporting progress and errors.
-    * @param transferDir Put DICOM files here.
     * @param SeriesInstanceUID Fetch files for this series.
     * @param findSize Expected number of slices (from C-FIND).
     * @return
     */
   @tailrec
-  private def getAll(retry: Int, description: String, transferDir: File, SeriesInstanceUID: String, findSize: Int): Option[Series] = {
+  private def getWithRetry(retry: Int, description: String, SeriesInstanceUID: String, PatientID: String, Modality: String, findSize: Int): Option[Series] = {
 
-    logger.warn("trying series " + description + "    retry count " + retry)
+    logger.info("trying series " + description + "    retry count " + retry)
 
     if (ClientConfig.DICOMRetryCount >= retry) {
-      val sopCMoveList = getEntireSeries(SeriesInstanceUID, transferDir)
-      val moveSize = sopCMoveList.size
+      def moveFunction() = performCMove(SeriesInstanceUID = SeriesInstanceUID, description = description, PatientID = PatientID, Modality = Modality)
+      val alList = DicomSemaphore.processInSemaphore(moveFunction, description)
+      val moveSize = alList.size
 
       logger.info(s"Received $moveSize slices for $description")
       val diff = findSize - moveSize
       if (diff <= 0) {
         if (diff == 0) {
-          logger.info(s"Successfully got ${sopCMoveList.size} slices as expected on try $retry")
+          logger.info(s"Successfully got ${alList.size} slices as expected on try $retry")
         } else {
           logger.warn(s"$description C-FIND returned $findSize results but C-MOVE returned more: $moveSize This should never happen.  Proceeding anyway.")
         }
-        val series = moveTransferDirToSeriesDir(transferDir)
+        val seriesDate = DicomUtil.getTimeAndDate(alList.head, TagByName.SeriesDate, TagByName.SeriesTime).get
+        val seriesDir = Series.makeSeriesDir(SeriesInstanceUID, PatientID, Modality, seriesDate)
+        writeAlList(seriesDir, alList)
+        val series = Series.makeSeriesFromDicomFileDir(seriesDir)
         series
       } else {
         logger.warn(s"$description C-MOVE returned only $moveSize files when C-FIND found $findSize")
         logger.info(s"$description DicomMove.get Retry ${1 + ClientConfig.DICOMRetryCount - retry} of C-MOVE")
         Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
-        getAll(retry + 1, description, transferDir, SeriesInstanceUID, findSize)
+        getWithRetry(retry + 1, description, SeriesInstanceUID, PatientID, Modality, findSize)
       }
     } else {
       val msg = s"Giving up on getting series $SeriesInstanceUID via C-MOVE after retrying ${ClientConfig.DICOMRetryCount} times.  It will be ignored until this service restarts."
@@ -307,32 +278,20 @@ object DicomMove extends Logging {
     * @return Get a DICOM series.
     */
   def get(SeriesInstanceUID: String, PatientID: String, Modality: String): Option[Series] = {
-    val transferDir = makeTransferDir(SeriesInstanceUID, PatientID, Modality)
-    val description = "Series: " + SeriesInstanceUID + " : " + PatientID + " : " + Modality
+    val description = s"C-MOVE PatientID: $PatientID    Modality: $Modality    SeriesInstanceUID $SeriesInstanceUID"
 
     // Get the SOP UID list via C-FIND.
-    val sopCFindList = getCredibleSliceList(SeriesInstanceUID)
-    val findSize = sopCFindList.size
+    val findSize = getCredibleSliceList(SeriesInstanceUID).size
 
-    val result: Option[Series] = if (sopCFindList.isEmpty) { // if no slices, then never bother again
-      failed(s"C-FIND could not find any slices for series.", SeriesInstanceUID, description)
-      // make an empty series so that next time it will be ignored (and more quickly).
-      val res = Series.makeEmptySeries(SeriesInstanceUID, PatientID, Modality)
-      Some(res)
-    } else {
-      val res = getAll(1, description, transferDir, SeriesInstanceUID, findSize)
-      res
-    }
+    val series: Option[Series] =
+      if (findSize == 0) { // if no slices, then never bother again
+        failed(s"C-FIND could not find any slices for series.", SeriesInstanceUID, description)
+      } else {
+        val res = getWithRetry(1, description = description, SeriesInstanceUID = SeriesInstanceUID, PatientID = PatientID, Modality = Modality, findSize)
+        res
+      }
 
-    // the transfer directory should be deleted if it still exists
-    try {
-      Utility.deleteFileTree(transferDir)
-    } catch {
-      case t: Throwable =>
-        logger.warn(s"Ignoring unexpected exception deleting transfer directory for $description : ${fmtEx(t)}")
-    }
-
-    result
+    series
   }
 
   /**

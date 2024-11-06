@@ -19,6 +19,9 @@ package org.aqaclient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 
+import scala.xml.Elem
+import scala.xml.Node
+
 /**
  * Group series into sets of data that can be processed and uploaded to the AQA platform.
  */
@@ -53,6 +56,74 @@ object DicomAssembleUpload extends Logging {
       logger.info("performing post-processing: " + msg)
       Results.refreshPatient(this.imageSeries.PatientID)
     }
+
+    def toXml: Elem = {
+
+      val regXml: Seq[Elem] = {
+        // @formatter:off
+        if (reg.isDefined)
+          Seq(<RegSeries>{reg.get.toXml}</RegSeries>)
+        else
+          Seq()
+        // @formatter:on
+      }
+
+      val planXml: Seq[Elem] = {
+        // @formatter:off
+        if (plan.isDefined)
+          Seq(<PlanSeries>{plan.get.toXml}</PlanSeries>)
+        else
+          Seq()
+        // @formatter:on
+      }
+
+      val elem = {
+        // @formatter:off
+        <UploadSet>
+          {procedure.node}
+          <Description>{description}</Description>
+          <ImageSeries>{imageSeries.toXml}</ImageSeries>
+          {regXml}
+          {planXml}
+        </UploadSet>
+        // @formatter:on
+      }
+      elem
+    }
+  }
+
+  /**
+   * Construct an upload set from
+   *
+   * @param node Construct from this element.
+   * @return
+   */
+  def UploadSetDicomCMoveFromXml(node: Node): UploadSetDicomCMove = {
+
+    val procedure =
+      new Procedure((node \ "Procedure").head)
+
+    val description = (node \ "Description").head.text.trim
+
+    val imageSeries: Series = new Series((node \ "ImageSeries" \ "Series").head)
+
+    val reg: Option[Series] = {
+      val r = node \ "RegSeries" \ "Series"
+      if (r.isEmpty)
+        None
+      else
+        Some(new Series(r.head))
+    }
+
+    val plan: Option[Series] = {
+      val p = node \ "PlanSeries" \ "Series"
+      if (p.isEmpty)
+        None
+      else
+        Some(new Series(p.head))
+    }
+
+    new UploadSetDicomCMove(procedure, description, imageSeries = imageSeries, reg = reg, plan = plan)
   }
 
   private def procedureOfCt(localPlan: Option[Series], remotePlanProcedure: Option[Procedure], ct: Series): Option[Procedure] = {
@@ -97,7 +168,7 @@ object DicomAssembleUpload extends Logging {
       // if the server has an rtplan that connects by frame of reference, then this is the procedure of that rtplan
       val remotePlanProcedure = Results.procedureOfPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
-      val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get, ct.dataDate)
+      val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get, ct.seriesDateTime)
 
       val procedureOfSeries = procedureOfCt(localPlan, remotePlanProcedure, ct) // PatientProcedure.getProcedureOfSeriesByPatientID(ct)
 
@@ -128,7 +199,7 @@ object DicomAssembleUpload extends Logging {
     if (ct.isModality(ModalityEnum.CT) && regOpt.isDefined) {
       // Get the REG file that has the same frame of reference as the image file and references the image series.
       val reg = regOpt.get
-      val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get, ct.dataDate) // if there is a copy of the plan in <code>Series</code>
+      val localPlan = Series.getRtplanByFrameOfReference(reg.FrameOfReferenceUID.get, ct.seriesDateTime) // if there is a copy of the plan in <code>Series</code>
       val remotePlanProcedure = Results.procedureOfPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get)
 
       /*
@@ -322,16 +393,17 @@ object DicomAssembleUpload extends Logging {
   /**
    * Look for sets of DICOM series that can be uploaded, and then upload them.
    */
-  private def update(): Unit =
+  def update(): Unit =
     updateSyncDicomAssembleUpload.synchronized {
 
       // list of all available image series, not have failed before, sorted by acquisition date, and not already sent
       val list = (Series.getByModality(ModalityEnum.CT) ++ Series.getByModality(ModalityEnum.RTIMAGE))
         .filterNot(series => Results.containsSeries(series))
         .filterNot(series => FailedSeries.contains(series.SeriesInstanceUID))
-        .sortBy(_.dataDate)
+        .sortBy(_.seriesDateTime)
         .filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
         .filter(_.isViable)
+        .filter(_.slicesAreViable)
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
       logger.info(s"update: todo list size: ${todoList.size}")
@@ -343,13 +415,6 @@ object DicomAssembleUpload extends Logging {
       todoList.foreach(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
     }
 
-  /**
-   * Indicate that new data is available for processing.  There may or may not be a set that can be
-   * processed.  This function sends a message to the Upload thread and returns immediately.
-   */
-  def scanSeries(): Unit = {
-    update()
-  }
 
   def init(): Unit = {
     logger.info("initializing Upload")

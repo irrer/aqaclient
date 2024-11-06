@@ -22,8 +22,14 @@ import com.pixelmed.dicom.AttributeTag
 import com.pixelmed.dicom.TransferSyntax
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.DicomCFind
+import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.Trace
 
+
+/**
+ * Support C-FIND calls for this service.
+ */
 object DicomFind extends Logging {
 
   private class Query(tagSeq: Seq[AttributeTag], tagValueSeq: Seq[(AttributeTag, String)]) {
@@ -64,31 +70,26 @@ object DicomFind extends Logging {
     }
     queryAttributes.put(transferSyntax)
 
-    val didAcquire = DicomMove.dicomSemaphore.tryAcquire(ClientConfig.DicomTimeout_ms, java.util.concurrent.TimeUnit.MILLISECONDS)
-    if (!didAcquire)
-      logger.error("Could not acquire DICOM semaphore.  Proceeding with C-MOVE anyway.")
-    val resultList: Seq[AttributeList] =
-      try {
+    val description = s"C-FIND QueryLevel $queryLevel\n " + DicomUtil.attributeListToString(queryAttributes).split("\n").mkString("  ||  ")
 
-        // val start = System.currentTimeMillis()
-        val list = DicomCFind.cfind(
-          callingAETitle = ClientConfig.DICOMClient.aeTitle,
-          calledPacs = ClientConfig.DICOMSource,
-          attributeList = queryAttributes,
-          queryLevel = queryLevel,
-          limit = None,
-          queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
-        )
-        // val elapsed = System.currentTimeMillis() - start
-        // logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)  // message makes too much noise
-        list
-      } catch {
-        case t: Throwable =>
-          logger.error("Unexpected exception during DICOM C-MOVE: " + fmtEx(t))
-          Seq()
-      } finally {
-        DicomMove.dicomSemaphore.release()
-      }
+    def doInSemaphore(): Seq[AttributeList] = {
+
+      // val start = System.currentTimeMillis()
+      val list = DicomCFind.cfind(
+        callingAETitle = ClientConfig.DICOMClient.aeTitle,
+        calledPacs = ClientConfig.DICOMSource,
+        attributeList = queryAttributes,
+        queryLevel = queryLevel,
+        limit = None,
+        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
+      )
+      // val elapsed = System.currentTimeMillis() - start
+      // logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)  // message makes too much noise
+      list
+    }
+
+    val resultList: Seq[AttributeList] = DicomSemaphore.processInSemaphore(doInSemaphore _, description)
+
     resultList
   }
 
@@ -144,40 +145,17 @@ object DicomFind extends Logging {
     println("Starting ...")
     ClientConfig.validate
 
-    val defaultPatientID = "$TB5_OBI_2022Q2"
-    // 123456789.123456789.123456789.
+    Trace.trace("\n\n\n\n\n\n\n\n============================================")
+    val imageList = getSliceUIDsInSeries("1.2.246.352.62.2.4933051009168731539.6682484753785086647")
+    Trace.trace(s"image list size: ${imageList.size}")
+    Trace.trace(imageList)
+    Trace.trace()
+    val seriesList = find("CT", "$TB5_OBI_2022Q2")
+    Trace.trace(s"series list size: ${seriesList.size}")
+    Trace.trace(s"first series found:\n${seriesList.head}")
+    Trace.trace("============================================")
+    Trace.trace("Exiting ...")
+    System.exit(99)
 
-    println(s"Enter PatientID C-FIND search pattern (or nothing to use default of $defaultPatientID): ")
-    val s = scala.io.StdIn.readLine
-
-    val searchPattern = {
-      if (s.nonEmpty)
-        s
-      else
-        defaultPatientID
-    }
-
-    val tagSeq = Seq(TagByName.SeriesInstanceUID, TagByName.Modality)
-    val tagValueSeq = Seq(
-      (TagByName.PatientID, searchPattern)
-    )
-
-    val queryAttributes = new Query(tagSeq, tagValueSeq).query
-
-    val start = System.currentTimeMillis()
-    val list = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.SERIES)
-    val elapsed = System.currentTimeMillis() - start
-
-    println("---------------------------------------------------------------------------")
-    println("Patient ID search pattern: >>" + searchPattern + "<<  length in characters: " + searchPattern.length)
-    val patientList = list.map(_.get(TagByName.PatientID).getSingleStringValueOrEmptyString).distinct.sorted
-    println("List of patient IDs found:\n    " + patientList.map(id => s">>$id<<").mkString("\n    "))
-    println("Number of series found: " + list.size)
-    val modalityGroups = list.groupBy(_.get(TagByName.Modality).getSingleStringValueOrEmptyString())
-    val text = modalityGroups.keys.map(modality => "    " + modality.format("%-10s") + " : " + modalityGroups(modality).size.formatted("%3d"))
-    println(text.mkString("\n"))
-    println("Elapsed time of C-FIND in ms: " + elapsed)
-    println("---------------------------------------------------------------------------")
-    System.exit(0)
   }
 }
