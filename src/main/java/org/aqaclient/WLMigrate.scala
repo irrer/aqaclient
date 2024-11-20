@@ -65,7 +65,7 @@ object WLMigrate {
       FileUtil.listFiles(series.get.dir).nonEmpty
     }
     else {
-      val sliceUidList = DicomFind.getSliceUIDsInSeries(seriesUid)
+      val sliceUidList = DicomFind.getSliceUIDsInSeries(seriesUid, "NA", "RTIMAGE")
       sliceUidList.nonEmpty
     }
   }
@@ -119,7 +119,7 @@ object WLMigrate {
     Thread.sleep(5 * 1000)
     Trace.trace(s"$patientID starting ...")
     val ariaSeriesList = {
-      val ariaList = DicomFind.find("RTIMAGE", patientID)
+      val ariaList = DicomFind.findSeriesForPatientOfModality("RTIMAGE", patientID)
       val attrList = ariaList.map(_.get(TagByName.SeriesInstanceUID))
       val uidList = attrList.map(_.getSingleStringValueOrEmptyString()).sorted
       uidList.filter(hasSlices)

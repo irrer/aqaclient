@@ -6,8 +6,8 @@ import edu.umro.ScalaUtil.Trace
 import scala.xml.XML
 
 /**
- * Show what WL data has been migrated to prod and which has not.
- */
+  * Show what WL data has been migrated to prod and which has not.
+  */
 object WLMigrateGuide {
   private def getPatientIdList: Seq[String] = {
     // @formatter:off
@@ -34,7 +34,7 @@ object WLMigrateGuide {
   }
 
   private def hasSlices(seriesUid: String): Boolean = {
-    val sliceUidList = DicomFind.getSliceUIDsInSeries(seriesUid)
+    val sliceUidList = DicomFind.getSliceUIDsInSeries(seriesUid, "NA", "RTIMAGE")
     sliceUidList.nonEmpty
   }
 
@@ -48,7 +48,7 @@ object WLMigrateGuide {
     Thread.sleep(5 * 1000)
     Trace.trace(s"$patientID starting ...")
     val ariaSeriesList = {
-      val ariaList = DicomFind.find("RTIMAGE", patientID)
+      val ariaList = DicomFind.findSeriesForPatientOfModality("RTIMAGE", patientID)
       val attrList = ariaList.map(_.get(TagByName.SeriesInstanceUID))
       val uidList = attrList.map(_.getSingleStringValueOrEmptyString()).sorted
       uidList.filter(hasSlices)
