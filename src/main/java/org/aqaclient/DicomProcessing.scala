@@ -33,12 +33,16 @@ object DicomProcessing extends Logging {
     */
   private def fetchSeries(SeriesInstanceUID: String, PatientID: String, Modality: String): Unit = {
     logger.info(s"fetchSeries  C-MOVE  SeriesInstanceUID: $SeriesInstanceUID    PatientID: $PatientID    Modality: $Modality")
-    DicomMove.get(SeriesInstanceUID, PatientID, Modality) match {
-      case Some(series) =>
-        Series.persist(series)
-        if (series.isViable && series.slicesAreViable) DicomAssembleUpload.update()
-      case _ => ;
+
+    if (!EmptySeries.seriesIsEmpty(SeriesInstanceUID, PatientID, Modality)) { // if no slices in series, then log that fact but otherwise ignore it.
+      DicomMove.get(SeriesInstanceUID, PatientID, Modality) match {
+        case Some(series) =>
+          Series.persist(series)
+          if (series.isViable) DicomAssembleUpload.update()
+        case _ => ;
+      }
     }
+
   }
 
   /**
@@ -57,8 +61,13 @@ object DicomProcessing extends Logging {
 
     def patientIdFilter(al: AttributeList) = (al.get(TagByName.PatientID) != null) && al.get(TagByName.PatientID).getSingleStringValueOrEmptyString().equals(PatientID)
 
-    val serUidList = DicomFind.find(Modality, search).filter(patientIdFilter).flatMap(fal => ClientUtil.getSerUid(fal))
-    val newSerUidList = serUidList.filterNot(serUid => FailedSeries.contains(serUid)).filterNot(serUid => Series.contains(serUid)).filterNot(serUid => Results.containsSeries(PatientID, serUid))
+    val serUidList = DicomFind.findSeriesForPatientOfModality(Modality, search).filter(patientIdFilter).flatMap(fal => ClientUtil.getSerUid(fal))
+
+    val newSerUidList = serUidList. //
+    filterNot(serUid => FailedSeries.contains(serUid)). //
+    filterNot(serUid => Series.contains(serUid)). //
+    filterNot(serUid => Results.containsSeries(PatientID, serUid))
+
     if (newSerUidList.nonEmpty) logger.info(s"fetchDicomOfModality  PatientID: $PatientID    Modality: $Modality    newSerUidList: ${newSerUidList.mkString("\n")}")
     newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID, Modality))
   }

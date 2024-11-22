@@ -16,19 +16,28 @@
 
 package org.aqaclient
 
+case class FailedSeries(SeriesInstanceUID: String) {
+
+  private val timeout = System.currentTimeMillis() + ClientConfig.DicomFailedSeriesTimeout_ms
+
+  private def valid: Boolean = System.currentTimeMillis() < timeout
+}
+
 /**
- * Repository for series that are problematic to fetch via DICOM.
- *
- * There are some series who's UIDs are listed via C-FIND for a
- * patient, but can not be fetched via C-MOVE.  It is useful to
- * keep track of them to avoid retrying to fetch them ad infinitum.
- */
+  * Repository for series that are problematic to fetch via DICOM.
+  *
+  * There are some series who's UIDs are listed via C-FIND for a
+  * patient, but can not be fetched via C-MOVE.  It is useful to
+  * keep track of them to avoid retrying to fetch them ad infinitum.
+  */
 object FailedSeries {
-  private val failedSeries = scala.collection.mutable.HashSet[String]()
+  private val failedSeriesList = scala.collection.mutable.ArrayBuffer[FailedSeries]()
 
   def put(SeriesInstanceUID: String): Unit =
-    failedSeries.synchronized(failedSeries += SeriesInstanceUID)
+    failedSeriesList.synchronized(failedSeriesList += FailedSeries(SeriesInstanceUID))
 
   def contains(SeriesInstanceUID: String): Boolean =
-    failedSeries.synchronized(failedSeries.contains(SeriesInstanceUID))
+    failedSeriesList.synchronized {
+      failedSeriesList.exists(fs => fs.SeriesInstanceUID.equals(SeriesInstanceUID) && fs.valid)
+    }
 }

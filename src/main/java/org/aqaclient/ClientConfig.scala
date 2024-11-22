@@ -39,7 +39,7 @@ object ClientConfig
 
   val rtplanTypeList: Seq[RtplanType] = getRtplanTypeList
 
-  /** Number of minutes into a 24 hour day at which time service should be restarted. */
+  /** Number of minutes into a 24-hour day at which time service should be restarted. */
   val RestartTime: Long = getHourMinuteTime("RestartTime", "3:45")
 
   val GracePeriod_sec: Double = logMainText("GracePeriod_sec").toDouble
@@ -101,9 +101,13 @@ object ClientConfig
   val AMQPBrokerPort: Int = logMainText("AMQPBrokerPort", "5672").toInt
 
   val DICOMRetryCount: Int = logMainText("DICOMRetryCount", "3").toInt
-  val DICOMRetryWait_sec: Double = logMainText("DICOMRetryWait_sec", "1.0").toDouble
+  private val DICOMRetryWait_sec: Double = logMainText("DICOMRetryWait_sec", "1.0").toDouble
+  val DICOMRetryWait_ms: Long = (DICOMRetryWait_sec * 1000).round
   private val DicomTimeout_sec: Double = logMainText("DicomTimeout_sec", "120.0").toDouble
   val DicomTimeout_ms: Long = (DicomTimeout_sec * 1000).round
+
+  private val DicomFailedSeriesTimeout_min = logMainText("DicomFailedSeriesTimeout_min", "15.0").toDouble
+  val DicomFailedSeriesTimeout_ms: Long = (DicomFailedSeriesTimeout_min * 60 * 1000).round
 
   private val ConfirmDicomCompleteInterval_sec: Double = logMainText("ConfirmDicomCompleteInterval_sec", "10.0").toDouble
   val ConfirmDicomCompleteInterval_ms: Long = (ConfirmDicomCompleteInterval_sec * 1000).round

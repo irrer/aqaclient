@@ -19,13 +19,12 @@ package org.aqaclient
 import edu.umro.EventNetClient.EventNetClient
 import edu.umro.EventNetClient.EventNetClientConfig
 import edu.umro.ScalaUtil.PrettyXML
-import edu.umro.ScalaUtil.Trace
 
 import scala.xml.Elem
 
 object SendTestEvent {
 
-  val testEvent: Elem = {
+  private val testEvent: Elem = {
     <EventPlanApproval xmlns="urn:EventPlanApproval">
       <PatientId>MobiusDailyQA</PatientId>
       <DoctorId/>
@@ -52,42 +51,28 @@ object SendTestEvent {
   }
 
   def main(args: Array[String]): Unit = {
-    Trace.trace("starting")
-    Trace.trace("Config validated: " + ClientConfig.validated)
-    Trace.trace
+    println("starting")
+    println("Config validated: " + ClientConfig.validated)
 
-
-    Trace.trace
     val eventNetConfig = new EventNetClientConfig(ClientConfig.AMQPBrokerHost, ClientConfig.AMQPBrokerPort, "gbtopic", "admintopic", "Aria.Event.")
-    Trace.trace
     val eventNetClient = new EventNetClient(eventNetConfig, "SendTestEvent", 10, 10 * 1000)
-    Trace.trace
 
     /** Send an event. */
     def sendEvent(document: Elem): Unit = {
-      Trace.trace
       val routingKey = "Aria.Event." + document.label
-      Trace.trace
       val data = PrettyXML.xmlToText(document).getBytes
-      Trace.trace
       eventNetClient.sendEvent("gbtopic", routingKey, data)
-      Trace.trace
     }
 
-    Trace.trace
-
     Seq(1, 2).foreach(_ => {
-      Trace.trace
       Thread.sleep(1000)
-      Trace.trace
       sendEvent(testEvent)
-      Trace.trace
     })
 
     Thread.sleep(100)
-    Trace.trace("Sleeping ...")
+    println("Sleeping ...")
     Thread.sleep(2 * 1000)
-    Trace.trace("Exiting")
+    println("Exiting")
     System.exit(99)
 
   }

@@ -36,39 +36,39 @@
     -->
 
     <!-- VMSDBD PRODUCTION -->
+    <!--
     <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
     <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
+    -->
 
     <!-- Jim's Conquest server. -->
-    <!--
     <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
     <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
-    -->
 
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
-    <PollInterval_sec>20</PollInterval_sec>
+    <PollInterval_sec>30</PollInterval_sec>
 
     <!-- List of polling intervals.  When polling the DICOM source (usually ARIA), look at the date of
     the patient's most recent file.  If it is newer than 'age_day', then that patient will be polled
     every 'poll_sec' seconds.
     -->
     <PollIntervalList>
-        <PollInterval  poll_sec= "20.0"  age_day =   "5.0"/>  <!-- Meant for daily processing. -->
+        <PollInterval  poll_sec= "15.0"  age_day =   "5.0"/>  <!-- Meant for daily processing. -->
         <PollInterval  poll_sec= "60.0"  age_day =  "64.0"/>  <!-- Just over two months for monthly QA. -->
         <PollInterval  poll_sec="120.0"  age_day = "190.0"/>  <!-- Just over a half a year. -->
         <PollInterval  poll_sec="300.0"  age_day = "380.0"/>  <!-- Just over a year.  Probably means that the patient is totally inactive. -->
     </PollIntervalList>
     
     <!-- Timeout (in seconds as a floating point) to wait before timing out for a failed HTTPS GET operation. Default 60.0 seconds. -->
-    <HttpsGetTimeout_sec>10.0</HttpsGetTimeout_sec>
+    <HttpsGetTimeout_sec>60.0</HttpsGetTimeout_sec>
 
     <!-- Timeout (in seconds as a floating point) to wait before retrying a failed HTTPS operation. Default 10.0 seconds. -->
     <HttpsRetryTimeout_sec>10.0</HttpsRetryTimeout_sec>
 
 
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
-    <HttpsUploadTimeout_sec>200.0</HttpsUploadTimeout_sec>
+    <HttpsUploadTimeout_sec>240.0</HttpsUploadTimeout_sec>
 
     <!-- After initial upload attempt has been made, if the upload fails, then retry this many times.  A value of 0 means that
    the upload will only be attempted once and no retries will be done.  Positive integer value defaults to 0. -->
@@ -145,34 +145,34 @@
     <!-- Maximum data age to be considered relevant.  Maximum age of data as a floating point number in
     days for it to be uploaded to  the server.  If the data is older than this many days, it will not be
     uploaded.  If this values is not specified then all data will be uploaded, regardless of how old it is.  -->
-    <MaximumDataAge_day>8.0</MaximumDataAge_day>
+    <MaximumDataAge_day>31.0</MaximumDataAge_day>
     
     <!-- Maximum data age to keep DICOM files stored locally in a file cache.  The term 'data age' refers to the time
     since the DICOM was captured.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days. -->
-    <MaximumDICOMCacheDataAge_day>30.0</MaximumDICOMCacheDataAge_day>
+    <MaximumDICOMCacheDataAge_day>36600.0</MaximumDICOMCacheDataAge_day>
     
     <!-- Maximum file age to keep DICOM files stored locally in a file cache.  The term 'file age' refers to the time
     stamp of the DICOM file, regardless of when the DICOM was first created.  Keeping files for some time period is
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days.  -->
-    <MaximumDICOMCacheFileAge_day>60.0</MaximumDICOMCacheFileAge_day>
+    <MaximumDICOMCacheFileAge_day>36600.0</MaximumDICOMCacheFileAge_day>
 
     <!-- Number of days to keep temporary zip files.  These are created as a prelude to performing an upload.
     Floating point number in days.  Default 14. -->
-    <MaximumTemporaryZipFileAge_day>7.0</MaximumTemporaryZipFileAge_day>
+    <MaximumTemporaryZipFileAge_day>14.0</MaximumTemporaryZipFileAge_day>
 
     <!-- Time of day as hours and minutes (HH:MM) that program will restart
     itself. This is done to avoid errors that build up over time.  The time is
     formatted as a 24-hour clock, so 23:00 is eleven PM. -->
-    <RestartTime>4:15</RestartTime>
+    <RestartTime>3:30</RestartTime>
     
     <!-- Amount of time as a floating point number in seconds to wait after uploading files to the AQA server.  After
     uploading files, the AQA server needs to save the DICOM files, which can take a few seconds.  After that, queries
     made to get the list of processed series will include those just uploaded.  This delay also functions to avoid
     overloading the AQA server.   This value gets resolved to the nearest millisecond. -->
-    <GracePeriod_sec>10.0</GracePeriod_sec>
+    <GracePeriod_sec>15.0</GracePeriod_sec>
     
     <!-- Amount of time as a floating point number in seconds to wait between tries to confirm that more DICOM slices
     have not been received by the PACS. -->
@@ -190,7 +190,7 @@
     <!-- Amount of time as a floating point number in seconds that limits how old the PatientProcedure
     list may get before it is refreshed from the server.   In other words, if there is a change in the
     PatientProcedure list on the server, it may take this long before the client reads it. -->
-    <PatientProcedureAgeLimit_sec>300.0</PatientProcedureAgeLimit_sec>
+    <PatientProcedureAgeLimit_sec>60.0</PatientProcedureAgeLimit_sec>
 
     <!-- Polling interval for checking for new machine log files. Floating point in minutes. Default is 60 minutes. -->
     <MachineLogPollingInterval_min>0.5</MachineLogPollingInterval_min>

@@ -70,7 +70,7 @@ object Results extends Logging {
     *
     * @return Result text or None.
     */
-  def getHttpTextFromServer(patientId: String): Option[String] = {
+  private def getHttpTextFromServer(patientId: String): Option[String] = {
     val url = ClientConfig.AQAURL + "/GetSeries?PatientID=" + patientId
     logger.info("Getting list of series for PatientID " + patientId)
 
@@ -165,6 +165,7 @@ object Results extends Logging {
     * background so that it will be ready when needed.
     */
   def refreshPatient(patientId: String): Unit = {
+    Thread.sleep(100) // stagger the searches
     Future {
       updatePatient(patientId, timeoutGet)
     }
@@ -293,6 +294,7 @@ object Results extends Logging {
     */
   def refreshAll(): Unit = {
     PatientProcedure.patientIdList.foreach(p => refreshPatient(p))
+    Sent.removeIrrelevantRecords() // if there are any new results, then they can be removed from the <code>Sent</code> list.
   }
 
   /**

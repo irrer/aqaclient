@@ -2,12 +2,27 @@ package org.aqaclient
 
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import java.text.SimpleDateFormat
 import scala.xml.Node
 import scala.xml.XML
+
+/*
+ * Copyright 2024 Regents of the University of Michigan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 object MachineLog extends Logging {
 
@@ -45,7 +60,7 @@ object MachineLog extends Logging {
   }
 
   /**
-    * Interpret one machine log file from the I:\ drive.
+    * Interpret one machine log file from I:\ drive.
     *
     * @param file Varian generated file.
     */
@@ -121,7 +136,7 @@ object MachineLog extends Logging {
   }
 
   /**
-    * Get all of the DeviceSerialNumber+date values that the server has.
+    * Get all the DeviceSerialNumber+date values that the server has.
     *
     * @return List of what the server has.  If the attempt to get the list fails, then return None.
     */
@@ -221,14 +236,14 @@ object MachineLog extends Logging {
     */
   def main(args: Array[String]): Unit = {
     ClientConfig.validate
-    Trace.trace("Starting")
+    println("Starting")
 
     if (false) {
       val srvList = readFromServer()
       if (srvList.isEmpty)
-        Trace.trace("unable to get list of server log")
+        println("unable to get list of server log")
       else
-        Trace.trace(s"Number of machines: ${srvList.size}   Number of log entries: ${srvList.get.flatMap(_.dateSet).size}")
+        println(s"Number of machines: ${srvList.size}   Number of log entries: ${srvList.get.flatMap(_.dateSet).size}")
     }
 
     Series.init()
@@ -240,11 +255,11 @@ object MachineLog extends Logging {
       Thread.sleep(500)
       init()
 
-      Trace.trace("Done but for sleeping.")
+      println("Done but for sleeping.")
       Thread.sleep(1000000 * 60 * 1000)
     }
 
-    Trace.trace("Done")
+    println("Done")
     System.exit(99)
 
   }

@@ -3,55 +3,33 @@
 
     <!-- Directory containing data files.  Try them in order until one works. -->
     <DataDirList>
-        <DataDir>D:\Program Files\UMRO\AQAClient\data</DataDir>
         <DataDir>E:\Program Files\UMRO\AQAClient\data</DataDir>
+        <DataDir>D:\Program Files\UMRO\AQAClient\data</DataDir>
         <DataDir>C:\Program Files\UMRO\AQAClient\data</DataDir>
     </DataDirList>
 
-    <!--
-    DICOMClient is the identity of the AQAClient.
-    DICOMSource is the PACS or treatment planning system (e.g. Varian) where DICOM files are retrieved from.
+    <!-- PACS connection settings for this service. -->
+    <!-- <DICOMClient AETitle='WLQA_TEST' Host='141.214.125.209' Port='15678' /> -->
+	<!-- <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' /> -->
+    <DICOMClient AETitle='AQACLIENT_PR' Host='uhroappwebspr1.umhs.med.umich.edu' Port='14567' />
+    <!-- <DICOMClient AETitle='AQACLIENT_DV' Host='uhroappwebsdv1' Port='14567' /> -->
 
-    Both must be set up so that the PACS will recognize the AQAClient.
-
-    The pairs below are various possible configurations, but only one can be active at a time.
-    -->
-
-    <!-- VMSDBD TEST -->
-    <!--
-    <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
-    <DICOMSource AETitle='VMSDBD'         Host='10.30.65.100'    Port='105'   />
-    -->
-
-    <!-- VMSDBD TEST -->
-    <!--
-    <DICOMClient AETitle='IRRER_TEST'     Host='141.214.125.209' Port='5662'  />
-    <DICOMSource AETitle='VMSDBD'         Host='uhroariasts1'    Port='105'   />
-    -->
-
-    <!-- VMSDBD PRODUCTION -->
-    <!--
-    <DICOMClient AETitle='IRRER_CLINICAL' Host='141.214.125.209' Port='5660'  />
-    <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
-    -->
-
-    <!-- VMSDBD PRODUCTION -->
-    <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
-    <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
-
-    <!-- Jim's Conquest server. -->
-    <!--
-    <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
-    <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
-    -->
-
+    <!-- Get DICOM files from here. -->
+    <!-- <DICOMSource AETitle='VMSDBD' Host='VMSDBD' Port='105' /> -->
+    <!-- <DICOMSource AETitle='IRRER' Host='141.214.125.209' Port='15678' /> -->
+    <DICOMSource AETitle='VMSDBD' Host='10.30.65.100' Port='105' />
+          
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
     <PollInterval_sec>20</PollInterval_sec>
-
+    
+    
     <!-- List of polling intervals.  When polling the DICOM source (usually ARIA), look at the date of
     the patient's most recent file.  If it is newer than 'age_day', then that patient will be polled
-    every 'poll_sec' seconds.
+    every 'poll_sec' seconds.  If a patient has no files, then they will be polled at the slowest rate.
+
+    The point of having multiple polling rates is to reduce resource consumption.  This can especially
+    be a problem when test patient fall out of use but are still on the polling list.
     -->
     <PollIntervalList>
         <PollInterval  poll_sec= "20.0"  age_day =   "5.0"/>  <!-- Meant for daily processing. -->
@@ -60,19 +38,39 @@
         <PollInterval  poll_sec="300.0"  age_day = "380.0"/>  <!-- Just over a year.  Probably means that the patient is totally inactive. -->
     </PollIntervalList>
     
-    <!-- Timeout (in seconds as a floating point) to wait before timing out for a failed HTTPS GET operation. Default 60.0 seconds. -->
+    <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS GET operation. Default 60.0 seconds. -->
     <HttpsGetTimeout_sec>10.0</HttpsGetTimeout_sec>
-
+    
     <!-- Timeout (in seconds as a floating point) to wait before retrying a failed HTTPS operation. Default 10.0 seconds. -->
     <HttpsRetryTimeout_sec>10.0</HttpsRetryTimeout_sec>
-
-
-    <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
+    
+    <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload. -->
     <HttpsUploadTimeout_sec>200.0</HttpsUploadTimeout_sec>
 
     <!-- After initial upload attempt has been made, if the upload fails, then retry this many times.  A value of 0 means that
-   the upload will only be attempted once and no retries will be done.  Positive integer value defaults to 0. -->
+    the upload will only be attempted once and no retries will be done.  Positive integer value defaults to 0. -->
     <MaxUploadRetryCount>0</MaxUploadRetryCount>
+    
+    <!-- Port number for the HTTPS service.   Port 443 is the default for HTTPS.
+    If this is missing then the server will use port 443.  The reason to use a non-standard
+    port is that the standard one is already taken on the host machine. -->
+    <!-- <HTTPSPort>9443</HTTPSPort> -->
+
+    <!-- Location of file that contains Java Key Store for HTTPS.  If multiple names are given, then they are
+    each tried in the order given until a readable file is found. -->
+    <!--
+    <JavaKeyStoreFileList>
+        <JavaKeyStoreFile>keystore.jks</JavaKeyStoreFile>
+        <JavaKeyStoreFile>E:\Program Files\UMRO\keystore.jks</JavaKeyStoreFile>
+        <JavaKeyStoreFile>C:\Program Files\UMRO\keystore.jks</JavaKeyStoreFile>
+        <JavaKeyStoreFile>src\main\resources\keystore.jks</JavaKeyStoreFile>
+    </JavaKeyStoreFileList>
+    -->
+
+    <!-- The password to access the Java Key Store file. -->
+    <JavaKeyStorePassword>9c067233b07c7b04025989a197fad9b12cf4c19006678e2b18b121289bd1635a2d395a603122a6e6
+    </JavaKeyStorePassword> <!-- rodicom11dev -->
+    <!-- <JavaKeyStorePassword>44d18166c66bed60b6394e6625c63dea713dbe465ddc960a7cd109514bc0d2bd</JavaKeyStorePassword> -->     <!-- irrer -->
 
     <!-- Keywords in RTPLAN label that identify the type of plan.  When an RTPLAN is found, its RTPlanLabel (DICOM attribute tag 300A,0002 )
     is searched for the keyword.  If found somewhere in that string (case insensitive), then it is considered that type of plan.  The
@@ -110,9 +108,7 @@
     .cer suffix.  This service supports both.   Different browsers interface 
     will vary.
        -->
-    <AQAURL>https://localhost:9443</AQAURL><!--  -->
-    <!-- <AQAURL>https://uhroappwebsdv1.umhs.med.umich.edu:8111</AQAURL> -->
-    <!-- <AQAURL>https://uhroappwebspr1.umhs.med.umich.edu:8111</AQAURL> -->
+    <AQAURL>https://uhroappwebspr1.umhs.med.umich.edu:8111</AQAURL>
 
     <!-- Log into AQA with this user ID. -->
     <AQAUser>adminUMich</AQAUser>
@@ -129,23 +125,18 @@
     <AMQPBrokerPort>5672</AMQPBrokerPort>
 
     <!-- If a C-MOVE transfer gets the wrong number of slices (predicted by C-FIND), retry this many times. -->
-    <DICOMRetryCount>3</DICOMRetryCount>
-
+    <DICOMRetryCount>5</DICOMRetryCount>
+  
     <!-- If a C-MOVE transfer fails, wait this long (floating point in seconds) before retrying. -->
     <DICOMRetryWait_sec>1.0</DICOMRetryWait_sec>
 
     <!-- For DICOM C-MOVEs or C-FINDs, do not wait any longer than this to acquire the semaphore to use the connection.-->
     <DicomTimeout_sec>60.0</DicomTimeout_sec>
 
-    <!-- For DICOM C-MOVE, if the operation fails, wait this long before attempting to C-MOVE that
-    series again.  Sometimes Varian will lock a patient if they are being treated, and failure take
-    a long time because of the timeouts.  Default is 15 minutes.-->
-    <DicomFailedSeriesTimeout_min>15.0</DicomFailedSeriesTimeout_min>
-
     <!-- Maximum data age to be considered relevant.  Maximum age of data as a floating point number in
     days for it to be uploaded to  the server.  If the data is older than this many days, it will not be
     uploaded.  If this values is not specified then all data will be uploaded, regardless of how old it is.  -->
-    <MaximumDataAge_day>8.0</MaximumDataAge_day>
+    <MaximumDataAge_day>5.0</MaximumDataAge_day>
     
     <!-- Maximum data age to keep DICOM files stored locally in a file cache.  The term 'data age' refers to the time
     since the DICOM was captured.  Keeping files for some time period is
@@ -158,14 +149,14 @@
     mostly an aid for debugging.  Minimizing the number of files minimizes storage space requirements.
     Specified as a floating point number in days.  -->
     <MaximumDICOMCacheFileAge_day>60.0</MaximumDICOMCacheFileAge_day>
-
+    
     <!-- Number of days to keep temporary zip files.  These are created as a prelude to performing an upload.
     Floating point number in days.  Default 14. -->
     <MaximumTemporaryZipFileAge_day>7.0</MaximumTemporaryZipFileAge_day>
-
+    
     <!-- Time of day as hours and minutes (HH:MM) that program will restart
     itself. This is done to avoid errors that build up over time.  The time is
-    formatted as a 24-hour clock, so 23:00 is eleven PM. -->
+    formatted as a 24 hour clock, so 23:00 is eleven PM. -->
     <RestartTime>4:15</RestartTime>
     
     <!-- Amount of time as a floating point number in seconds to wait after uploading files to the AQA server.  After
@@ -178,27 +169,15 @@
     have not been received by the PACS. -->
     <!-- <ConfirmDicomCompleteInterval_sec>10.0</ConfirmDicomCompleteInterval_sec> -->
     <ConfirmDicomCompleteInterval_sec>15.0</ConfirmDicomCompleteInterval_sec>
-
+    
     <!-- Amount of time as a floating point number in seconds to wait before assuming that all DICOM slices
     have been received by the PACS. -->
     <ConfirmDicomCompleteTimeout_sec>3600.0</ConfirmDicomCompleteTimeout_sec>
-
-    <!-- Interval in floating point minutes that dictates how frequently the list of Procedure Results should
-    be updated.  Defaults to 60.0 . -->
-    <ResultsRefreshInterval_min>1.0</ResultsRefreshInterval_min>
 
     <!-- Amount of time as a floating point number in seconds that limits how old the PatientProcedure
     list may get before it is refreshed from the server.   In other words, if there is a change in the
     PatientProcedure list on the server, it may take this long before the client reads it. -->
     <PatientProcedureAgeLimit_sec>300.0</PatientProcedureAgeLimit_sec>
-
-    <!-- Polling interval for checking for new machine log files. Floating point in minutes. Default is 60 minutes. -->
-    <MachineLogPollingInterval_min>0.5</MachineLogPollingInterval_min>
-
-    <!-- List of directories to scan for machine log files. -->
-    <MachineLogDirList>
-      <MachineLogDir>D:\tmp\aqa\MachineLogs\test</MachineLogDir>
-    </MachineLogDirList>
 
     <!-- When performing a C-FIND on Varian's VMSDBD service, there can be a problem where using the PatientID does not
     work.  For example, using 'BR1_OBI_QA_2023_Q1' will return nothing.  This seems to happen _mostly_ when the PatientID
@@ -216,5 +195,19 @@
     <PatientIDCFindPatternMap>
       <PatientIDCFindPattern PatientID="BR1_OBI_QA_2023_Q1" pattern="*R1_OBI_QA_2023_*"/>
     </PatientIDCFindPatternMap>
+
+    <!-- Machines must have one of these DeviceSerialNumbers otherwise they will not be uploaded to the AQA server. -->
+    <ValidDeviceSerialNumberList>
+        <ValidDeviceSerialNumber>3068</ValidDeviceSerialNumber>
+        <ValidDeviceSerialNumber>1039</ValidDeviceSerialNumber>
+        <ValidDeviceSerialNumber>4471</ValidDeviceSerialNumber>
+        <ValidDeviceSerialNumber>3340</ValidDeviceSerialNumber>
+        <ValidDeviceSerialNumber>2448</ValidDeviceSerialNumber>
+        <ValidDeviceSerialNumber>3526</ValidDeviceSerialNumber>
+        <ValidDeviceSerialNumber>3525</ValidDeviceSerialNumber>
+    </ValidDeviceSerialNumberList>
+
+    <!-- If true, process old Winston Lutz data.   This will be deprecated when old Winston Lutz data has been migrated.-->
+    <ProcessOldWL>false</ProcessOldWL>
 
 </AQAClientConfig>

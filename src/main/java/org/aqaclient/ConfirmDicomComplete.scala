@@ -19,7 +19,6 @@ package org.aqaclient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
-import edu.umro.ScalaUtil.Trace
 
 import java.io.File
 import java.util.Date
@@ -43,34 +42,6 @@ object ConfirmDicomComplete extends Logging {
       if (size.isDefined) size.get
       else ClientUtil.listFiles(uploadSet.imageSeries.dir).size
     }
-
-    /*
-    private def regToXml: Option[Elem] = {
-      try {
-        if (uploadSet.reg.isDefined)
-          Some(<Reg>
-            {uploadSet.reg.get.SeriesInstanceUID}
-          </Reg>)
-        else
-          None
-      } catch {
-        case _: Throwable => None
-      }
-    }
-
-    private def planToXml: Option[Elem] = {
-      try {
-        if (uploadSet.plan.isDefined)
-          Some(<Plan>
-            {uploadSet.plan.get.SeriesInstanceUID}
-          </Plan>)
-        else
-          None
-      } catch {
-        case _: Throwable => None
-      }
-    }
-    */
 
     /**
      * Format the upload as XML.  Some fields are not used programmatically, but are
@@ -107,9 +78,15 @@ object ConfirmDicomComplete extends Logging {
 
     val timeout = new Date(ClientConfig.ConfirmDicomCompleteTimeout_ms + InitialUploadTime.getTime)
 
-    def msRemaining: Long = timeout.getTime - System.currentTimeMillis
+    def msRemaining: Long = {
+      val r = timeout.getTime - System.currentTimeMillis
+      r
+    }
 
-    def isActive: Boolean = msRemaining > 0
+    def isActive: Boolean = {
+      val r = msRemaining > 0
+      r
+    }
 
     def terminate(): Unit = {
       file.delete
@@ -118,6 +95,10 @@ object ConfirmDicomComplete extends Logging {
       }
       else
         logger.info("Completed confirmation of DICOM upload and have deleted " + file.getAbsolutePath)
+    }
+
+    override def toString: String = {
+      s"${uploadSet.procedure} | ${uploadSet.imageSeries.PatientID} | ${uploadSet.imageSeries.Modality} | ${uploadSet.imageSeries.seriesDateTime}  File: $fileName"
     }
   }
 
@@ -156,8 +137,12 @@ object ConfirmDicomComplete extends Logging {
 
     val waitTime_ms = {
       val elapsed = System.currentTimeMillis() - confirmState.InitialUploadTime.getTime
-      Math.max(elapsed * 0.2, ClientConfig.ConfirmDicomCompleteInterval_ms).round
+      if (elapsed > ClientConfig.ConfirmDicomCompleteTimeout_ms)
+        10 // This is an old one, so do it right now.
+      else
+        Math.max(elapsed * 0.2, ClientConfig.ConfirmDicomCompleteInterval_ms).round
     }
+
     logger.info(
       "Before sleep.  Monitoring DICOM upload with timeout at: " + confirmState.timeout +
         "    time remaining: " + timeRemaining +
@@ -168,7 +153,11 @@ object ConfirmDicomComplete extends Logging {
     Thread.sleep(waitTime_ms)
 
     logger.info("After sleep. Monitoring DICOM upload with timeout at: " + confirmState.timeout + "    time remaining: " + timeRemaining + " for " + confirmState.file.getAbsolutePath)
-    val newSize = DicomFind.getSliceUIDsInSeries(confirmState.uploadSet.imageSeries.SeriesInstanceUID).size
+    val newSize = {
+      val imageSeries = confirmState.uploadSet.imageSeries
+      DicomFind.getSliceUIDsInSeries(imageSeries.SeriesInstanceUID, imageSeries.PatientID, imageSeries.Modality.toString).size
+    }
+
 
     // if the number of slices changed, then redo upload.
     if (newSize != confirmState.imageSeriesSize) {
@@ -221,7 +210,7 @@ object ConfirmDicomComplete extends Logging {
   private def readConfirmFromFile(xmlFile: File): Option[ConfirmState] = {
     try {
       logger.info("Reading confirm file " + xmlFile.getAbsolutePath)
-      logger.info("Confirm file contents:\n" + FileUtil.readTextFile(xmlFile).right.get)
+      // logger.info("Confirm file contents:\n" + FileUtil.readTextFile(xmlFile).right.get)
       val xml = XML.loadFile(xmlFile)
 
       val InitialUploadTime = Series.xmlDateFormat.parse((xml \ "InitialUploadTime").head.text.trim)
@@ -229,21 +218,13 @@ object ConfirmDicomComplete extends Logging {
 
       val uploadSet = DicomAssembleUpload.UploadSetDicomCMoveFromXml((xml \ "UploadSet").head)
       val confirmState = ConfirmState(uploadSet, InitialUploadTime, Some(imageSeriesSize))
+      logger.info(s"Reinstantiated $confirmState")
       Some(confirmState)
     } catch {
       case t: Throwable =>
         logger.error("Unexpected error reading ConfirmDicomComplete file: " + xmlFile.getAbsolutePath + " : " + fmtEx(t))
         None
     }
-  }
-
-  /**
-   * Get the list of active patient IDs in the confirm list.
-   *
-   * @return List of active patient IDs in the confirm list.
-   */
-  def getActivePatientIDList: Seq[String] = {
-    ClientUtil.listFiles(ClientConfig.confirmDicomCompleteDir).flatMap(readConfirmFromFile).filter(_.isActive).map(_.uploadSet.imageSeries.PatientID)
   }
 
   private case class FileConfirm(xmlFile: File, confirm: Option[ConfirmState]) {}
@@ -294,7 +275,7 @@ object ConfirmDicomComplete extends Logging {
     }
 
     val deletedList = listOfRedundantConfirmFiles.map(deleteFC)
-    val confirmedDeleted: Int = deletedList.filter(del => del).size
+    val confirmedDeleted: Int = deletedList.count(del => del)
     logger.warn(s"Total number of redundant confirm files found: ${deletedList.size}.  Number of redundant confirm files deleted: $confirmedDeleted")
   }
 
@@ -319,23 +300,14 @@ object ConfirmDicomComplete extends Logging {
 
     val path = ClientConfig.confirmDicomCompleteDir.getAbsolutePath
     logger.info(s"Number of active confirm files found in $path : ${listOfActiveConfirmFiles.size}")
-    listOfActiveConfirmFiles.map(c => Future {
-      monitor(c)
+
+    listOfActiveConfirmFiles.map(c => {
+      Thread.sleep(1000) // stagger the start times so we don't hammer the PACS.  There also seems to be a problem with hammering the 'synchronized' in the DicomSemaphore.
+      Future {
+        logger.info(s"Resuming confirm complete for $c")
+        monitor(c)
+      }
     })
-  }
-
-  def main(args: Array[String]): Unit = {
-    ClientConfig.validate
-    Series.init()
-    Trace.trace("\n\n\n\n\n\n\n\n========================================================================================================")
-    val file = new File(
-      """\\hitspr\e$\Program Files\UMRO\AQAClient\data\ConfirmDicomComplete_02\_TB1_OBI_2020Q4_RTIMAGE_2021-01-15T06-53-58.000_BB_by_EPID_0.1_1.2.246.352.62.2.5229743215016869714.9802715499277461632.xml""".stripMargin
-    )
-    val fc = readConfirmFromFile(new File("""D:\tmp\gapskew\baddy\2024-10-20T04-53-50-933.xml"""))
-
-    Trace.trace(fc)
-
-    Trace.trace("done")
   }
 
 }

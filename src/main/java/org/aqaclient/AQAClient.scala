@@ -40,7 +40,6 @@ object AQAClient extends Logging {
       val msg = "AQAClient starting at " + ClientUtil.timeHumanFriendly(new Date(serviceStartTime))
       println(msg)
       logger.info(msg)
-      //Util.showJarFile(this)
 
       if (ClientConfig.validate) {
         logger.info("Validated configuration")
@@ -52,6 +51,8 @@ object AQAClient extends Logging {
         logger.info("Initialized PatientProcedure list")
         Results.init()
         logger.info("Initialized Results repository")
+        Sent.init()
+        logger.info("Initialized Sent list")
         Series.init()
         logger.info("Initialized Series repository")
         DicomProcessing.init()
@@ -62,8 +63,6 @@ object AQAClient extends Logging {
         logger.info("Initialized EventReceiver")
         ConfirmDicomComplete.init()
         logger.info("Initialized ConfirmDicomComplete")
-        new ClientWebServer
-        logger.info("Initialized ClientWebServer")
         MachineLog.init()
         logger.info("Initialized MachineLog")
         new PeriodicRestart(ClientConfig.RestartTime)
@@ -76,7 +75,7 @@ object AQAClient extends Logging {
       //
       // If there is a problem, catch and log the error, delay, and then exit with a failed status.  The
       // failed status will tell the service wrapper to restart the service.  The delay is there in the
-      // event that this service behaves badly and keeps exiting when started, an keeps the service from
+      // event that this service behaves badly and keeps exiting when started, and keeps the service from
       // using excessive resources.
       case e: Exception =>
         logger.error("Unexpected exception in main: " + fmtEx(e))

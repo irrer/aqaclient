@@ -33,7 +33,7 @@ class PatientProcedure(node: Node) extends Logging {
 /**
   * CRUD interface for the list of patient IDs used for fetching DICOM files.
   *
-  * Currently the only read access.
+  * Currently, the only read access.
   */
 
 object PatientProcedure extends Logging {
@@ -91,7 +91,6 @@ object PatientProcedure extends Logging {
     */
   def populateFromText(text: String): Unit = {
     val node = XML.loadString(text)
-    // Trace.trace("populateFromText:\n" + text)
     val list = (node \ "PatientProcedure").map(n => new PatientProcedure(n))
     patientProcedureList.synchronized {
       patientProcedureList.clear()

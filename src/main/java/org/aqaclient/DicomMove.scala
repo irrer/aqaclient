@@ -16,20 +16,17 @@
 
 package org.aqaclient
 
-import com.pixelmed.dicom.AttributeFactory
 import com.pixelmed.dicom.AttributeList
-import com.pixelmed.dicom.AttributeTag
-import com.pixelmed.network.ReceivedObjectHandler
-import edu.umro.ScalaUtil.DicomCFind
-import edu.umro.ScalaUtil.DicomReceiver
 import edu.umro.ScalaUtil.Logging
 import edu.umro.util.Utility
 import edu.umro.DicomDict.TagByName
 import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
+import edu.umro.ScalaUtil.dicomCMove.CMoveResult
+import edu.umro.ScalaUtil.dicomCMove.DicomCMoveGetter
+import edu.umro.ScalaUtil.dicomCMove.DicomCMoveReceiver
 
 import java.io.File
-import java.util.Date
 import scala.annotation.tailrec
 
 /**
@@ -43,130 +40,22 @@ object DicomMove extends Logging {
   /** Parent dir that contains subdirectories used for DICOM C-MOVEs. */
   private val transferParentDir = new File(ClientConfig.seriesDir, transferParentDirName)
 
-  /**
-    * Create a directory for the C-MOVE of a single DICOM series.  The directory will
-    * only live until it is moved to its final resting place.
-    *
-    * @param SeriesInstanceUID Series to get.
-    * @param PatientID Patient ID to make good name for dir.
-    * @param Modality DICOM modality to make good name for dir.
-    * @return New directory (created).
-    */
-  @tailrec
-  private def makeTransferDir(SeriesInstanceUID: String, PatientID: String, Modality: String): File = {
-    val name = {
-      val t = ClientUtil.timeAsFileNameFormat.format(new Date) + "_" + PatientID + "_" + Modality + "_" + SeriesInstanceUID
-      FileUtil.replaceInvalidFileNameCharacters(t, '_').replace(' ', '_').replaceAll("_+", "_")
-    }
+  private var dicomCMoveReceiver: Option[DicomCMoveReceiver] = None
 
-    val dir = new File(transferParentDir, name)
-    if (dir.isDirectory) {
-      logger.warn("Unexpected condition where temporary directory already exists, but handling it: " + dir.getAbsolutePath)
-      Thread.sleep(100)
-      makeTransferDir(SeriesInstanceUID, PatientID, Modality)
-    } else {
-      dir.mkdir()
-      logger.info("Created temporary dir: " + dir.getAbsolutePath)
-      dir
+  private def getDicomCMoveReceiver: DicomCMoveReceiver = {
+    if (dicomCMoveReceiver.isEmpty) {
+      transferParentDir.mkdirs()
+      dicomCMoveReceiver = Some(DicomCMoveReceiver(transferParentDir, ClientConfig.DICOMClient))
     }
+    dicomCMoveReceiver.get
   }
 
-  private class MyReceivedObjectHandler extends ReceivedObjectHandler {
-    override def sendReceivedObjectIndication(fileName: String, transferSyntax: String, callingAETitle: String): Unit = {
-      logger.info("Received file " + fileName)
-    }
-  }
+  private var dicomCMoveGetter: Option[DicomCMoveGetter] = None
 
-  private lazy val dicomReceiver = {
-    logger.info("Starting DicomReceiver ...")
-    val dr = new DicomReceiver(transferParentDir, ClientConfig.DICOMClient, new MyReceivedObjectHandler)
-    logger.info("Started DicomReceiver.  This DICOM connection: " + ClientConfig.DICOMClient)
-    dr
-  }
-
-  /**
-    * Get a list of the SOPInstanceUIDs of the series via C-FIND
-    */
-  private def getSliceList(SeriesInstanceUID: String): Seq[String] = {
-    try {
-      val al = new AttributeList
-      val ser = AttributeFactory.newAttribute(TagByName.SeriesInstanceUID)
-      ser.addValue(SeriesInstanceUID)
-      al.put(ser)
-      val sop = AttributeFactory.newAttribute(TagByName.SOPInstanceUID)
-      al.put(sop)
-
-      val alList = DicomCFind.cfind(
-        ClientConfig.DICOMClient.aeTitle,
-        ClientConfig.DICOMSource,
-        al,
-        DicomCFind.QueryRetrieveLevel.IMAGE,
-        None,
-        DicomCFind.QueryRetrieveInformationModel.StudyRoot
-      )
-
-      def gg(al: AttributeList) = {
-        val s = al.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString
-        s
-      }
-
-      //val sopList: scala.collection.immutable.Seq[String] = alList.map(s => gg(s)).asInstanceOf[scala.collection.immutable.Seq[String]]
-      val sopList = alList.map(s => gg(s))
-      logger.info("SeriesSeriesInstanceUID C-FIND found " + sopList.size + " slices for SeriesInstanceUID " + SeriesInstanceUID)
-      sopList
-    } catch {
-      case t: Throwable =>
-        logger.error("Could not get list of slices for Series UID " + SeriesInstanceUID + " : " + fmtEx(t))
-        Seq[String]()
-    }
-  }
-
-  /**
-    * Attempt to get an entire series with one DICOM C-MOVE.
-    *
-    * This should always work, but it seems that the Varian VMSDBD daemon sometimes only
-    * sends a partial list of files.
-    */
-  private def performCMove(SeriesInstanceUID: String, description: String, PatientID: String, Modality: String): Seq[AttributeList] = {
-    val specification = new AttributeList
-
-    val transferDir = makeTransferDir(SeriesInstanceUID, PatientID, Modality)
-
-    def addAttr(tag: AttributeTag, value: String): Unit = {
-      val a = AttributeFactory.newAttribute(tag)
-      a.addValue(value)
-      specification.put(a)
-    }
-
-    addAttr(TagByName.QueryRetrieveLevel, "SERIES")
-    addAttr(TagByName.SeriesInstanceUID, SeriesInstanceUID)
-
-    ClientUtil.listFiles(transferDir).foreach(ClientUtil.deleteFile) // delete all files in transfer directory
-    // Utility.deleteFileTree(dicomReceiver.setSubDir(transferDir.getName))
-    dicomReceiver.setSubDir(transferDir.getName)
-
-    val start = System.currentTimeMillis()
-    dicomReceiver.cmove(specification, ClientConfig.DICOMSource, ClientConfig.DICOMClient)
-    val elapsed = System.currentTimeMillis() - start
-
-    val alList = {
-      def seriesMatches(al: AttributeList): Boolean = {
-        ClientUtil.getSerUid(al) match {
-          case Some(serUid) => serUid.equals(SeriesInstanceUID)
-          case _            => false
-        }
-      }
-
-      val list = ClientUtil.listFiles(transferDir).map(ClientUtil.readDicomFile).filter(_.isRight).map(_.right.get)
-      list.filter(seriesMatches)
-    }
-
-    val size = alList.size
-    val msPerFile = (elapsed.toDouble / size).formatted("%10.3f").trim
-
-    logger.info(s"Successfully performed DICOM C-MOVE   $description  ${transferDir.getName}    Number of files: $size    ms per file: $msPerFile     Elapsed ms: $elapsed")
-
-    alList
+  private def getDicomCMoveGetter: DicomCMoveGetter = {
+    if (dicomCMoveGetter.isEmpty)
+      dicomCMoveGetter = Some(new DicomCMoveGetter(ClientConfig.DICOMSource, getDicomCMoveReceiver))
+    dicomCMoveGetter.get
   }
 
   /**
@@ -178,7 +67,7 @@ object DicomMove extends Logging {
     * @return List of slices that seems to be final (no more coming).
     */
   @tailrec
-  private def getCredibleSliceList(SeriesInstanceUID: String, history: Seq[Seq[String]] = Seq()): Seq[String] = {
+  private def getCredibleSliceList(SeriesInstanceUID: String, PatientID: String, Modality: String, history: Seq[Seq[String]] = Seq()): Seq[String] = {
     // At least this many C-FINDS must return the same result before we believe it.
     val minAttempts = 3
 
@@ -194,8 +83,8 @@ object DicomMove extends Logging {
       history.last
     } else {
       if (history.nonEmpty) Thread.sleep(cFindWaitInterval_ms)
-      val sliceList = getSliceList(SeriesInstanceUID)
-      getCredibleSliceList(SeriesInstanceUID, history :+ sliceList)
+      val sliceList = DicomFind.getSliceUIDsInSeries(SeriesInstanceUID, PatientID, Modality)
+      getCredibleSliceList(SeriesInstanceUID, PatientID, Modality, history :+ sliceList)
     }
   }
 
@@ -226,6 +115,38 @@ object DicomMove extends Logging {
   }
 
   /**
+    * Read the files returned by the C-MOVE.  Only allow those with the correct SeriesInstanceUID.
+    * @param result Result from C-MOVE.
+    * @param SeriesInstanceUID Only for this series.
+    * @param description Description of request, used for reporting errors.
+    * @return
+    */
+  private def readResult(result: CMoveResult, SeriesInstanceUID: String, description: String): Seq[AttributeList] = {
+    def readDicom(file: File): Option[AttributeList] = {
+      try {
+        val al = new AttributeList
+        al.read(file)
+        val serUid = ClientUtil.getSerUid(al)
+        if (serUid.isDefined && serUid.get.equals(SeriesInstanceUID))
+          Some(al)
+        else
+          None
+      } catch {
+        case t: Throwable =>
+          logger.error(s"Unexpected exception reading DICOM files : $description : ${fmtEx(t)}")
+          None
+      }
+    }
+
+    if (result.errorMessage.nonEmpty) {
+      logger.error(s"Unable to perform C-MOVE for $description in directory ${result.dir.getAbsolutePath} : ${result.errorMessage.get}")
+      Seq()
+    } else {
+      FileUtil.listFiles(result.dir).flatMap(readDicom)
+    }
+  }
+
+  /**
     * Do a C-MOVE to get files.  If the number of slices received is fewer than expected, then retry.
     * @param retry Number of times that operation has been retried.
     * @param description For reporting progress and errors.
@@ -239,8 +160,19 @@ object DicomMove extends Logging {
     logger.info("trying series " + description + "    retry count " + retry)
 
     if (ClientConfig.DICOMRetryCount >= retry) {
-      def moveFunction() = performCMove(SeriesInstanceUID = SeriesInstanceUID, description = description, PatientID = PatientID, Modality = Modality)
-      val alList = DicomSemaphore.processInSemaphore(moveFunction, description)
+
+      def close(): Unit = {
+        getDicomCMoveGetter.close()
+        getDicomCMoveReceiver.close()
+      }
+
+      def moveFunction(): Seq[AttributeList] = {
+        val result = getDicomCMoveGetter.getSeries(SeriesInstanceUID)
+        val list = readResult(result, SeriesInstanceUID, description)
+        list
+      }
+
+      val alList = DicomSemaphore.processInSemaphore(moveFunction _, close _, description)
       val moveSize = alList.size
 
       logger.info(s"Received $moveSize slices for $description")
@@ -259,7 +191,7 @@ object DicomMove extends Logging {
       } else {
         logger.warn(s"$description C-MOVE returned only $moveSize files when C-FIND found $findSize")
         logger.info(s"$description DicomMove.get Retry ${1 + ClientConfig.DICOMRetryCount - retry} of C-MOVE")
-        Thread.sleep((ClientConfig.DICOMRetryWait_sec * 1000).toLong)
+        Thread.sleep(ClientConfig.DICOMRetryWait_ms)
         getWithRetry(retry + 1, description, SeriesInstanceUID, PatientID, Modality, findSize)
       }
     } else {
@@ -281,7 +213,7 @@ object DicomMove extends Logging {
     val description = s"C-MOVE PatientID: $PatientID    Modality: $Modality    SeriesInstanceUID $SeriesInstanceUID"
 
     // Get the SOP UID list via C-FIND.
-    val findSize = getCredibleSliceList(SeriesInstanceUID).size
+    val findSize = getCredibleSliceList(SeriesInstanceUID, PatientID, Modality).size
 
     val series: Option[Series] =
       if (findSize == 0) { // if no slices, then never bother again
@@ -315,8 +247,8 @@ object DicomMove extends Logging {
     logger.info("initializing DicomMove")
     cleanup
     transferParentDir.mkdirs
-    val ok = dicomReceiver != null
+    val ok = getDicomCMoveReceiver != null
     logger.info("Dicom receiver started: " + ok)
-    logger.info("Dicom receiver main dir: " + dicomReceiver.mainDirName)
+    logger.info("Dicom receiver main dir: " + getDicomCMoveReceiver.mainDir)
   }
 }

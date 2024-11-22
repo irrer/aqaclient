@@ -21,7 +21,6 @@ import edu.umro.DicomDict.TagByName
 import edu.umro.RestletUtil.TrustingSslContextFactory
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 import org.apache.http.ConnectionClosedException
 import org.restlet.data.ChallengeScheme
 import org.restlet.representation.Representation
@@ -38,7 +37,7 @@ object ClientUtil extends Logging {
 
   def timeHumanFriendly(date: Date): String = timeHumanFriendlyFormat.format(date)
 
-  private val defaultDateTime = new Date(24 * 60 * 60 * 1000)
+  val standardDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS")
 
   val timeAsFileNameFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss-SSS")
 
@@ -153,9 +152,9 @@ object ClientUtil extends Logging {
   /**
     * Establish the client resource, setting up the certificate trust model as the caller specified.
     *
-    * @param url                    : URL of service
-    * @param trustKnownCertificates : If true, select the list of certificates specified with the <code>TrustKnownCertificates.init</code>
-    *                               function. Defaults to false.
+    * @param url                     URL of service
+    * @param trustKnownCertificates  If true, select the list of certificates specified with the <code>TrustKnownCertificates.init</code>
+    *                                function. Defaults to false.
     */
   private def getClientResource(url: String, trustKnownCertificates: Boolean, parameterList: Map[String, String], cookieList: Seq[Cookie]) = {
     val clientResource = if (trustKnownCertificates) {
@@ -196,7 +195,7 @@ object ClientUtil extends Logging {
     val challengeResponse = new ChallengeResponse(challengeScheme, userId, password)
     cr.setChallengeResponse(challengeResponse)
     val result = Right(cr.get) // perform(clientResource.get _, timeout_ms)
-    Trace.trace(s"result: $result")
+    println(s"result: $result")
     result
   }
 
@@ -205,11 +204,11 @@ object ClientUtil extends Logging {
 
     if (true) {
       val file = new File("""D:\Program Files\UMRO\AQAClient\data\tempZip\2024-10-22T18-30-43-173_size_1934585_BB_by_EPID-0.1_$TB4_OBI_2024_RTIMAGE_5.zip""")
-      Trace.trace(s"exists before: ${file.exists()}")
+      println(s"exists before: ${file.exists()}")
       val success = ClientUtil.deleteFile(file)
       //val success = file.delete()
-      Trace.trace(s"success: $success")
-      Trace.trace(s"exists after: ${file.exists()}")
+      println(s"success: $success")
+      println(s"exists after: ${file.exists()}")
       Thread.sleep(1000)
       System.exit(99)
     }
@@ -245,8 +244,10 @@ object ClientUtil extends Logging {
 
       // helloClientResource.get.write(System.out)
       for (i <- 1 until 100) {
+        //noinspection SpellCheckingInspection
         val baos = new ByteArrayOutputStream()
         helloClientResource.get.write(baos)
+        //noinspection SpellCheckingInspection
         println(s"i: ${i.formatted("%3d")}    length: ${baos.toByteArray.length}")
       }
       System.exit(99)
@@ -270,13 +271,9 @@ object ClientUtil extends Logging {
       else {
         val representation = result.right.get
         Thread.sleep(10)
-        Trace.trace(s"representation size: ${representation.getSize}")
+        println(s"representation size: ${representation.getSize}")
 
-        // val stringListener = new StringReadingListener(representation) { override def onContent(content: String): Unit = println(s"Size of new content: ${content.length}") }
-
-        // representation.setListener(stringListener)
-        // representation.exhaust()
-        Trace.trace(s"representation.getAvailableSize: ${representation.getAvailableSize}")
+        println(s"representation.getAvailableSize: ${representation.getAvailableSize}")
 
         Thread.sleep(1000)
         val inBytes: Array[Byte] = Array.ofDim[Byte](3240935 + 1024)
@@ -289,7 +286,7 @@ object ClientUtil extends Logging {
             size match {
               case _ if size > 0 => getBytes(total + size)
               case 0 =>
-                Trace.trace("did it sleep waiting for data")
+                println("did it sleep waiting for data")
                 Thread.sleep(100)
                 getBytes(total + size)
               case -1 => total
@@ -298,14 +295,14 @@ object ClientUtil extends Logging {
 
           try {
             val inSize = getBytes()
-            Trace.trace(s"inputStream size: $inSize")
+            println(s"inputStream size: $inSize")
             Some("hey")
           } catch {
             case cc: ConnectionClosedException =>
-              Trace.trace("ConnectionClosedException: " + fmtEx(cc))
+              println("ConnectionClosedException: " + fmtEx(cc))
               None
             case t: Throwable =>
-              Trace.trace("ConnectionClosedException: " + fmtEx(t))
+              println("ConnectionClosedException: " + fmtEx(t))
               None
 
           }
@@ -329,14 +326,14 @@ object ClientUtil extends Logging {
 
           try {
             val size = getBytes()
-            Trace.trace(s"reader size: $size")
+            println(s"reader size: $size")
             Some("hey")
           } catch {
             case cc: ConnectionClosedException =>
-              Trace.trace("ConnectionClosedException: " + fmtEx(cc))
+              println("ConnectionClosedException: " + fmtEx(cc))
               None
             case t: Throwable =>
-              Trace.trace("ConnectionClosedException: " + fmtEx(t))
+              println("ConnectionClosedException: " + fmtEx(t))
               None
 
           }

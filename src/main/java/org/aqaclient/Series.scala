@@ -24,7 +24,7 @@ import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
 import edu.umro.util.Utility
-import edu.umro.ScalaUtil.Trace
+import org.aqaclient.AQAClient.logger
 
 import java.io.File
 import java.text.SimpleDateFormat
@@ -34,21 +34,21 @@ import scala.xml.Node
 import scala.xml.XML
 
 /**
- * Describe a series whose DICOM has been retrieved but has not been processed.
- */
+  * Describe a series whose DICOM has been retrieved but has not been processed.
+  */
 case class Series(
-                   dir: File,
-                   SeriesInstanceUID: String,
-                   PatientID: String,
-                   dataDate: Date,
-                   seriesDateTime: Date,
-                   Modality: ModalityEnum.Value,
-                   FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
-                   RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
-                   ReferencedRtplanUID: Option[String],
-                   DeviceSerialNumber: Option[String] = None,
-                   SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
-                 ) extends Logging {
+    dir: File,
+    SeriesInstanceUID: String,
+    PatientID: String,
+    dataDate: Date,
+    seriesDateTime: Date,
+    Modality: ModalityEnum.Value,
+    FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
+    RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
+    ReferencedRtplanUID: Option[String],
+    DeviceSerialNumber: Option[String] = None,
+    SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
+) extends Logging {
 
   def this(node: Node) =
     this(
@@ -92,43 +92,7 @@ case class Series(
   }
 
   /**
-   * Return true if there is at least one slice with the expected SeriesInstanceUID.
-   *
-   * If any files are found that have the wrong SeriesInstanceUID, then log an error and delete them.
-   *
-   * @return true if ok
-   */
-  def slicesAreViable: Boolean = {
-
-    def seriesUidOf(file: File): Option[String] = {
-      val al = new AttributeList
-      al.read(file)
-      val seriesUid = al.get(TagByName.SeriesInstanceUID).getSingleStringValueOrEmptyString
-      if (seriesUid.equals(SeriesInstanceUID))
-        Some(seriesUid)
-      else {
-        logger.error(s"Deleting series file that has SeriesInstanceUID $seriesUid instead of $SeriesInstanceUID.   File: ${file.getAbsolutePath}")
-        file.delete()
-        None
-      }
-    }
-
-    val fileList = FileUtil.listFiles(dir)
-    val seriesUidList = fileList.flatMap(seriesUidOf)
-    val ok = seriesUidList.nonEmpty
-
-    if (!ok)
-      logger.error(
-        s"""
-           |Slices for this series are not viable.  This should never happen.  The dir should be
-           |deleted and the entry removed from the index.xml file.  Expected SeriesInstanceUID:   $SeriesInstanceUID
-           |    List of SeriesInstanceUID  found:  ${seriesUidList.mkString("  ")}""".stripMargin)
-
-    ok
-  }
-
-  /**
-   * True if we are interested in it.  The criteria is that either it is an RTPLAN or it was created recently.
+   * True if we are interested in it.  The criteria are that either it is an RTPLAN or it was created recently.
    */
   def isViable: Boolean = {
 
@@ -165,7 +129,7 @@ case class Series(
       case _ if isRecent && (!isRtimage) =>
         true
 
-      // If an RTIMAGE file is recent and it references an RTPLAN, then it should be processed.  Sometimes
+      // If an RTIMAGE file is recent, and, it references an RTPLAN, then it should be processed.  Sometimes
       // 'junk' RTIMAGE files are put in the system that do not reference an RTPLAN.
       case _ if isRecent && isRtimage && ReferencedRtplanUID.isDefined && deviceSerialNumberIsValid =>
         true
@@ -544,7 +508,7 @@ object Series extends Logging {
   }
 
   /**
-   * Put the series in the pool and persist it's metadata in the xml file.
+   * Put the series in the pool and persist its metadata in the xml file.
    */
   def persist(series: Series): Unit = {
     if (get(series.SeriesInstanceUID).isEmpty) {
@@ -686,7 +650,7 @@ object Series extends Logging {
 
   /**
    * Update the XML file with the latest contents of the patient.  The list should
-   * contain entries for only one patient.  When writing, do it using renaming so as to
+   * contain entries for only one patient.  When writing, do it using renaming to
    * minimize the chance of losing the contents in the event that the service is
    * unexpectedly shut down.
    */
@@ -794,18 +758,13 @@ object Series extends Logging {
       val dir = new File(ClientConfig.seriesDir, dirName)
     }
 
-    Trace.trace()
     // List of patients that are active.  They must be on either the patient procedure list of the list awaiting completion.
     val activePatientList = PatientProcedure.getPatientProcedureList.map(_.patientId).distinct.map(PatientInfo)
 
-    Trace.trace()
-
     val activeNotInitializePatientList: Seq[PatientInfo] = activePatientList.filterNot(patientInfo => Series.containsPatientID(patientInfo.PatientID))
 
-    Trace.trace()
     // get from XML if they are not already in the series pool.
     activeNotInitializePatientList.foreach(patientInfo => reinstateFromXml(patientInfo.dir))
-    Trace.trace()
     logger.info(s"Number of active patients to reinstate to XML: ${activePatientList.size}")
 
     // get DICOM files that may not be in XML
@@ -820,13 +779,10 @@ object Series extends Logging {
       }
     }
 
-    Trace.trace()
     val dirList = activeNotInitializePatientList.flatMap(patInfo => ClientUtil.listFiles(patInfo.dir)).filter(isDicomDir)
 
-    Trace.trace()
     // set of all directory paths from series loaded from XML
     val dirSetFromXml = getAllSeries.map(s => s.dir.getAbsolutePath).toSet
-    Trace.trace()
 
     // list of DICOM directories that are not listed in XML
     val dirNotInXml = dirList.filterNot(dir => dirSetFromXml.contains(dir.getAbsolutePath))
@@ -851,20 +807,14 @@ object Series extends Logging {
       }
     }
 
-    Trace.trace()
     // Make Series object from DICOM not in XML
     dirNotInXml.foreach(resolveSeries)
-    Trace.trace()
 
     // clean up old DICOM files
     removeOldDicom()
-    Trace.trace()
 
     // make the XML indexes match what is in memory
     reIndex()
-    Trace.trace()
-
-    Trace.trace()
   }
 
   /**
@@ -876,27 +826,9 @@ object Series extends Logging {
     removeObsoleteZipFiles()
     reinstatePreviouslyFetchedSeries()
     // removeObsoletePatientSeries()
+    DicomAssembleUpload.init()
+    logger.info("Initialized DicomAssembleUpload")
     logger.info(s"Series initialization complete.   Number of series in pool: ${Series.size}")
   }
-
-  def main(args: Array[String]): Unit = {
-    ClientConfig.validate
-    Trace.trace()
-    init()
-
-    Trace.trace("---------------------------------------------------------------------------------------------")
-    Trace.trace("---------------------------------------------------------------------------------------------")
-    Trace.trace("---------------------------------------------------------------------------------------------")
-    Trace.trace("---------------------------------------------------------------------------------------------")
-    val seriesOpt = makeSeriesFromDicomFileDir(new File("""D:\Program Files\UMRO\AQAClient\data\DICOMSeries\BR1_OBI_QA_2023_T\2024-10-21T06-41-34_CT_2_1.2.246.352.62.2.4862169525324310981.16944325355494127264"""))
-    Trace.trace()
-    val series = seriesOpt.get
-    Trace.trace()
-    val viable = series.slicesAreViable
-    Trace.trace(s" ============== viable: $viable")
-    Trace.trace("Exiting...")
-    System.exit(99)
-  }
-
 
 }

@@ -19,14 +19,56 @@ package org.aqaclient
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import scala.xml.Elem
 import scala.xml.Node
 
 /**
- * Group series into sets of data that can be processed and uploaded to the AQA platform.
- */
+  * Group series into sets of data that can be processed and uploaded to the AQA platform.
+  */
 
 object DicomAssembleUpload extends Logging {
+  val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss.SSS")
+
+  /**
+    * Make the list of files that will be put into the uploaded zip file.  Also assure that
+    * the directory for each series is populated with DICOM files.
+    *
+    * @param image Image series.
+    * @param reg   Reg series.
+    * @param plan  Plan series.
+    * @return List of all files to be uploaded.
+    */
+  private def makeFileList(image: Series, reg: Option[Series], plan: Option[Series]): Seq[File] = {
+    def assureFilePresence(series: Series): Series = {
+      val expectedSize = DicomFind.getSliceUIDsInSeries(series.SeriesInstanceUID, series.PatientID, series.Modality.toString).size
+      val actualSize = ClientUtil.listFiles(series.dir).size
+      if (expectedSize != actualSize) {
+        val s = DicomMove.get(series.SeriesInstanceUID, series.PatientID, series.Modality.toString)
+        s.get
+      } else
+        series
+    }
+
+    val seriesList = Seq(Some(image), reg, plan).flatten
+    val assuredSeriesList = seriesList.map(assureFilePresence)
+    val fileList = assuredSeriesList.flatMap(s => ClientUtil.listFiles(s.dir))
+    fileList
+  }
+
+  /**
+   * The zip file name is actually arbitrary, but making a descriptive one helps with diagnosing problems.
+   *
+   * @param procedure   For this procedure.
+   * @param imageSeries Image series.
+   * @return File name.
+   */
+  private def makeZipFileDescription(procedure: Procedure, imageSeries: Series): String = {
+    val description = s"${procedure.Name}-${procedure.Version}_${imageSeries.PatientID}_${imageSeries.Modality}_${FileUtil.listFiles(imageSeries.dir).size}"
+    FileUtil.replaceInvalidFileNameCharacters(description.replaceAll(" ", "_"), '_')
+  }
 
   // @formatter:off
   class UploadSetDicomCMove(
@@ -34,14 +76,15 @@ object DicomAssembleUpload extends Logging {
     override val description: String,
     val imageSeries: Series,
     val reg: Option[Series] = None,
-    val plan: Option[Series] = None)
+    val plan: Option[Series] = None,
+    val uploadDate: Date = new Date)
       extends
-        UploadSet(procedure,
+        UploadSet(
+          procedure,
           description + " image series: " + imageSeries,
-          ClientUtil.makeZipFile(
-            fileList    = Seq(Some(imageSeries), reg, plan).flatten.flatMap(s => ClientUtil.listFiles(s.dir)),
-            description = procedure.Name + "-" + procedure.Version + "_" + imageSeries.PatientID + "_" + imageSeries.Modality + "_" +  FileUtil.listFiles(imageSeries.dir).size
-          )) // convert all defined series into a zip file
+          ClientUtil.makeZipFile( fileList = makeFileList(imageSeries, reg, plan ), description = makeZipFileDescription(procedure, imageSeries) ),
+          uploadDate
+        ) // convert all defined series into a zip file
   // @formatter:on
   {
 
@@ -77,6 +120,10 @@ object DicomAssembleUpload extends Logging {
         // @formatter:on
       }
 
+      val uploadDateXml = <UploadDate>
+        {dateFormat.format(uploadDate)}
+      </UploadDate>
+
       val elem = {
         // @formatter:off
         <UploadSet>
@@ -85,6 +132,7 @@ object DicomAssembleUpload extends Logging {
           <ImageSeries>{imageSeries.toXml}</ImageSeries>
           {regXml}
           {planXml}
+          {uploadDateXml}
         </UploadSet>
         // @formatter:on
       }
@@ -123,7 +171,16 @@ object DicomAssembleUpload extends Logging {
         Some(new Series(p.head))
     }
 
-    new UploadSetDicomCMove(procedure, description, imageSeries = imageSeries, reg = reg, plan = plan)
+    val uploadDate: Date = {
+      val u = node \ "UploadDate"
+      if (u.isEmpty)
+        new Date
+      else
+        dateFormat.parse(u.head.text.trim)
+    }
+
+
+    new UploadSetDicomCMove(procedure, description, imageSeries = imageSeries, reg = reg, plan = plan, uploadDate = uploadDate)
   }
 
   private def procedureOfCt(localPlan: Option[Series], remotePlanProcedure: Option[Procedure], ct: Series): Option[Procedure] = {
@@ -203,20 +260,7 @@ object DicomAssembleUpload extends Logging {
       val remotePlanProcedure = Results.procedureOfPlanWithFrameOfReferenceUID(ct.PatientID, reg.FrameOfReferenceUID.get)
 
       /*
-      (remotePlanProcedure, localPlan) match {
-        case (Some(procedure), _) => // upload just the CT and REG.  The RTPLAN has already been uploaded
-          val description = ct.PatientID + " CT and REG no RTPLAN"
-          val us = new UploadSetDicomCMove(dailyQaToBbByCBCT(procedure), description, ct, Some(reg))
-          Some(us)
 
-        case (_, Some(rtplan)) if PatientProcedure.getProcedureOfSeriesByPatientID(ct).isDefined => // Upload CT, REG, and RTPLAN.
-          // Base the procedure on the patient ID.
-          val proc = PatientProcedure.getProcedureOfSeriesByPatientID(ct).get
-          val us = new UploadSetDicomCMove(dailyQaToBbByCBCT(proc), ct.PatientID + " CT, REG, and RTPLAN", ct, Some(reg), Some(rtplan))
-          Some(us)
-
-        case _ => None
-      }
       */
 
       0 match {
@@ -403,13 +447,13 @@ object DicomAssembleUpload extends Logging {
         .sortBy(_.seriesDateTime)
         .filterNot(series => Sent.hasImageSeries(series.SeriesInstanceUID))
         .filter(_.isViable)
-        .filter(_.slicesAreViable)
 
       val todoList = list.flatMap(series => seriesToUploadSet(series))
       logger.info(s"update: todo list size: ${todoList.size}")
       todoList.foreach(uploadSet => {
+        Thread.sleep(100) // keeps time stamps unique: Sent.sentDateTime
         logger.info("Queueing upload set: " + uploadSet)
-        Sent.add(new Sent(uploadSet, Some(uploadSet.toString)))
+        Sent.add(Sent.makeFromUploadSet(uploadSet))
         Upload.put(uploadSet)
       })
       todoList.foreach(uploadSet => ConfirmDicomComplete.confirmDicomComplete(uploadSet))
@@ -417,8 +461,14 @@ object DicomAssembleUpload extends Logging {
 
 
   def init(): Unit = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    import scala.concurrent.Future
+
     logger.info("initializing Upload")
-    // startUpdateThread()
+    Future {
+      Thread.sleep(10 * 1000)
+      update()
+    }
     logger.info("Upload has been initialized")
   }
 

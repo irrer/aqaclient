@@ -20,7 +20,7 @@ import edu.umro.ScalaUtil.Logging
 
 import scala.xml.Node
 
-object Procedure {
+object Procedure extends Logging {
 
   /** Maintain a cache of procedures defined on the server. */
   private val procedureCache = scala.collection.mutable.Set[Procedure]()
@@ -116,7 +116,7 @@ class Procedure(val node: Node) extends Logging {
   // final val isLOC = Procedure.isLOC(Name)
   // final val isLOCBaseline = Procedure.isLOCBaseline(Name)
   final val isMachineLog = Procedure.isMachineLog(Name)
-  final val isWinstonLutz = Procedure.isWinstonLutz(Name)
+  // final val isWinstonLutz = Procedure.isWinstonLutz(Name)
 
   override def toString: String = {
     Name + " : " + Version

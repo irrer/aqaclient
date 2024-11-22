@@ -16,97 +16,64 @@
 
 package org.aqaclient
 
-import com.pixelmed.dicom.AttributeFactory
 import com.pixelmed.dicom.AttributeList
-import com.pixelmed.dicom.AttributeTag
-import com.pixelmed.dicom.TransferSyntax
 import edu.umro.DicomDict.TagByName
-import edu.umro.ScalaUtil.DicomCFind
-import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
-
+import edu.umro.ScalaUtil.dicomCFind.DicomCFindInstancesForSeries
+import edu.umro.ScalaUtil.dicomCFind.DicomCFindSeriesForPatient
 
 /**
- * Support C-FIND calls for this service.
- */
+  * Support C-FIND calls for this service.
+  */
 object DicomFind extends Logging {
 
-  private class Query(tagSeq: Seq[AttributeTag], tagValueSeq: Seq[(AttributeTag, String)]) {
-    val query: AttributeList = {
-      val q = new AttributeList
+  private var dicomCFindSeriesForPatient: Option[DicomCFindSeriesForPatient] = None
 
-      def add(tag: AttributeTag): Unit = {
-        val a = AttributeFactory.newAttribute(tag)
-        q.put(a)
-      }
+  private def getDicomCFindSeriesForPatient: DicomCFindSeriesForPatient = {
+    if (dicomCFindSeriesForPatient.isEmpty)
+      dicomCFindSeriesForPatient = Some(new DicomCFindSeriesForPatient(ClientConfig.DICOMClient.aeTitle, ClientConfig.DICOMSource))
 
-      def addWithValue(tag: AttributeTag, text: String): Unit = {
-        val a = AttributeFactory.newAttribute(tag)
-        a.addValue(text)
-        q.put(a)
-      }
-
-      tagSeq.foreach(tag => add(tag))
-      tagValueSeq.foreach(tagValue => addWithValue(tagValue._1, tagValue._2))
-
-      q
-    }
+    dicomCFindSeriesForPatient.get
   }
 
+  private var dicomCFindInstancesForSeries: Option[DicomCFindInstancesForSeries] = None
+
   /**
-    * General wrapper to handle properly acquiring access to the service and possible exceptions.
-    *
-    * @param queryAttributes List of attributes specifying which data to get.
-    * @param queryLevel DICOM query level.
-    * @return List of attributes found.  Empty list on failure.
-    */
-  private def genericFind(queryAttributes: AttributeList, queryLevel: DicomCFind.QueryRetrieveLevel.Value): Seq[AttributeList] = {
-
-    val transferSyntax = {
-      val attr = AttributeFactory.newAttribute(TagByName.TransferSyntaxUID)
-      attr.addValue(TransferSyntax.ImplicitVRLittleEndian)
-      attr
-    }
-    queryAttributes.put(transferSyntax)
-
-    val description = s"C-FIND QueryLevel $queryLevel\n " + DicomUtil.attributeListToString(queryAttributes).split("\n").mkString("  ||  ")
-
-    def doInSemaphore(): Seq[AttributeList] = {
-
-      // val start = System.currentTimeMillis()
-      val list = DicomCFind.cfind(
-        callingAETitle = ClientConfig.DICOMClient.aeTitle,
-        calledPacs = ClientConfig.DICOMSource,
-        attributeList = queryAttributes,
-        queryLevel = queryLevel,
-        limit = None,
-        queryRetrieveInformationModel = DicomCFind.QueryRetrieveInformationModel.StudyRoot
-      )
-      // val elapsed = System.currentTimeMillis() - start
-      // logger.info("Successfully performed DICOM C-FIND.  Number of items: " + list.size + "    Elapsed ms: " + elapsed)  // message makes too much noise
-      list
+   * Get a list of SOPInstanceUIDs for the given series.
+   *
+   * <p><em><b>
+   * NOTE: A real 'GOTCHA' is that if the retrieve list just asks for the SOPInstanceUID, then it always works for Varian VMSDBD.  But, if
+   * there are extra values requested, and a series of modality REG is being queried, then it sometimes returns zero entries.
+   * </b></em></p>
+   *
+   * <p><em><b>
+   * This is a bug in the Varian VMSDBD.
+   * </b></em></p>
+   *
+   * @return
+   */
+  private def getDicomCFindInstancesForSeries = {
+    if (dicomCFindInstancesForSeries.isEmpty) {
+      dicomCFindInstancesForSeries = Some(new DicomCFindInstancesForSeries(ClientConfig.DICOMClient.aeTitle, ClientConfig.DICOMSource, retrieveList = Seq(TagByName.SOPInstanceUID)))
     }
 
-    val resultList: Seq[AttributeList] = DicomSemaphore.processInSemaphore(doInSemaphore _, description)
-
-    resultList
+    dicomCFindInstancesForSeries.get
   }
 
   /**
     * Perform a C-FIND query that gets a list of series of the given modality for the given patient.
     */
-  def find(modality: String, patientID: String): Seq[AttributeList] = {
+  def findSeriesForPatientOfModality(Modality: String, PatientID: String): Seq[AttributeList] = {
+    def dicomOp: Seq[AttributeList] = {
+      val list = getDicomCFindSeriesForPatient.findSeriesForPatient(PatientID, Some(Modality))
+      list
+    }
 
-    val tagSeq = Seq(TagByName.SeriesInstanceUID)
-    val tagValueSeq = Seq(
-      (TagByName.Modality, modality),
-      (TagByName.PatientID, patientID)
-    )
-
-    val queryAttributes = new Query(tagSeq, tagValueSeq).query
-
-    val list = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.SERIES)
+    val description = s"C-FIND for $PatientID for all series of modality: $Modality"
+    val list = {
+      DicomSemaphore.processInSemaphore(dicomOp _, getDicomCFindSeriesForPatient.close _, description)
+    }
+    logger.info(s"$description returned ${list.size} series.")
     list
   }
 
@@ -117,19 +84,16 @@ object DicomFind extends Logging {
     *
     * @return List of instance (slice) UIDs
     */
-  def getSliceUIDsInSeries(SeriesInstanceUID: String): Seq[String] = {
+  def getSliceUIDsInSeries(SeriesInstanceUID: String, PatientID: String, Modality: String): Seq[String] = {
+    def dicomOp: Seq[AttributeList] = {
+      val list = getDicomCFindInstancesForSeries.findInstanceListForSeries(SeriesInstanceUID)
+      list
+    }
 
-    val tagSeq = Seq(TagByName.SOPInstanceUID)
-    val tagValueSeq = Seq((TagByName.SeriesInstanceUID, SeriesInstanceUID))
-
-    val queryAttributes = new Query(tagSeq, tagValueSeq).query
-
-    val resultList = genericFind(queryAttributes, DicomCFind.QueryRetrieveLevel.IMAGE)
-
-    val seq = resultList.map(r => r.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString).distinct
-    val msg = "SOPInstanceUIDSeq C-FIND SeriesInstanceUID: " + SeriesInstanceUID + "    number of distinct results: " + seq.size
-    logger.info(msg)
-    seq
+    val description = s"C-FIND for image list in series $SeriesInstanceUID    $PatientID    $Modality"
+    val list = DicomSemaphore.processInSemaphore(dicomOp _, getDicomCFindInstancesForSeries.close _, description)
+    logger.info(s"$description returned ${list.size} instances.")
+    list.map(_.get(TagByName.SOPInstanceUID).getSingleStringValueOrEmptyString)
   }
 
   /**
@@ -145,16 +109,31 @@ object DicomFind extends Logging {
     println("Starting ...")
     ClientConfig.validate
 
-    Trace.trace("\n\n\n\n\n\n\n\n============================================")
-    val imageList = getSliceUIDsInSeries("1.2.246.352.62.2.4933051009168731539.6682484753785086647")
-    Trace.trace(s"image list size: ${imageList.size}")
-    Trace.trace(imageList)
-    Trace.trace()
-    val seriesList = find("CT", "$TB5_OBI_2022Q2")
-    Trace.trace(s"series list size: ${seriesList.size}")
-    Trace.trace(s"first series found:\n${seriesList.head}")
-    Trace.trace("============================================")
-    Trace.trace("Exiting ...")
+    println("\n\n\n\n\n\n\n\n============================================")
+
+    if (true) {
+      val PatientID = "$TB4_OBI_2024"
+      val Modality = "REG"
+      //val imageList = getSliceUIDsInSeries("1.2.246.352.62.2.4731927922401186236.462869341920626072", PatientID, Modality)
+      val imageList = getSliceUIDsInSeries("1.2.246.352.62.2.4613414455814797398.11320105932616602785", PatientID, Modality)
+      println(s"image list size: ${imageList.size}")
+      println("\n" + imageList.mkString("\n"))
+    }
+
+    println("\n\n\n\n")
+
+    val PatientID = "$TB5_OBI_2022Q2"
+    val Modality = "CT"
+    val imageList = getSliceUIDsInSeries("1.2.246.352.62.2.4933051009168731539.6682484753785086647", PatientID, Modality)
+    println(s"image list size: ${imageList.size}")
+    println("\n" + imageList.mkString("\n"))
+
+    println("\n\n\n\n")
+    val seriesList = findSeriesForPatientOfModality(Modality, PatientID)
+    println(s"series list size: ${seriesList.size}")
+    println(s"first series found:\n${seriesList.head}")
+    println("============================================")
+    println("Exiting ...")
     System.exit(99)
 
   }

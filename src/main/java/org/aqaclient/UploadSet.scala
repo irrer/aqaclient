@@ -17,6 +17,7 @@
 package org.aqaclient
 
 import java.io.File
+import java.util.Date
 
 /**
   * Data for upload to the server
@@ -25,14 +26,16 @@ import java.io.File
   * @param description This is used for logging only.
   * @param zipFile File containing zipped data to upload.
   */
-class UploadSet(val procedure: Procedure, val description: String, val zipFile: File) {
+class UploadSet(val procedure: Procedure, val description: String, val zipFile: File, uploadDate: Date = new Date) {
 
   def this(procedure: Procedure, description: String, fileList: Seq[File]) {
     this(procedure = procedure, description = description, zipFile = ClientUtil.makeZipFile(fileList, description))
   }
 
   override def toString: String = {
-    procedure.toString + " :: " + description + " zip file: " + zipFile.getName + "   zip file size: " + zipFile.length()
+    procedure.toString + " :: " + description + " zip file: " + zipFile.getName + //
+      "   zip file size: " + zipFile.length() + //
+      s"    setCreateTime: ${ClientUtil.timeAsFileNameFormat.format(uploadDate)}"
   }
 
   /**

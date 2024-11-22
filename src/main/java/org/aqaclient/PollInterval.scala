@@ -1,11 +1,26 @@
 package org.aqaclient
 
 import edu.umro.ScalaUtil.Logging
-import edu.umro.ScalaUtil.Trace
 
 import java.text.SimpleDateFormat
 import java.util.Date
 import scala.xml.Node
+
+/*
+ * Copyright 2024 Regents of the University of Michigan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 /**
   * Support variable interval polling.  The approach is to poll recently active
@@ -82,7 +97,7 @@ object PollInterval {
   private val list: scala.collection.mutable.ArrayBuffer[PollInterval] = scala.collection.mutable.ArrayBuffer()
 
   /**
-    * Determine the given date indicates that activity has been sufficiently recent so as to warrant polling.
+    * Determine the given date indicates that activity has been sufficiently recent to warrant polling.
     * @param date Date of last activity (latest file).
     * @return True if polling should be done.
     */
@@ -132,13 +147,9 @@ object PollInterval {
   }
 
   def main(args: Array[String]): Unit = {
-    Trace.trace()
+    println()
     ClientConfig.validate
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("--------------------------------------------------------------------------")
+    println("--------------------------------------------------------------------------")
 
     // list of ages in days to test
     val dateList = Seq(0.2, 1.2, 3.8, 9.3, 66.0, 100.0, 194.0, 400.0, 1000.0)
@@ -154,41 +165,39 @@ object PollInterval {
         println("Age in days: " + age_day.formatted("%8.1f") + " == " + dateFormat.format(date) + "  expired: " + poll.toString.format("%5s"))
       }
 
-      Trace.trace("========================")
       list.foreach(println)
       println
       dateList.foreach(check)
-      Trace.trace("========================")
     }
 
-    Trace.trace("------------ init --------------------------------------------------------")
+    println("------------ init --------------------------------------------------------")
     checkAll()
 
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("------------ after init --------------------------------------------------")
+    println("--------------------------------------------------------------------------")
+    println("------------ after init --------------------------------------------------")
 
     updatePollTimeIfExpired()
 
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("------------ after update -----------------------------------------------")
+    println("--------------------------------------------------------------------------")
+    println("------------ after update -----------------------------------------------")
 
     checkAll()
-    Trace.trace("--------------------------------------------------------------------------")
+    println("--------------------------------------------------------------------------")
 
-    Trace.trace("Sleeping ...")
+    println("Sleeping ...")
     Thread.sleep(16 * 1000)
 
-    Trace.trace("--------------------------------------------------------------------------")
-    Trace.trace("------------ after 16 wait -----------------------------------------------")
+    println("--------------------------------------------------------------------------")
+    println("------------ after 16 wait -----------------------------------------------")
     checkAll()
-    Trace.trace("--------------------------------------------------------------------------")
+    println("--------------------------------------------------------------------------")
 
     Thread.sleep(46 * 1000)
-    Trace.trace("------------ after 46 wait -----------------------------------------------")
+    println("------------ after 46 wait -----------------------------------------------")
     checkAll()
 
     Thread.sleep(50 * 1000)
-    Trace.trace("------------ after 66 wait -----------------------------------------------")
+    println("------------ after 66 wait -----------------------------------------------")
     checkAll()
 
     System.exit(99)
