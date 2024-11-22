@@ -45,3 +45,4 @@
 .cache-main
 .cache-tests
 ##hs_err_pid*.log
+/.idea/uiDesigner.xml
