@@ -41,7 +41,19 @@ object DicomSemaphore extends Logging {
     logger.error(s"Resetting DICOM connection in $restartDelay_sec seconds due to DICOM failure for $description.")
     Thread.sleep(restartDelay_ms)
     logger.info(s"Closing socket for $description")
-    close()
+    try {
+      close()
+    } catch {
+      case t: Throwable =>
+        logger.error(s"Unexpected exception while closing socket for DICOM operation $description : ${fmtEx(t)}")
+        if (ClientConfig.ShutdownOnExceptionDuringDicomSocketClose) {
+          logger.error(s"Restarting service due in 10 seconds due to Unexpected exception while closing socket for DICOM operation $description ")
+          Thread.sleep(10 * 1000)
+          logger.error(s"Restarting service NOW due to Unexpected exception while closing socket for DICOM operation $description ")
+          System.exit(1)
+        }
+
+    }
     logger.info(s"Closed socket for $description")
   }
 

@@ -152,6 +152,8 @@ object ClientConfig
     idMap
   }
 
+  val ShutdownOnExceptionDuringDicomSocketClose: Boolean = logMainText("ShutdownOnExceptionDuringDicomSocketClose", "false").toBoolean
+
   /** If this is defined, then the configuration was successfully initialized. */
   val validated = true
 
