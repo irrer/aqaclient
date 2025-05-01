@@ -70,7 +70,7 @@ object EmptySeries extends Logging {
     emptySeriesList.synchronized {
       if (emptySeriesList.contains(SeriesInstanceUID)) {
         emptySeriesList(SeriesInstanceUID).append(sliceList.size)
-        logger.warn("Empty series activity:\n" + emptySeriesList(SeriesInstanceUID))
+        logger.warn(s"Empty series activity. size: ${emptySeriesList.size}  SeriesInstanceUID: $SeriesInstanceUID  list contains it: ${emptySeriesList.contains(SeriesInstanceUID)}")
       } else {
         if (sliceList.isEmpty) {
           val es = EmptySeries(SeriesInstanceUID, PatientID, Modality)
