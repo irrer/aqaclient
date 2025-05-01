@@ -45,7 +45,9 @@ object DicomMove extends Logging {
   private def getDicomCMoveReceiver: DicomCMoveReceiver = {
     if (dicomCMoveReceiver.isEmpty) {
       transferParentDir.mkdirs()
+      logger.info("Instantiating new DicomCMoveReceiver dir: " + transferParentDir.getAbsolutePath)
       dicomCMoveReceiver = Some(DicomCMoveReceiver(transferParentDir, ClientConfig.DICOMClient))
+      logger.info("Instantiated new DicomCMoveReceiver")
     }
     dicomCMoveReceiver.get
   }
@@ -53,8 +55,11 @@ object DicomMove extends Logging {
   private var dicomCMoveGetter: Option[DicomCMoveGetter] = None
 
   private def getDicomCMoveGetter: DicomCMoveGetter = {
-    if (dicomCMoveGetter.isEmpty)
+    if (dicomCMoveGetter.isEmpty) {
+      logger.info("Instantiating new DicomCMoveGetter")
       dicomCMoveGetter = Some(new DicomCMoveGetter(ClientConfig.DICOMSource, getDicomCMoveReceiver))
+      logger.info("Instantiated new DicomCMoveGetter")
+    }
     dicomCMoveGetter.get
   }
 
@@ -162,8 +167,14 @@ object DicomMove extends Logging {
     if (ClientConfig.DICOMRetryCount >= retry) {
 
       def close(): Unit = {
+        logger.info("Closing DicomCMoveGetter")
         getDicomCMoveGetter.close()
+        logger.info("Closing DicomCMoveReceiver")
         getDicomCMoveReceiver.close()
+        logger.info("Closed DicomCMoveGetter and DicomCMoveReceiver")
+        dicomCMoveGetter = None
+        dicomCMoveReceiver = None
+        logger.info("Removed references to dicomCMoveGetter and dicomCMoveReceiver")
       }
 
       def moveFunction(): Seq[AttributeList] = {

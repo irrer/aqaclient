@@ -66,12 +66,12 @@ object DicomSemaphore extends Logging {
     * @return
     */
   def processInSemaphore[T](dicomOp: () => Seq[T], close: () => _, description: String): Seq[T] = {
-
     def wrappedDicomOp(): Either[Throwable, Seq[T]] = {
       try {
         Right(dicomOp())
       } catch {
         case t: Throwable =>
+          logger.error(s"Exception in Future. DICOM $description : ${fmtEx(t)}")
           Left(t)
       }
     }
