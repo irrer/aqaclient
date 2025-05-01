@@ -16,13 +16,17 @@
 
 package org.aqaclient
 
-import edu.umro.ScalaUtil.{Logging, PACS}
+import edu.umro.ScalaUtil.Logging
+import edu.umro.ScalaUtil.PACS
 
 import java.io.File
-import java.text.{ParseException, SimpleDateFormat}
+import java.text.ParseException
+import java.text.SimpleDateFormat
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import scala.xml.{Elem, Node, XML}
+import scala.xml.Elem
+import scala.xml.Node
+import scala.xml.XML
 
 /**
  * Utilities to support configuration.
