@@ -24,7 +24,6 @@ import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 import edu.umro.ScalaUtil.PrettyXML
 import edu.umro.util.Utility
-import org.aqaclient.AQAClient.logger
 
 import java.io.File
 import java.text.SimpleDateFormat
