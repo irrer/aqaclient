@@ -43,7 +43,7 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
     list.mkString(indent1, indent1, "\n")
   }
 
-  private def fail(msg: String) {
+  private def fail(msg: String): Unit = {
     logger.error(msg)
     throw new RuntimeException(msg)
   }
