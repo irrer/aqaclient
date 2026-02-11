@@ -158,9 +158,12 @@ object ConfirmDicomComplete extends Logging {
       DicomFind.getSliceUIDsInSeries(imageSeries.SeriesInstanceUID, imageSeries.PatientID, imageSeries.Modality.toString).size
     }
 
+    if (newSize < confirmState.imageSeriesSize) {
+      logger.warn(s"Unexpected change in series size.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + "  time remaining: " + timeRemaining + "  for " + confirmState.fileName)
+    }
 
     // if the number of slices changed, then redo upload.
-    if (newSize != confirmState.imageSeriesSize) {
+    if (newSize > confirmState.imageSeriesSize) {
       logger.info("Need to redo upload.  Size was: " + confirmState.imageSeriesSize + " but changed to " + newSize + "  time remaining: " + timeRemaining + "  for " + confirmState.fileName)
 
       redoUpload(confirmState) match {

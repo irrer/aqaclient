@@ -116,7 +116,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
 
   @tailrec
   private def getDoc(dirList: Seq[File], name: String): Option[Elem] = {
-    if (dirList.length < 1) None
     val elem = readFile(dirList.head, name)
     elem match {
       case Some(el) => Some(el)
@@ -168,7 +167,7 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   protected def logText(name: String, value: String) = valueText += (name + ": " + value)
 
 
-  protected def getMainText(name: String): String = {
+  private def getMainText(name: String): String = {
     val list = document \ name
     if (list.isEmpty) fail("No such XML node " + name)
     list.head.text
@@ -183,16 +182,6 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
         Some(list.head.text)
     } catch {
       case _: Throwable => None
-    }
-  }
-
-  /**
-   * Get the given tag.  If not configured, then return the default value.
-   */
-  protected def getMainText(name: String, dflt: String): String = {
-    getMainTextOption(name) match {
-      case Some(text) => text
-      case _ => dflt
     }
   }
 
@@ -280,7 +269,16 @@ class ClientConfigUtil(configFileName: String, directoryList: Seq[File]) extends
   }
 
   protected def getPacs(tag: String): PACS = {
-    val pacs = new PACS((document \ tag).head)
+    val node = {
+      val n = document \ tag
+      if (n.isEmpty) {
+        val msg = s"Unable to find PACS definition for XML attribute $tag."
+        logger.error(msg)
+        throw new RuntimeException(msg)
+      }
+      n.head
+    }
+    val pacs = new PACS(node)
     logText(tag, pacs.toString)
     pacs
   }

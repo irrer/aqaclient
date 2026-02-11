@@ -64,9 +64,9 @@ object DicomProcessing extends Logging {
     val serUidList = DicomFind.findSeriesForPatientOfModality(Modality, search).filter(patientIdFilter).flatMap(fal => ClientUtil.getSerUid(fal))
 
     val newSerUidList = serUidList. //
-    filterNot(serUid => FailedSeries.contains(serUid)). //
-    filterNot(serUid => Series.contains(serUid)). //
-    filterNot(serUid => Results.containsSeries(PatientID, serUid))
+      filterNot(serUid => FailedSeries.contains(serUid)). //
+      filterNot(serUid => Series.contains(serUid)). //
+      filterNot(serUid => Results.containsSeries(PatientID, serUid))
 
     if (newSerUidList.nonEmpty) logger.info(s"fetchDicomOfModality  PatientID: $PatientID    Modality: $Modality    newSerUidList: ${newSerUidList.mkString("\n")}")
     newSerUidList.foreach(serUid => fetchSeries(serUid, PatientID, Modality))

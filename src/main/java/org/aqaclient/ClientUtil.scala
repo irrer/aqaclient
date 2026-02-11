@@ -37,8 +37,10 @@ object ClientUtil extends Logging {
 
   def timeHumanFriendly(date: Date): String = timeHumanFriendlyFormat.format(date)
 
+  //noinspection SpellCheckingInspection
   val standardDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS")
 
+  //noinspection SpellCheckingInspection
   val timeAsFileNameFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss-SSS")
 
   /**
@@ -197,6 +199,15 @@ object ClientUtil extends Logging {
     val result = Right(cr.get) // perform(clientResource.get _, timeout_ms)
     println(s"result: $result")
     result
+  }
+
+  /**
+   * Round the angle to the closest 90-degree angle.
+   *
+   * @param angleInDegrees Angle to round off.
+   */
+  def angleRoundedTo90(angleInDegrees: Double): Int = {
+    ((((angleInDegrees % 360.0) + 360.0) / 90.0).round.toInt % 4) * 90
   }
 
   def main(args: Array[String]): Unit = {

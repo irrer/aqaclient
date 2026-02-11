@@ -33,25 +33,26 @@ import scala.xml.Node
 import scala.xml.XML
 
 /**
-  * Describe a series whose DICOM has been retrieved but has not been processed.
-  */
+ * Describe a series whose DICOM has been retrieved but has not been processed.
+ */
 case class Series(
-    dir: File,
-    SeriesInstanceUID: String,
-    PatientID: String,
-    dataDate: Date,
-    seriesDateTime: Date,
-    Modality: ModalityEnum.Value,
-    FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
-    RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
-    ReferencedRtplanUID: Option[String],
-    DeviceSerialNumber: Option[String] = None,
-    SOPInstanceUIDList: Seq[String] = Seq() // list of SOPInstanceUIDs
-) extends Logging {
+                   dir: File,
+                   SeriesInstanceUID: String,
+                   PatientID: String,
+                   dataDate: Date,
+                   seriesDateTime: Date,
+                   Modality: ModalityEnum.Value,
+                   FrameOfReferenceUID: Option[String], // top level frame of reference for all modalities.  For REG, this will match the one in the RTPLAN
+                   RegFrameOfReferenceUID: Option[String], // for REG only, will match the one in the CT
+                   ReferencedRtplanUID: Option[String],
+                   DeviceSerialNumber: Option[String] = None,
+                   SOPInstanceUIDList: Seq[String] = Seq(), // list of SOPInstanceUIDs
+                   discoveryTime: Long = System.currentTimeMillis()
+                 ) extends Logging {
 
   def this(node: Node) =
     this(
-      dir = new File(ClientConfig.seriesDir, (node \ "dir").head.text.trim),
+      dir = Series.dirOfNode(node), //  new File(ClientConfig.seriesDir, (node \ "dir").head.text.trim),
       SeriesInstanceUID = (node \ "SeriesInstanceUID").head.text.trim,
       PatientID = (node \ "@PatientID").head.text.trim,
       dataDate = Series.getDataDate(node),
@@ -61,7 +62,8 @@ case class Series(
       RegFrameOfReferenceUID = Series.optText(node, "RegFrameOfReferenceUID"),
       ReferencedRtplanUID = Series.optText(node, "ReferencedRtplanUID"),
       DeviceSerialNumber = Series.optText(node, "DeviceSerialNumber"),
-      SOPInstanceUIDList = Series.getSopInstanceUidList(node)
+      SOPInstanceUIDList = Series.getSopInstanceUidList(node),
+      discoveryTime = Series.dirOfNode(node).lastModified()
     )
 
   // @formatter:off
@@ -163,6 +165,8 @@ object Series extends Logging {
 
   /** If a value in a series is not known, then use this text in the XML. */
   private val unknownXmlValue = "unknown"
+
+  private def dirOfNode(node: Node): File = new File(ClientConfig.seriesDir, (node \ "dir").head.text.trim)
 
   /** Date format used when storing as XML. */
   val xmlDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss.SSS")
@@ -737,17 +741,16 @@ object Series extends Logging {
    */
   private def reinstatePreviouslyFetchedSeries(): Unit = {
 
-    case class DirSeries(dirName: String) {
-      private val parts = dirName.split("_")
 
-      val date: Date = dirDateFormat.parse(parts.head)
-      val modality: ModalityEnum.Value = ModalityEnum.toModalityEnum(parts(1))
-      val sliceCount: Int = parts(2).toInt
-      val seriesUid: String = parts(3).trim
-
-      override def toString: String = s"$date  $modality  $sliceCount  $seriesUid"
-
-      val isValid: Boolean = toString.nonEmpty
+    def dirIsValid(dir: File): Boolean = {
+      try {
+        val valid = FileUtil.listFiles(dir).exists(_.getName.toLowerCase.endsWith(".dcm"))
+        valid
+      }
+      catch {
+        case _: Throwable =>
+          false
+      }
     }
 
 
@@ -771,7 +774,7 @@ object Series extends Logging {
 
     def isDicomDir(dir: File): Boolean = {
       try {
-        dir.isDirectory && DirSeries(dir.getName).isValid
+        dir.isDirectory && dirIsValid(dir)
       }
       catch {
         case _: Throwable => false

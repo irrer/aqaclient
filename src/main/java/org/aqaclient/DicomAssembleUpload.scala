@@ -16,12 +16,17 @@
 
 package org.aqaclient
 
+import com.pixelmed.dicom.AttributeList
+import edu.umro.DicomDict.TagByName
+import edu.umro.ScalaUtil.DicomUtil
 import edu.umro.ScalaUtil.FileUtil
 import edu.umro.ScalaUtil.Logging
 
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.xml.Elem
 import scala.xml.Node
 
@@ -30,6 +35,7 @@ import scala.xml.Node
   */
 
 object DicomAssembleUpload extends Logging {
+  //noinspection SpellCheckingInspection
   val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss.SSS")
 
   /**
@@ -222,7 +228,7 @@ object DicomAssembleUpload extends Logging {
    */
   private def connectWithPlanByFrameOfRef(ct: Series): Option[UploadSetDicomCMove] = {
     if (ct.isModality(ModalityEnum.CT)) {
-      // if the server has an rtplan that connects by frame of reference, then this is the procedure of that rtplan
+      // if the server has an RTPLAN that connects by frame of reference, then this is the procedure of that rtplan
       val remotePlanProcedure = Results.procedureOfPlanWithFrameOfReferenceUID(ct.PatientID, ct.FrameOfReferenceUID.get)
 
       val localPlan = Series.getRtplanByFrameOfReference(ct.FrameOfReferenceUID.get, ct.seriesDateTime)
@@ -374,6 +380,92 @@ object DicomAssembleUpload extends Logging {
   }
 
   /**
+   * Determine if a list of images has members with both a vertical and horizontal gantry angle.
+   *
+   * @param alList List of images.
+   * @return True if both vertical and horizontal.
+   */
+  private def hasOrthogonalAngles(alList: Seq[AttributeList]): Boolean = {
+    val gantryAngleList = alList.flatMap(al => DicomUtil.findAllSingle(al, TagByName.GantryAngle)).map(_.getDoubleValues.head).map(ClientUtil.angleRoundedTo90).distinct
+
+    def has(angle: Int): Boolean = gantryAngleList.contains(angle)
+
+    val hasHorz = has(90) || has(270)
+    val hasVert = has(0) || has(180)
+
+    val ok = hasHorz && hasVert
+    ok
+
+  }
+
+  /**
+   * Return true if series is young, and new slices might arrive.
+   *
+   * @param series Check this one.
+   * @return True if new to this service.
+   */
+  private def seriesIsYoung(series: Series): Boolean = {
+    val minAge_ms = 20 * 60 * 1000 // if older than this many ms, then upload the data anyway.
+    val age_ms = System.currentTimeMillis() - series.discoveryTime
+    val isYoung = age_ms < minAge_ms
+    isYoung
+  }
+
+  /**
+   * In the future, check to see if more slices have arrived for this series.
+   *
+   * @param series This one.
+   * @param size   Number of slices in series.
+   */
+  private def updateSeriesLater(series: Series, size: Int): Unit = {
+    Future {
+      Thread.sleep(20 * 1000)
+      val newSize = DicomFind.getSliceUIDsInSeries(series.SeriesInstanceUID, series.PatientID, series.Modality.toString).size
+      if (newSize > size) {
+        val newSeries = DicomMove.get(series.SeriesInstanceUID, series.PatientID, series.Modality.toString)
+        if (newSeries.isDefined) {
+          Series.update(series.SeriesInstanceUID, series.PatientID, series.Modality.toString)
+          update()
+        }
+      }
+      else {
+        if (seriesIsYoung(series))
+          updateSeriesLater(series, size)
+      }
+    }
+  }
+
+  /**
+   * Check to see if the series meets the requirements of the procedure.
+   *
+   * @param procedure For this procedure.
+   * @param rtimage   RTIMAGE series.
+   * @return True if it needs of procedure are met.
+   */
+  private def meetsNeedsOfProcedure(procedure: Procedure, rtimage: Series): Boolean = {
+
+    0 match {
+      // For BBbyEPID, series must be at least 2 minutes old, or, contain images with at least two orthogonal gantry angles.
+      case _ if procedure.isBBbyEPID =>
+        val alList = ClientUtil.listFiles(rtimage.dir).map(ClientUtil.readDicomFile).filter(_.isRight).map(_.right.get)
+
+        if (!seriesIsYoung(rtimage)) {
+          true
+        }
+        else {
+          val ok = (alList.size > 1) && hasOrthogonalAngles(alList)
+          if (!ok)
+            updateSeriesLater(rtimage, alList.size)
+          ok
+        }
+
+      case _ =>
+        true
+    }
+
+  }
+
+  /**
    * Make UploadSet from RTIMAGE series.
    */
   private def uploadableRtimage(rtimage: Series): Option[UploadSetDicomCMove] = {
@@ -385,7 +477,7 @@ object DicomAssembleUpload extends Logging {
         if (FileUtil.listFiles(rtimage.dir).isEmpty)
           Series.update(rtimage.SeriesInstanceUID, rtimage.PatientID, rtimage.Modality.toString)
 
-        if (procedure.isDefined && FileUtil.listFiles(rtimage.dir).nonEmpty) {
+        if (procedure.isDefined && FileUtil.listFiles(rtimage.dir).nonEmpty && meetsNeedsOfProcedure(procedure.get, rtimage)) {
           val rtplan = uploadRtplanOfRtimageIfNeeded(rtimage) // only defined if we have it and the server does not
           Some(
             new UploadSetDicomCMove(
@@ -461,8 +553,6 @@ object DicomAssembleUpload extends Logging {
 
 
   def init(): Unit = {
-    import scala.concurrent.ExecutionContext.Implicits.global
-    import scala.concurrent.Future
 
     logger.info("initializing Upload")
     Future {
