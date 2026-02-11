@@ -111,7 +111,7 @@ object DicomProcessing extends Logging {
       // they will be used in a consistent way.
       val modalityList = Seq("RTPLAN", "CT", "REG", "RTIMAGE")
 
-      logger.info("Updating patient ID: " + patientProcedure.patientId)
+      logger.trace("Updating the patient ID: " + patientProcedure.patientId)
       modalityList.foreach(Modality => fetchDicomOfModality(Modality, patientProcedure.patientId))
     }
   }

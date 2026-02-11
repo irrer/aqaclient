@@ -31,22 +31,22 @@ import scala.xml.Elem
 import scala.xml.Node
 
 /**
-  * Group series into sets of data that can be processed and uploaded to the AQA platform.
-  */
+ * Group series into sets of data that can be processed and uploaded to the AQA platform.
+ */
 
 object DicomAssembleUpload extends Logging {
   //noinspection SpellCheckingInspection
   val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss.SSS")
 
   /**
-    * Make the list of files that will be put into the uploaded zip file.  Also assure that
-    * the directory for each series is populated with DICOM files.
-    *
-    * @param image Image series.
-    * @param reg   Reg series.
-    * @param plan  Plan series.
-    * @return List of all files to be uploaded.
-    */
+   * Make the list of files that will be put into the uploaded zip file.  Also assure that
+   * the directory for each series is populated with DICOM files.
+   *
+   * @param image Image series.
+   * @param reg   Reg series.
+   * @param plan  Plan series.
+   * @return List of all files to be uploaded.
+   */
   private def makeFileList(image: Series, reg: Option[Series], plan: Option[Series]): Seq[File] = {
     def assureFilePresence(series: Series): Series = {
       val expectedSize = DicomFind.getSliceUIDsInSeries(series.SeriesInstanceUID, series.PatientID, series.Modality.toString).size
@@ -422,6 +422,7 @@ object DicomAssembleUpload extends Logging {
       Thread.sleep(20 * 1000)
       val newSize = DicomFind.getSliceUIDsInSeries(series.SeriesInstanceUID, series.PatientID, series.Modality.toString).size
       if (newSize > size) {
+        logger.info(s"Found more slices for series.  Size was $size and now is $size.  $series")
         val newSeries = DicomMove.get(series.SeriesInstanceUID, series.PatientID, series.Modality.toString)
         if (newSeries.isDefined) {
           Series.update(series.SeriesInstanceUID, series.PatientID, series.Modality.toString)
@@ -429,8 +430,10 @@ object DicomAssembleUpload extends Logging {
         }
       }
       else {
-        if (seriesIsYoung(series))
+        if (seriesIsYoung(series)) {
+          logger.info(s"Checked for more images for series but the size $size is still the same.  $series")
           updateSeriesLater(series, size)
+        }
       }
     }
   }
@@ -450,12 +453,18 @@ object DicomAssembleUpload extends Logging {
         val alList = ClientUtil.listFiles(rtimage.dir).map(ClientUtil.readDicomFile).filter(_.isRight).map(_.right.get)
 
         if (!seriesIsYoung(rtimage)) {
+          logger.info(s"BBbyEPID series is being uploaded regardless of slice count.  size: ${alList.size} $rtimage")
           true
         }
         else {
           val ok = (alList.size > 1) && hasOrthogonalAngles(alList)
-          if (!ok)
+          if (ok) {
+            logger.info(s"BBbyEPID series is being uploaded because it has at least on vertical and horizontal slice.  size: ${alList.size} $rtimage")
+          }
+          else {
+            logger.info(s"BBbyEPID series does not have enough images yet.  Will check for more later.")
             updateSeriesLater(rtimage, alList.size)
+          }
           ok
         }
 
