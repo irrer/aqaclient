@@ -36,12 +36,23 @@ object HttpUtil extends Logging {
         userId   = ClientConfig.AQAUser,
         password = ClientConfig.AQAPassword)
 
-      HttpsClient.makeClientResource(
+      val cs = HttpsClient.makeClientResource(
         ClientConfig.AQAURL,
         Some(challengeResponse),
         trustKnownCertificates = true)
       // @formatter:on
+
+
+      val timeoutText = ClientConfig.HttpsUploadTimeout_ms.toString
+
+      val ctx = cs.getContext
+      ctx.getParameters.add("readTimeout", timeoutText)
+      ctx.getParameters.add("connectionTimeout", timeoutText)
+      ctx.getParameters.add("socketTimeout", timeoutText)
+
+      cs
     }
+
     private val maxAge: Long = 5 * 60 * 1000
     private val created = System.currentTimeMillis()
 
@@ -133,12 +144,14 @@ object HttpUtil extends Logging {
       logger.info("Performing POST to " + url + " with zip file of size " + zipFile.length())
       val start = System.currentTimeMillis()
       val res = try {
+
+
         HttpsClient.httpsPostSingleFileAsMulipartForm(
           (new ClientRes).clientResource, // get a ClientResource for use by this upload only.
           url,
           zipFile,
           MediaType.APPLICATION_ZIP,
-          timeout_ms = ClientConfig.HttpsUploadTimeout_ms
+          timeout_ms = Some(ClientConfig.HttpsUploadTimeout_ms)
         )
       }
       catch {

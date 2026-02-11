@@ -36,14 +36,14 @@
     -->
 
     <!-- VMSDBD PRODUCTION -->
+    <!--
     <DICOMClient AETitle='WLQA_TEST'      Host='141.214.125.209' Port='5682'  />
     <DICOMSource AETitle='VMSDBD'         Host='uhroariaspr1'    Port='105'   />
+    -->
 
     <!-- Jim's Conquest server. -->
-    <!--
-    <DICOMClient AETitle='AQACLIENTIRRER' Host='141.214.125.209' Port='14567' />
-    <DICOMSource AETitle='IRRER'          Host='141.214.125.209' Port='15678' />
-    -->
+    <DICOMSource AETitle='IRRER1' Host='localhost' Port='15681' />
+    <DICOMClient AETitle='IRRER2' Host='localhost' Port='15682' />
 
     <!-- Interval (in seconds as a whole integer) to wait between each query of the DICOM source for
     new files.  If less than 1 then do not poll. -->
@@ -61,10 +61,10 @@
     </PollIntervalList>
     
     <!-- Timeout (in seconds as a floating point) to wait before timing out for a failed HTTPS GET operation. Default 60.0 seconds. -->
-    <HttpsGetTimeout_sec>10.0</HttpsGetTimeout_sec>
+    <HttpsGetTimeout_sec>60.0</HttpsGetTimeout_sec>
 
     <!-- Timeout (in seconds as a floating point) to wait before retrying a failed HTTPS operation. Default 10.0 seconds. -->
-    <HttpsRetryTimeout_sec>10.0</HttpsRetryTimeout_sec>
+    <HttpsRetryTimeout_sec>60.0</HttpsRetryTimeout_sec>
 
 
     <!-- Timeout (in seconds as a floating point) to wait before timing out for an HTTPS upload.  This must be long to allow the site to perform the analysis on the data. -->
@@ -145,7 +145,7 @@
     <!-- Maximum data age to be considered relevant.  Maximum age of data as a floating point number in
     days for it to be uploaded to  the server.  If the data is older than this many days, it will not be
     uploaded.  If this values is not specified then all data will be uploaded, regardless of how old it is.  -->
-    <MaximumDataAge_day>8.0</MaximumDataAge_day>
+    <MaximumDataAge_day>31.0</MaximumDataAge_day>
     
     <!-- Maximum data age to keep DICOM files stored locally in a file cache.  The term 'data age' refers to the time
     since the DICOM was captured.  Keeping files for some time period is
